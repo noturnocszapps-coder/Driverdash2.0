@@ -67,6 +67,11 @@ export interface Cycle {
   };
   imported_report_id?: string;
   source?: 'manual' | 'screenshot';
+  // Tracking summary
+  tracked_km?: number;
+  tracked_moving_time?: number;
+  tracked_stopped_time?: number;
+  route_points?: TrackingPoint[];
 }
 
 export interface WorkLog {
@@ -174,16 +179,30 @@ export interface UserSettings {
   activePlatforms: PlatformType[];
   transportMode: TransportMode;
   dashboardMode: 'merged' | 'segmented';
+  theme?: 'dark' | 'light' | 'system';
+  photoUrl?: string;
   currentVehicleProfileId?: string;
   vehicleProfiles?: VehicleProfile[];
+}
+
+export interface TrackingPoint {
+  lat: number;
+  lng: number;
+  timestamp: number;
+  accuracy?: number;
 }
 
 export interface TrackingSession {
   isActive: boolean;
   startTime?: number;
+  endTime?: number;
   distance: number;
   avgSpeed: number;
   duration: number;
+  movingTime: number;
+  stoppedTime: number;
+  points: TrackingPoint[];
+  lastPoint?: TrackingPoint;
 }
 
 export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced';
@@ -257,6 +276,7 @@ export interface DriverState {
   
   // Cycle methods
   startCycle: () => Promise<string>;
+  addCycle: (cycle: Omit<Cycle, 'id' | 'user_id'>) => Promise<string>;
   closeCycle: (id: string) => Promise<void>;
   updateCycle: (id: string, data: Partial<Cycle>) => Promise<void>;
   addCycleAmount: (id: string, platform: 'uber' | 'noventanove' | 'indriver' | 'extra', amount: number) => void;
@@ -266,8 +286,12 @@ export interface DriverState {
   addFueling: (fueling: Omit<Fueling, 'id'>) => Promise<void>;
   addMaintenance: (maintenance: Omit<Maintenance, 'id'>) => Promise<void>;
   addImportedReport: (report: Omit<ImportedReport, 'id' | 'user_id' | 'imported_at'>) => Promise<void>;
+  deleteCycle: (id: string) => Promise<void>;
+  deleteImportedReport: (id: string) => Promise<void>;
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   updateTracking: (tracking: Partial<TrackingSession>) => void;
+  startTracking: () => void;
+  stopTracking: () => void;
   importData: (data: { cycles?: Cycle[], expenses?: Expense[], fuelings?: Fueling[], maintenances?: Maintenance[], settings?: Partial<UserSettings>, importedReports?: ImportedReport[] }) => void;
   syncData: () => Promise<void>;
   clearData: () => void;

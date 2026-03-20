@@ -23,9 +23,11 @@ export const Settings = () => {
   } = useDriverStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const photoInputRef = useRef<HTMLInputElement>(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAddingVehicle, setIsAddingVehicle] = useState(false);
+  const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   // Migration: Create default profile if none exists
   useEffect(() => {
@@ -206,6 +208,36 @@ export const Settings = () => {
     reader.readAsText(file);
   };
 
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    if (file.size > 2 * 1024 * 1024) {
+      alert('A foto deve ter no máximo 2MB.');
+      return;
+    }
+
+    setIsUploadingPhoto(true);
+    const reader = new FileReader();
+    reader.onload = async (event) => {
+      const base64 = event.target?.result as string;
+      try {
+        await updateSettings({ photoUrl: base64 });
+      } catch (error) {
+        console.error('Error uploading photo:', error);
+      } finally {
+        setIsUploadingPhoto(false);
+      }
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemovePhoto = async () => {
+    if (confirm('Deseja remover sua foto de perfil?')) {
+      await updateSettings({ photoUrl: undefined });
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -223,8 +255,47 @@ export const Settings = () => {
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
           <CardContent className="p-6 space-y-6">
             <div className="flex items-center gap-4 pb-6 border-b border-zinc-100 dark:border-zinc-800">
-              <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center text-zinc-950 text-2xl font-black">
-                {settings.name?.charAt(0) || '?'}
+              <div className="relative group">
+                <div className="w-20 h-20 bg-emerald-500 rounded-2xl flex items-center justify-center text-zinc-950 text-3xl font-black overflow-hidden border-4 border-zinc-100 dark:border-zinc-800">
+                  {settings.photoUrl ? (
+                    <img 
+                      src={settings.photoUrl} 
+                      alt="Profile" 
+                      className="w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                  ) : (
+                    settings.name?.charAt(0) || '?'
+                  )}
+                  {isUploadingPhoto && (
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    </div>
+                  )}
+                </div>
+                <div className="absolute -bottom-1 -right-1 flex gap-1">
+                  <button 
+                    onClick={() => photoInputRef.current?.click()}
+                    className="w-8 h-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                  >
+                    <Upload size={14} />
+                  </button>
+                  {settings.photoUrl && (
+                    <button 
+                      onClick={handleRemovePhoto}
+                      className="w-8 h-8 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                    >
+                      <Trash2 size={14} />
+                    </button>
+                  )}
+                </div>
+                <input 
+                  type="file" 
+                  ref={photoInputRef} 
+                  className="hidden" 
+                  accept="image/*"
+                  onChange={handlePhotoUpload}
+                />
               </div>
               <div>
                 <h3 className="font-black text-lg tracking-tight">{settings.name || 'Motorista'}</h3>
@@ -291,15 +362,58 @@ export const Settings = () => {
       <section className="space-y-4">
         <SectionHeader icon={Layout} title="Preferências do Painel" />
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-          <CardContent className="p-6 space-y-4">
+          <CardContent className="p-6 space-y-6">
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Modo do Dashboard</label>
+              <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                <button
+                  onClick={() => updateSettings({ dashboardMode: 'merged' })}
+                  className={cn(
+                    "py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                    settings.dashboardMode === 'merged' 
+                      ? "bg-white dark:bg-zinc-700 text-emerald-500 shadow-sm" 
+                      : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                  )}
+                >
+                  Unificado
+                </button>
+                <button
+                  onClick={() => updateSettings({ dashboardMode: 'segmented' })}
+                  className={cn(
+                    "py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
+                    settings.dashboardMode === 'segmented' 
+                      ? "bg-white dark:bg-zinc-700 text-emerald-500 shadow-sm" 
+                      : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
+                  )}
+                >
+                  Segmentado
+                </button>
+              </div>
+              <p className="text-[10px] text-zinc-500 font-medium ml-1 mt-1">
+                {settings.dashboardMode === 'merged' 
+                  ? "Soma todos os ganhos em um único gráfico." 
+                  : "Mostra ganhos separados por plataforma."}
+              </p>
+            </div>
+
+            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <p className="text-sm font-bold">Tema do Aplicativo</p>
-                <p className="text-[10px] text-zinc-500 font-medium">Sempre Escuro (Otimizado)</p>
+                <p className="text-[10px] text-zinc-500 font-medium">
+                  {settings.theme === 'dark' ? 'Sempre Escuro (Otimizado)' : settings.theme === 'light' ? 'Sempre Claro' : 'Seguir Sistema'}
+                </p>
               </div>
-              <div className="w-10 h-6 bg-emerald-500 rounded-full relative">
-                <div className="absolute right-1 top-1 w-4 h-4 bg-white rounded-full" />
-              </div>
+              <Select
+                value={settings.theme || 'dark'}
+                onChange={e => updateSettings({ theme: e.target.value as any })}
+                className="w-32 h-10 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-xl font-bold text-xs"
+              >
+                <option value="dark">Escuro</option>
+                <option value="light">Claro</option>
+                <option value="system">Sistema</option>
+              </Select>
             </div>
           </CardContent>
         </Card>
@@ -898,9 +1012,33 @@ const SettingsItem = ({ icon: Icon, title, description, onClick, color, loading,
 );
 
 const PatchNotes = () => {
-  const [expanded, setExpanded] = useState<string | null>('2.5.0');
+  const [expanded, setExpanded] = useState<string | null>('2.7.0');
 
   const versions = [
+    {
+      id: '2.7.0',
+      date: '20 Mar, 2026',
+      notes: [
+        'Mapa do trajeto (Beta): Novo mapa do ciclo com visualização do trajeto em tempo real.',
+        'Exibição da rota percorrida durante o dia diretamente no aplicativo.',
+        'Identificação de início e fim do trajeto com marcadores coloridos.',
+        'Integração total com o sistema de KM automático.',
+        'Funcionalidade em fase de testes (Beta), podendo apresentar pequenas imprecisões.'
+      ]
+    },
+    {
+      id: '2.6.0',
+      date: '20 Mar, 2026',
+      notes: [
+        'Novo sistema de rastreamento automático de KM via GPS.',
+        'Cálculo em tempo real de distância percorrida, tempo em movimento e tempo parado.',
+        'Integração direta com o ciclo de trabalho ativo.',
+        'Métricas de eficiência atualizadas automaticamente com base no KM rastreado.',
+        'Controles intuitivos de Iniciar/Encerrar rastreamento no dashboard.',
+        'Filtro inteligente de ruído para maior precisão na coleta de dados de localização.',
+        'Melhoria na performance mobile e economia de bateria durante o rastreamento.'
+      ]
+    },
     {
       id: '2.5.0',
       date: '20 Mar, 2026',

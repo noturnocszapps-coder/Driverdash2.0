@@ -1,9 +1,9 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, calculateEfficiencyMetrics, formatKm, calculateOperationalCost } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, calculateEfficiencyMetrics, formatKm, calculateOperationalCost, formatDuration } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
-import { TrendingUp, Clock, Target, Zap, LayoutGrid, Plus, ChevronRight, Navigation, Calendar, AlertCircle, Gauge } from 'lucide-react';
+import { TrendingUp, Clock, Target, Zap, LayoutGrid, Plus, ChevronRight, Navigation, Calendar, AlertCircle, Gauge, Map as MapIcon } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfDay, isSameDay, parseISO, subDays, format, differenceInMinutes, addHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -13,10 +13,29 @@ import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Dashboard = () => {
-  const { cycles, settings, startCycle, checkAndCloseCycles, isSaving } = useDriverStore();
+  const { cycles, settings, startCycle, checkAndCloseCycles, isSaving, tracking, startTracking, stopTracking } = useDriverStore();
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
+  const [locationError, setLocationError] = useState<string | null>(null);
+
+  const handleToggleTracking = async () => {
+    if (tracking.isActive) {
+      stopTracking();
+    } else {
+      try {
+        const permission = await navigator.permissions.query({ name: 'geolocation' as any });
+        if (permission.state === 'denied') {
+          setLocationError('Permissão de localização negada. Por favor, habilite nas configurações do navegador.');
+          return;
+        }
+        startTracking();
+        setLocationError(null);
+      } catch (err) {
+        startTracking();
+      }
+    }
+  };
 
   useEffect(() => {
     checkAndCloseCycles();
@@ -75,13 +94,23 @@ export const Dashboard = () => {
       const profit = total - expenses;
       const efficiency = totalKm > 0 ? total / totalKm : 0;
 
+      // Platform breakdown for segmented mode
+      const uber = dayCycles.reduce((acc, c) => acc + c.uber_amount, 0);
+      const noventanove = dayCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
+      const indriver = dayCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
+      const extra = dayCycles.reduce((acc, c) => acc + c.extra_amount, 0);
+
       return {
         name: format(date, 'EEE', { locale: ptBR }),
         value: total,
         totalKm,
         profit,
         efficiency,
-        date
+        date,
+        uber,
+        noventanove,
+        indriver,
+        extra
       };
     });
 
@@ -172,6 +201,93 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Tracking Section */}
+      {openCycle && (
+        <Card className={cn(
+          "border-none shadow-xl transition-all duration-500",
+          tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-zinc-900 text-white"
+        )}>
+          <CardContent className="p-6">
+            <div className="flex justify-between items-center">
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "w-10 h-10 rounded-full flex items-center justify-center shadow-inner",
+                  tracking.isActive ? "bg-zinc-950/10 text-zinc-950" : "bg-white/5 text-emerald-500"
+                )}>
+                  <Navigation size={20} className={tracking.isActive ? "animate-pulse" : ""} />
+                </div>
+                <div>
+                  <h3 className="text-xs font-black uppercase tracking-widest">Rastreamento de KM</h3>
+                  <p className={cn(
+                    "text-[10px] font-bold uppercase tracking-wider opacity-60",
+                    tracking.isActive ? "text-zinc-950" : "text-zinc-400"
+                  )}>
+                    {tracking.isActive ? "Rastreamento Ativo" : "Rastreamento Pausado"}
+                  </p>
+                </div>
+              </div>
+              
+              <Button
+                onClick={handleToggleTracking}
+                className={cn(
+                  "h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg",
+                  tracking.isActive 
+                    ? "bg-zinc-950 text-white hover:bg-zinc-900 shadow-zinc-950/20 border-none" 
+                    : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400 shadow-emerald-500/20 border-none"
+                )}
+              >
+                {tracking.isActive ? "Encerrar" : "Iniciar"}
+              </Button>
+            </div>
+
+            {locationError && (
+              <div className="mt-4 p-3 bg-red-500/10 border border-red-500/20 rounded-xl flex items-center gap-2 text-red-500">
+                <AlertCircle size={14} />
+                <p className="text-[10px] font-bold uppercase tracking-wider">{locationError}</p>
+              </div>
+            )}
+
+            {tracking.isActive && (
+              <div className="space-y-6">
+                <div className="grid grid-cols-2 gap-6 pt-6 mt-6 border-t border-zinc-950/10">
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">KM Atual</p>
+                    <p className="text-3xl font-black tracking-tighter">{tracking.distance.toFixed(2)} km</p>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Velocidade Média</p>
+                    <p className="text-3xl font-black tracking-tighter">{tracking.avgSpeed.toFixed(1)} km/h</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Em Movimento</p>
+                    <p className="text-sm font-black">{formatDuration(tracking.movingTime)}</p>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Tempo Parado</p>
+                    <p className="text-sm font-black">{formatDuration(tracking.stoppedTime)}</p>
+                  </div>
+                </div>
+
+                <Button
+                  onClick={() => navigate('/cycle-map/active')}
+                  className="w-full h-12 bg-zinc-950/5 hover:bg-zinc-950/10 text-zinc-950 font-black text-xs uppercase tracking-widest rounded-2xl gap-2 border border-zinc-950/10"
+                >
+                  <MapIcon size={16} />
+                  Visualizar Mapa do Trajeto
+                </Button>
+              </div>
+            )}
+            
+            {!tracking.isActive && tracking.distance > 0 && (
+              <div className="flex justify-between items-center pt-4 mt-4 border-t border-white/5 opacity-60">
+                <p className="text-[10px] font-bold uppercase tracking-wider">Último Rastreamento: {tracking.distance.toFixed(2)} km</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider">{formatDuration(tracking.duration)}</p>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      )}
 
       {/* Alerts & Insights Section */}
       {(stats.alerts.length > 0 || stats.total7Days > 0) && (
@@ -472,17 +588,26 @@ export const Dashboard = () => {
           
           <div className="h-40 w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats.chartData}>
-                <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={24}>
-                  {stats.chartData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      className={cn(
-                        isSameDay(entry.date, new Date()) ? "fill-emerald-500" : "fill-zinc-100 dark:fill-zinc-800"
-                      )}
-                    />
-                  ))}
-                </Bar>
+              <BarChart data={stats.chartData} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                {settings.dashboardMode === 'segmented' ? (
+                  <>
+                    <Bar dataKey="uber" stackId="a" fill="#ffffff" radius={[0, 0, 0, 0]} barSize={24} />
+                    <Bar dataKey="noventanove" stackId="a" fill="#eab308" radius={[0, 0, 0, 0]} barSize={24} />
+                    <Bar dataKey="indriver" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={24} />
+                    <Bar dataKey="extra" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={24} />
+                  </>
+                ) : (
+                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={24}>
+                    {stats.chartData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        className={cn(
+                          isSameDay(entry.date, new Date()) ? "fill-emerald-500" : "fill-zinc-100 dark:fill-zinc-800"
+                        )}
+                      />
+                    ))}
+                  </Bar>
+                )}
                 <XAxis 
                   dataKey="name" 
                   axisLine={false} 
@@ -494,9 +619,27 @@ export const Dashboard = () => {
                   cursor={{ fill: 'transparent' }}
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
+                      const total = payload.reduce((acc, p) => acc + (p.value as number), 0);
                       return (
-                        <div className="bg-zinc-900 text-white px-3 py-2 rounded-xl text-[10px] font-black shadow-2xl border border-white/5">
-                          {formatCurrency(payload[0].value as number)}
+                        <div className="bg-zinc-900 text-white px-3 py-2 rounded-xl text-[10px] font-black shadow-2xl border border-white/5 space-y-1">
+                          {settings.dashboardMode === 'segmented' ? (
+                            <>
+                              {payload.map((p, i) => (
+                                p.value > 0 && (
+                                  <div key={i} className="flex justify-between gap-4">
+                                    <span className="text-zinc-400">{p.name}:</span>
+                                    <span>{formatCurrency(p.value as number)}</span>
+                                  </div>
+                                )
+                              ))}
+                              <div className="pt-1 border-t border-white/10 flex justify-between gap-4">
+                                <span className="text-emerald-400">Total:</span>
+                                <span className="text-emerald-400">{formatCurrency(total)}</span>
+                              </div>
+                            </>
+                          ) : (
+                            <span>{formatCurrency(total)}</span>
+                          )}
                         </div>
                       );
                     }

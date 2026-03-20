@@ -4,7 +4,7 @@ import { useDriverStore } from '../store';
 import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
-  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText
+  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon
 } from 'lucide-react';
 import { 
   startOfDay, isSameDay, parseISO, format, subDays, startOfWeek, addDays
@@ -19,6 +19,8 @@ export const Reports = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const [showSuccess, setShowSuccess] = useState(false);
+  const [filter, setFilter] = useState<'all' | 'manual' | 'imported'>('all');
+  const [showFilterModal, setShowFilterModal] = useState(false);
   
   useEffect(() => {
     if (location.state?.successMessage) {
@@ -52,7 +54,7 @@ export const Reports = () => {
       const manualExtra = dayCycles.reduce((acc, c) => acc + c.extra_amount, 0);
       const manualRevenue = dayCycles.reduce((acc, c) => acc + c.total_amount, 0);
       
-      const totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
+      const totalKm = dayCycles.reduce((acc, c) => acc + (c.tracked_km || c.total_km || 0), 0);
       const rideKm = dayCycles.reduce((acc, c) => acc + (c.ride_km || 0), 0);
       const totalDayExpenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
 
@@ -65,11 +67,28 @@ export const Reports = () => {
       const imported99 = dayImportedReports.filter(r => r.platform === '99').reduce((acc, r) => acc + r.total_earnings, 0);
       const importedInDriver = dayImportedReports.filter(r => r.platform === 'inDrive').reduce((acc, r) => acc + r.total_earnings, 0);
 
-      // Consolidation: Use manual if exists (has KM/Expenses context), otherwise use imported
-      const uber = manualUber > 0 ? manualUber : importedUber;
-      const noventanove = manual99 > 0 ? manual99 : imported99;
-      const indriver = manualInDriver > 0 ? manualInDriver : importedInDriver;
-      const extra = manualExtra;
+      // Consolidation logic based on filter
+      let uber = 0;
+      let noventanove = 0;
+      let indriver = 0;
+      let extra = 0;
+
+      if (filter === 'all') {
+        uber = manualUber > 0 ? manualUber : importedUber;
+        noventanove = manual99 > 0 ? manual99 : imported99;
+        indriver = manualInDriver > 0 ? manualInDriver : importedInDriver;
+        extra = manualExtra;
+      } else if (filter === 'manual') {
+        uber = manualUber;
+        noventanove = manual99;
+        indriver = manualInDriver;
+        extra = manualExtra;
+      } else if (filter === 'imported') {
+        uber = importedUber;
+        noventanove = imported99;
+        indriver = importedInDriver;
+        extra = 0;
+      }
 
       const dayRevenue = uber + noventanove + indriver + extra;
       const profit = dayRevenue - totalDayExpenses;
@@ -163,10 +182,14 @@ export const Reports = () => {
   }, [currentWeek]);
 
   const recentCycles = useMemo(() => {
-    return [...cycles]
+    let filtered = [...cycles];
+    if (filter === 'manual') filtered = filtered.filter(c => c.source !== 'screenshot');
+    if (filter === 'imported') filtered = filtered.filter(c => c.source === 'screenshot');
+    
+    return filtered
       .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
       .slice(0, 15);
-  }, [cycles]);
+  }, [cycles, filter]);
 
   return (
     <motion.div 
@@ -189,7 +212,13 @@ export const Reports = () => {
             >
               <Camera size={18} />
             </button>
-            <button className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
+            <button 
+              onClick={() => setShowFilterModal(true)}
+              className={cn(
+                "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
+                filter !== 'all' ? "bg-emerald-500 text-zinc-950" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
+              )}
+            >
               <Filter size={18} />
             </button>
           </div>
@@ -342,16 +371,25 @@ export const Reports = () => {
                     return null;
                   }}
                 />
-                <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={32}>
-                  {currentWeek.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      className={cn(
-                        isSameDay(entry.date, today) ? "fill-emerald-500" : "fill-zinc-800"
-                      )}
-                    />
-                  ))}
-                </Bar>
+                {settings.dashboardMode === 'segmented' ? (
+                  <>
+                    <Bar dataKey="uber" stackId="a" fill="#ffffff" radius={[0, 0, 0, 0]} barSize={32} />
+                    <Bar dataKey="noventanove" stackId="a" fill="#eab308" radius={[0, 0, 0, 0]} barSize={32} />
+                    <Bar dataKey="indriver" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={32} />
+                    <Bar dataKey="extra" stackId="a" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={32} />
+                  </>
+                ) : (
+                  <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={32}>
+                    {currentWeek.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        className={cn(
+                          isSameDay(entry.date, today) ? "fill-emerald-500" : "fill-zinc-800"
+                        )}
+                      />
+                    ))}
+                  </Bar>
+                )}
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -389,7 +427,11 @@ export const Reports = () => {
         
         <div className="space-y-3">
           {recentCycles.map((cycle) => (
-            <Card key={cycle.id} className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group active:scale-[0.98] transition-all">
+            <Card 
+              key={cycle.id} 
+              className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group active:scale-[0.98] transition-all cursor-pointer"
+              onClick={() => navigate(`/cycle/${cycle.id}`)}
+            >
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="text-center min-w-[40px]">
@@ -417,12 +459,24 @@ export const Reports = () => {
                       )}
                     </div>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                      {formatKm(cycle.total_km || 0)} • {format(new Date(cycle.start_time), 'HH:mm')} 
+                      {formatKm(cycle.tracked_km || cycle.total_km || 0)} • {format(new Date(cycle.start_time), 'HH:mm')} 
                       {cycle.end_time && ` • ${format(new Date(cycle.end_time), 'HH:mm')}`}
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
+                  {(cycle.route_points?.length || 0) > 0 && (
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        navigate(`/cycle-map/${cycle.id}`);
+                      }}
+                      className="p-2 hover:bg-emerald-500/10 text-emerald-500 rounded-full transition-colors"
+                      title="Ver Mapa"
+                    >
+                      <MapIcon size={16} />
+                    </button>
+                  )}
                   <div className={cn(
                     "px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
                     cycle.status === 'open' ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500"
@@ -448,41 +502,54 @@ export const Reports = () => {
           </div>
           
           <div className="space-y-3">
-            {[...importedReports].reverse().map((report) => (
-              <Card key={report.id} className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className={cn(
-                      "w-10 h-10 rounded-xl flex items-center justify-center",
-                      report.platform === 'Uber' ? "bg-zinc-900 text-white" : 
-                      report.platform === '99' ? "bg-yellow-500 text-black" : "bg-emerald-500 text-white"
-                    )}>
-                      <Camera size={18} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-sm font-black tracking-tight">{formatCurrency(report.total_earnings)}</p>
-                        <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[8px] font-black uppercase text-zinc-500">
-                          {report.platform}
-                        </span>
+            {[...importedReports].reverse().map((report) => {
+              const linkedCycle = cycles.find(c => c.imported_report_id === report.id);
+              return (
+                <Card 
+                  key={report.id} 
+                  className={cn(
+                    "border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group transition-all",
+                    linkedCycle ? "cursor-pointer active:scale-[0.98]" : ""
+                  )}
+                  onClick={() => linkedCycle && navigate(`/cycle/${linkedCycle.id}`)}
+                >
+                  <CardContent className="p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-4">
+                      <div className={cn(
+                        "w-10 h-10 rounded-xl flex items-center justify-center",
+                        report.platform === 'Uber' ? "bg-zinc-900 text-white" : 
+                        report.platform === '99' ? "bg-yellow-500 text-black" : "bg-emerald-500 text-white"
+                      )}>
+                        <Camera size={18} />
                       </div>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                        {report.period_start || 'Período não identificado'} 
-                        {report.period_end && ` - ${report.period_end}`} 
-                        <span className="mx-1 opacity-20">•</span>
-                        {report.report_type === 'daily' ? 'Diário' : 'Semanal'}
-                      </p>
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <p className="text-sm font-black tracking-tight">{formatCurrency(report.total_earnings)}</p>
+                          <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[8px] font-black uppercase text-zinc-500">
+                            {report.platform}
+                          </span>
+                        </div>
+                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                          {report.period_start || 'Período não identificado'} 
+                          {report.period_end && ` - ${report.period_end}`} 
+                          <span className="mx-1 opacity-20">•</span>
+                          {report.report_type === 'daily' ? 'Diário' : 'Semanal'}
+                        </p>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase">Importado em</p>
-                    <p className="text-[10px] font-black text-zinc-600 dark:text-zinc-400">
-                      {format(new Date(report.imported_at), 'dd/MM/yy')}
-                    </p>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <p className="text-[9px] font-black text-zinc-400 uppercase">Importado em</p>
+                        <p className="text-[10px] font-black text-zinc-600 dark:text-zinc-400">
+                          {format(new Date(report.imported_at), 'dd/MM/yy')}
+                        </p>
+                      </div>
+                      {linkedCycle && <ChevronRight size={16} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />}
+                    </div>
+                  </CardContent>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}

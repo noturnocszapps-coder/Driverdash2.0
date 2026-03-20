@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom';
 import { useDriverStore } from '../store';
 import { formatCurrency, cn, calculateDailyFixedCost } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
-import { ChevronLeft, Save, Plus, Minus, Info, AlertCircle, Smartphone, Fuel, Utensils, MoreHorizontal, TrendingUp } from 'lucide-react';
+import { ChevronLeft, Save, Plus, Minus, Info, AlertCircle, Smartphone, Fuel, Utensils, MoreHorizontal, TrendingUp, Navigation } from 'lucide-react';
 import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Faturamento = () => {
-  const { cycles, updateCycle, startCycle, settings, isSaving: storeIsSaving } = useDriverStore();
+  const { cycles, updateCycle, startCycle, settings, isSaving: storeIsSaving, tracking, stopTracking } = useDriverStore();
   const navigate = useNavigate();
   
   const openCycle = cycles.find(c => c.status === 'open');
@@ -61,7 +61,7 @@ export const Faturamento = () => {
         other: openCycle.other_expense || 0
       });
       setKms({
-        total: openCycle.total_km || 0,
+        total: openCycle.tracked_km || openCycle.total_km || 0,
         ride: openCycle.ride_km || 0,
         uber: openCycle.uber_km || 0,
         noventanove: openCycle.noventanove_km || 0,
@@ -73,6 +73,10 @@ export const Faturamento = () => {
   const handleSave = async () => {
     if (isSaving || storeIsSaving) return;
     
+    if (tracking.isActive) {
+      stopTracking();
+    }
+
     setIsSaving(true);
     setSaveStatus('idle');
 
@@ -228,11 +232,19 @@ export const Faturamento = () => {
         </div>
         
         <div className="grid grid-cols-2 gap-3">
-          <KmInput 
-            label="KM Total" 
-            value={kms.total} 
-            onChange={(val) => setKms(prev => ({ ...prev, total: val }))} 
-          />
+          <div className="relative">
+            <KmInput 
+              label="KM Total" 
+              value={kms.total} 
+              onChange={(val) => setKms(prev => ({ ...prev, total: val }))} 
+            />
+            {openCycle?.tracked_km && (
+              <div className="absolute -top-2 -right-2 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-1">
+                <Navigation size={8} />
+                TRACKED
+              </div>
+            )}
+          </div>
           <KmInput 
             label="KM em Corrida" 
             value={kms.ride} 

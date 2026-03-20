@@ -21,6 +21,8 @@ const Register = lazy(() => import('./pages/Register').then(m => ({ default: m.R
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
 const Faturamento = lazy(() => import('./pages/Faturamento').then(m => ({ default: m.Faturamento })));
 const ImportReport = lazy(() => import('./pages/ImportReport').then(m => ({ default: m.ImportReport })));
+const CycleMap = lazy(() => import('./pages/CycleMap'));
+const CycleDetail = lazy(() => import('./pages/CycleDetail').then(m => ({ default: m.CycleDetail })));
 
 const PageLoader = () => (
   <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -167,6 +169,8 @@ export default function App() {
             {/* Protected Routes */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/faturamento" element={<ProtectedRoute><Faturamento /></ProtectedRoute>} />
+            <Route path="/cycle-map/:id" element={<ProtectedRoute><CycleMap /></ProtectedRoute>} />
+            <Route path="/cycle/:id" element={<ProtectedRoute><CycleDetail /></ProtectedRoute>} />
             <Route path="/import-report" element={<ProtectedRoute><ImportReport /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />

@@ -1,11 +1,11 @@
 import React from 'react';
 import { cn } from '../utils';
 
-interface CardProps {
+interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
   className?: string;
-  style?: React.CSSProperties;
-  key?: string | number;
+  key?: React.Key;
+  onClick?: (e: React.MouseEvent<HTMLDivElement>) => void | Promise<void>;
 }
 
 export const Card = ({ children, className, ...props }: CardProps) => (

@@ -2,6 +2,9 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { calculateDistance } from './utils';
+
+let watchId: number | null = null;
 
 export const useDriverStore = create<DriverState>()(
   persist(
@@ -27,6 +30,8 @@ export const useDriverStore = create<DriverState>()(
         activePlatforms: ['uber_car'],
         transportMode: 'car',
         dashboardMode: 'merged',
+        theme: 'dark',
+        photoUrl: undefined,
         fixedCosts: {
           vehicleType: 'owned',
         },
@@ -38,6 +43,9 @@ export const useDriverStore = create<DriverState>()(
         distance: 0,
         avgSpeed: 0,
         duration: 0,
+        movingTime: 0,
+        stoppedTime: 0,
+        points: [],
       },
       isSaving: false,
       setUser: (user) => set({ user }),
@@ -90,6 +98,43 @@ export const useDriverStore = create<DriverState>()(
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('cycles').insert(newCycle);
             if (error) console.error('[Store] Sync error (start cycle):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            
+            // Force refresh to ensure data integrity
+            if (!error) await get().syncData();
+            
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+
+          return id;
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      addCycle: async (cycle) => {
+        const { user, isSaving } = get();
+        if (isSaving) return '';
+
+        set({ isSaving: true });
+        try {
+          const id = crypto.randomUUID();
+          const newCycle = {
+            ...cycle,
+            id,
+            user_id: user?.id || '',
+            total_amount: (cycle.uber_amount || 0) + (cycle.noventanove_amount || 0) + (cycle.indriver_amount || 0) + (cycle.extra_amount || 0),
+            total_expenses: (cycle.fuel_expense || 0) + (cycle.food_expense || 0) + (cycle.other_expense || 0)
+          };
+
+          set((state) => ({ cycles: [...state.cycles, newCycle] }));
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('cycles').insert(newCycle);
+            if (error) console.error('[Store] Sync error (add cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             
             // Force refresh to ensure data integrity
@@ -188,7 +233,10 @@ export const useDriverStore = create<DriverState>()(
                 uber_km: cycle.uber_km,
                 noventanove_km: cycle.noventanove_km,
                 indriver_km: cycle.indriver_km,
-                vehicle_id: cycle.vehicle_id,
+                tracked_km: cycle.tracked_km,
+              tracked_moving_time: cycle.tracked_moving_time,
+              tracked_stopped_time: cycle.tracked_stopped_time,
+              vehicle_id: cycle.vehicle_id,
                 vehicle_name: cycle.vehicle_name,
                 vehicle_snapshot: cycle.vehicle_snapshot,
                 end_time: cycle.end_time,
@@ -327,7 +375,7 @@ export const useDriverStore = create<DriverState>()(
       },
 
       addImportedReport: async (report) => {
-        const { user, settings, isSaving } = get();
+        const { user, settings, isSaving, addCycle } = get();
         if (isSaving) return;
 
         set({ isSaving: true });
@@ -344,10 +392,97 @@ export const useDriverStore = create<DriverState>()(
           
           set((state) => ({ importedReports: [...state.importedReports, newReport] }));
 
+          // If it's a daily report, also create a cycle to feed the main stats
+          if (report.report_type === 'daily') {
+            // Try to parse period_start as a date
+            // Usually it comes as DD/MM/YYYY or YYYY-MM-DD
+            let startTime = now;
+            try {
+              if (report.period_start) {
+                const parts = report.period_start.split('/');
+                if (parts.length === 3) {
+                  // DD/MM/YYYY -> YYYY-MM-DD
+                  startTime = new Date(`${parts[2]}-${parts[1]}-${parts[0]}T12:00:00Z`).toISOString();
+                } else {
+                  const date = new Date(report.period_start);
+                  if (!isNaN(date.getTime())) {
+                    startTime = date.toISOString();
+                  }
+                }
+              }
+            } catch (e) {
+              console.error('[Store] Error parsing report date:', e);
+            }
+
+            const platformKey = report.platform.toLowerCase() === 'uber' ? 'uber_amount' :
+                               report.platform.toLowerCase() === '99' ? 'noventanove_amount' :
+                               report.platform.toLowerCase() === 'indrive' ? 'indriver_amount' : 'extra_amount';
+
+            await addCycle({
+              start_time: startTime,
+              end_time: startTime,
+              status: 'closed',
+              total_amount: report.total_earnings,
+              [platformKey]: report.total_earnings,
+              source: 'Importado via print',
+              imported_report_id: id,
+              vehicle_id: settings.currentVehicleProfileId,
+              vehicle_name: settings.vehicle
+            } as any);
+          }
+
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('imported_reports').insert(newReport);
             if (error) console.error('[Store] Sync error (imported report):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      deleteCycle: async (id) => {
+        const { user, isSaving } = get();
+        if (isSaving) return;
+
+        set({ isSaving: true });
+        try {
+          set((state) => ({
+            cycles: state.cycles.filter(c => c.id !== id)
+          }));
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('cycles').delete().eq('id', id);
+            if (error) console.error('[Store] Sync error (delete cycle):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      deleteImportedReport: async (id) => {
+        const { user, isSaving } = get();
+        if (isSaving) return;
+
+        set({ isSaving: true });
+        try {
+          set((state) => ({
+            importedReports: state.importedReports.filter(r => r.id !== id)
+          }));
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('imported_reports').delete().eq('id', id);
+            if (error) console.error('[Store] Sync error (delete imported report):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -384,6 +519,8 @@ export const useDriverStore = create<DriverState>()(
               active_platforms: settings.activePlatforms,
               transport_mode: settings.transportMode,
               dashboard_mode: settings.dashboardMode,
+              theme: settings.theme,
+              photo_url: settings.photoUrl,
               fixed_costs: settings.fixedCosts,
               current_vehicle_profile_id: settings.currentVehicleProfileId,
               vehicle_profiles: settings.vehicleProfiles
@@ -410,6 +547,120 @@ export const useDriverStore = create<DriverState>()(
       updateTracking: (newTracking) => set((state) => ({
         tracking: { ...state.tracking, ...newTracking }
       })),
+
+      startTracking: () => {
+        const { tracking, cycles } = get();
+        if (tracking.isActive) return;
+        
+        const openCycle = cycles.find(c => c.status === 'open');
+        if (!openCycle) return;
+
+        if (!navigator.geolocation) {
+          console.error('Geolocation not supported');
+          return;
+        }
+
+        const startTime = Date.now();
+        set({
+          tracking: {
+            isActive: true,
+            startTime,
+            distance: 0,
+            avgSpeed: 0,
+            duration: 0,
+            movingTime: 0,
+            stoppedTime: 0,
+            points: [],
+            lastPoint: undefined
+          }
+        });
+
+        watchId = navigator.geolocation.watchPosition(
+          (position) => {
+            const { latitude, longitude, accuracy } = position.coords;
+            const timestamp = position.timestamp || Date.now();
+            const newPoint = { lat: latitude, lng: longitude, accuracy, timestamp };
+            
+            const { tracking: currentTracking } = get();
+            if (!currentTracking.isActive) return;
+
+            const lastPoint = currentTracking.lastPoint;
+            let newDistance = currentTracking.distance;
+            let newMovingTime = currentTracking.movingTime;
+            let newStoppedTime = currentTracking.stoppedTime;
+
+            if (lastPoint) {
+              const dist = calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng);
+              const timeDiff = newPoint.timestamp - lastPoint.timestamp;
+
+              // Noise filter
+              if (accuracy && accuracy > 50) return;
+              
+              if (dist > 0.005) { // 5 meters
+                const speedKmh = (dist / (timeDiff / 3600000));
+                if (speedKmh < 160) { // Max realistic speed
+                  newDistance += dist;
+                  newMovingTime += timeDiff;
+                }
+              } else {
+                newStoppedTime += timeDiff;
+              }
+            }
+
+            const totalDuration = timestamp - (currentTracking.startTime || timestamp);
+            const avgSpeed = totalDuration > 0 ? (newDistance / (totalDuration / 3600000)) : 0;
+
+            set({
+              tracking: {
+                ...currentTracking,
+                distance: newDistance,
+                movingTime: newMovingTime,
+                stoppedTime: newStoppedTime,
+                duration: totalDuration,
+                avgSpeed,
+                points: [...currentTracking.points, newPoint],
+                lastPoint: newPoint
+              }
+            });
+          },
+          (error) => {
+            console.error('Geolocation error:', error);
+          },
+          {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+          }
+        );
+      },
+
+      stopTracking: () => {
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+
+        const { tracking, cycles, updateCycle } = get();
+        if (!tracking.isActive) return;
+
+        const openCycle = cycles.find(c => c.status === 'open');
+        if (openCycle) {
+          updateCycle(openCycle.id, {
+            tracked_km: tracking.distance,
+            tracked_moving_time: tracking.movingTime,
+            tracked_stopped_time: tracking.stoppedTime,
+            route_points: tracking.points
+          });
+        }
+
+        set({
+          tracking: {
+            ...tracking,
+            isActive: false,
+            endTime: Date.now()
+          }
+        });
+      },
 
       importData: (data) => set((state) => {
         const mergeById = (local: any[], incoming: any[]) => {
@@ -494,6 +745,10 @@ export const useDriverStore = create<DriverState>()(
               uber_km: c.uber_km,
               noventanove_km: c.noventanove_km,
               indriver_km: c.indriver_km,
+              tracked_km: c.tracked_km,
+              tracked_moving_time: c.tracked_moving_time,
+              tracked_stopped_time: c.tracked_stopped_time,
+              route_points: c.route_points,
               vehicle_id: c.vehicle_id,
               vehicle_name: c.vehicle_name,
               status: c.status
@@ -548,6 +803,8 @@ export const useDriverStore = create<DriverState>()(
               activePlatforms: profile.active_platforms || ['uber_car'],
               transportMode: profile.transport_mode || 'car',
               dashboardMode: profile.dashboard_mode || 'merged',
+              theme: profile.theme || 'dark',
+              photoUrl: profile.photo_url,
               fixedCosts: profile.fixed_costs,
               currentVehicleProfileId: profile.current_vehicle_profile_id,
               vehicleProfiles: profile.vehicle_profiles
@@ -606,6 +863,10 @@ export const useDriverStore = create<DriverState>()(
               uber_km: Number(c.uber_km || 0),
               noventanove_km: Number(c.noventanove_km || 0),
               indriver_km: Number(c.indriver_km || 0),
+              tracked_km: Number(c.tracked_km || 0),
+              tracked_moving_time: Number(c.tracked_moving_time || 0),
+              tracked_stopped_time: Number(c.tracked_stopped_time || 0),
+              route_points: c.route_points || [],
               vehicle_id: c.vehicle_id,
               vehicle_name: c.vehicle_name,
               status: c.status
@@ -640,6 +901,9 @@ export const useDriverStore = create<DriverState>()(
           distance: 0,
           avgSpeed: 0,
           duration: 0,
+          movingTime: 0,
+          stoppedTime: 0,
+          points: [],
         },
       }),
       clearCloudData: async () => {
@@ -673,6 +937,7 @@ export const useDriverStore = create<DriverState>()(
         maintenances: state.maintenances,
         importedReports: state.importedReports,
         settings: state.settings,
+        tracking: state.tracking,
       }),
     }
   )
