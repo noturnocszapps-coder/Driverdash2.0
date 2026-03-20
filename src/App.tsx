@@ -91,7 +91,15 @@ export default function App() {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('[App] Auth event:', event);
       
-      if (session?.user) {
+      if (event === 'TOKEN_REFRESHED') {
+        console.log('[App] Token refreshed successfully');
+      }
+
+      if (event === 'SIGNED_OUT') {
+        // Clear local storage if needed or handle sign out
+        setUser(null);
+        setSyncStatus('offline');
+      } else if (session?.user) {
         setUser({
           id: session.user.id,
           email: session.user.email!,

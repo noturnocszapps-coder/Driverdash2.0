@@ -20,5 +20,32 @@ if (!isSupabaseConfigured) {
 
 export const supabase = createClient(
   isValidUrl(rawUrl) ? rawUrl : 'https://placeholder-project.supabase.co',
-  rawKey || 'placeholder-key'
+  rawKey || 'placeholder-key',
+  {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true
+    }
+  }
 );
+
+// Global error listener for Supabase Auth errors
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    if (event.reason && event.reason.message) {
+      const msg = event.reason.message;
+      if (
+        msg.includes('Refresh Token Not Found') || 
+        msg.includes('refresh_token_not_found') ||
+        msg.includes('Invalid Refresh Token')
+      ) {
+        console.warn('[Supabase] Refresh token error detected, signing out...');
+        supabase.auth.signOut().then(() => {
+          // Force reload or redirect if necessary
+          // window.location.href = '/login';
+        });
+      }
+    }
+  });
+}

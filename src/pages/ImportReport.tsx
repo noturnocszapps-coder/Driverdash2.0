@@ -29,6 +29,11 @@ export const ImportReport = () => {
   const { user, settings, importedReports, addImportedReport } = useDriverStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  React.useEffect(() => {
+    console.log('DEBUG - VITE_GEMINI_API_KEY:', import.meta.env.VITE_GEMINI_API_KEY);
+    console.log('DEBUG - import.meta.env:', import.meta.env);
+  }, []);
+
   const [step, setStep] = useState<'upload' | 'analyzing' | 'review'>('upload');
   const [platform, setPlatform] = useState<AppType>('Uber');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -212,6 +217,16 @@ export const ImportReport = () => {
                       <AlertCircle size={20} />
                     </button>
                   </div>
+                  
+                  <div className="mb-4 p-3 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
+                    <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400 mb-1">Debug Runtime</p>
+                    <p className="text-xs font-bold">
+                      {import.meta.env.VITE_GEMINI_API_KEY 
+                        ? `Gemini key detectada: ${import.meta.env.VITE_GEMINI_API_KEY.substring(0, 6)}...`
+                        : "Gemini key ausente no runtime"}
+                    </p>
+                  </div>
+
                   <Button 
                     variant="primary" 
                     className="w-full h-14"
