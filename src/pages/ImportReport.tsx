@@ -1,0 +1,388 @@
+import React, { useState, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  Camera, 
+  Upload, 
+  ChevronLeft, 
+  AlertCircle, 
+  CheckCircle2, 
+  Loader2, 
+  FileText, 
+  DollarSign, 
+  Calendar,
+  Layers,
+  Info
+} from 'lucide-react';
+import { motion, AnimatePresence } from 'motion/react';
+import { useDriverStore } from '../store';
+import { Button, Card, Input } from '../components/UI';
+import { 
+  extractReportFromImage, 
+  generateImageHash, 
+  generateContentFingerprint,
+  ExtractedReportData 
+} from '../services/aiExtractionService';
+import { AppType } from '../types';
+
+export const ImportReport = () => {
+  const navigate = useNavigate();
+  const { user, settings, importedReports, addImportedReport } = useDriverStore();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const [step, setStep] = useState<'upload' | 'analyzing' | 'review'>('upload');
+  const [platform, setPlatform] = useState<AppType>('Uber');
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [extractedData, setExtractedData] = useState<ExtractedReportData | null>(null);
+  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setSelectedFile(file);
+      setPreviewUrl(URL.createObjectURL(file));
+      setError(null);
+    }
+  };
+
+  const handleStartAnalysis = async () => {
+    if (!selectedFile) return;
+
+    setStep('analyzing');
+    setError(null);
+
+    try {
+      // 1. Generate hash for duplicate check
+      const imageHash = await generateImageHash(selectedFile);
+      
+      // Check if hash already exists
+      const hashExists = importedReports.some(r => r.image_hash === imageHash);
+      if (hashExists) {
+        setIsDuplicate(true);
+      }
+
+      // 2. Convert to base64 for AI
+      const reader = new FileReader();
+      const base64Promise = new Promise<string>((resolve) => {
+        reader.onload = () => resolve(reader.result as string);
+        reader.readAsDataURL(selectedFile);
+      });
+      const base64Image = await base64Promise;
+
+      // 3. Extract data using AI
+      const data = await extractReportFromImage(base64Image, platform);
+      setExtractedData(data);
+
+      // 4. Content fingerprint check
+      const fingerprint = generateContentFingerprint(user?.id || '', platform, data);
+      const fingerprintExists = importedReports.some(r => r.content_fingerprint === fingerprint);
+      
+      if (fingerprintExists) {
+        setIsDuplicate(true);
+      }
+
+      setStep('review');
+    } catch (err: any) {
+      console.error('[ImportReport] Analysis error:', err);
+      setError(err.message || 'Ocorreu um erro ao analisar a imagem. Tente novamente.');
+      setStep('upload');
+    }
+  };
+
+  const handleConfirmImport = async () => {
+    if (!extractedData || !user) return;
+
+    try {
+      const imageHash = selectedFile ? await generateImageHash(selectedFile) : '';
+      const fingerprint = generateContentFingerprint(user.id, platform, extractedData);
+
+      await addImportedReport({
+        vehicle_id: settings.currentVehicleProfileId,
+        platform,
+        report_type: extractedData.report_type,
+        period_start: extractedData.period_start,
+        period_end: extractedData.period_end,
+        total_earnings: extractedData.total_earnings,
+        cash_earnings: extractedData.cash_earnings,
+        app_earnings: extractedData.app_earnings,
+        platform_fee: extractedData.platform_fee,
+        promotions: extractedData.promotions,
+        taxes: extractedData.taxes,
+        requests_count: extractedData.requests_count,
+        image_hash: imageHash,
+        content_fingerprint: fingerprint,
+        source: 'screenshot',
+        status: 'confirmed',
+        confidence_score: extractedData.confidence_score,
+        uncertain_fields: extractedData.uncertain_fields
+      });
+
+      setStep('upload');
+      navigate('/reports', { state: { successMessage: 'Relatório importado com sucesso!' } });
+    } catch (err) {
+      console.error('[ImportReport] Save error:', err);
+      setError('Erro ao salvar o relatório. Tente novamente.');
+    }
+  };
+
+  return (
+    <div className="max-w-2xl mx-auto pb-20">
+      <div className="flex items-center gap-4 mb-8">
+        <button 
+          onClick={() => navigate(-1)}
+          className="w-10 h-10 rounded-full bg-white dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 flex items-center justify-center text-zinc-500 hover:text-zinc-900 dark:hover:text-zinc-100 transition-colors"
+        >
+          <ChevronLeft size={20} />
+        </button>
+        <div>
+          <h1 className="text-2xl font-black tracking-tight">Importar Relatório</h1>
+          <p className="text-sm text-zinc-500 font-medium">Extraia dados financeiros de seus prints</p>
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {step === 'upload' && (
+          <motion.div
+            key="upload"
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="space-y-6"
+          >
+            <Card className="p-6">
+              <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-4">
+                Selecione a Plataforma
+              </label>
+              <div className="grid grid-cols-3 gap-3">
+                {(['Uber', '99', 'inDrive'] as AppType[]).map((p) => (
+                  <button
+                    key={p}
+                    onClick={() => setPlatform(p)}
+                    className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
+                      platform === p 
+                        ? 'border-emerald-500 bg-emerald-500/5 text-emerald-500' 
+                        : 'border-zinc-100 dark:border-zinc-800 bg-zinc-50 dark:bg-zinc-900/50 text-zinc-400'
+                    }`}
+                  >
+                    <span className="text-sm font-bold">{p}</span>
+                  </button>
+                ))}
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <label className="block text-xs font-black uppercase tracking-wider text-zinc-400 mb-4">
+                Upload do Print
+              </label>
+              
+              <input 
+                type="file" 
+                ref={fileInputRef}
+                onChange={handleFileSelect}
+                accept="image/*"
+                className="hidden"
+              />
+
+              {!selectedFile ? (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full aspect-video rounded-3xl border-2 border-dashed border-zinc-200 dark:border-zinc-800 flex flex-col items-center justify-center gap-4 hover:border-emerald-500/50 hover:bg-emerald-500/5 transition-all group"
+                >
+                  <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-400 group-hover:text-emerald-500 transition-colors">
+                    <Upload size={32} />
+                  </div>
+                  <div className="text-center">
+                    <p className="text-sm font-bold">Clique para selecionar</p>
+                    <p className="text-xs text-zinc-500">ou arraste o arquivo aqui</p>
+                  </div>
+                </button>
+              ) : (
+                <div className="space-y-4">
+                  <div className="relative aspect-video rounded-3xl overflow-hidden border border-zinc-200 dark:border-zinc-800">
+                    <img 
+                      src={previewUrl!} 
+                      alt="Preview" 
+                      className="w-full h-full object-cover"
+                    />
+                    <button
+                      onClick={() => setSelectedFile(null)}
+                      className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/70 transition-colors"
+                    >
+                      <AlertCircle size={20} />
+                    </button>
+                  </div>
+                  <Button 
+                    variant="primary" 
+                    className="w-full h-14"
+                    onClick={handleStartAnalysis}
+                  >
+                    Analisar com IA
+                  </Button>
+                </div>
+              )}
+            </Card>
+
+            {error && (
+              <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-center gap-3 text-red-500">
+                <AlertCircle size={20} />
+                <p className="text-sm font-medium">{error}</p>
+              </div>
+            )}
+
+            <div className="p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-900 flex items-start gap-3">
+              <Info size={20} className="text-zinc-400 mt-0.5" />
+              <p className="text-xs text-zinc-500 leading-relaxed font-medium">
+                Dica: Para melhores resultados, certifique-se de que o print mostra claramente os valores de ganhos e o período (dia ou semana).
+              </p>
+            </div>
+          </motion.div>
+        )}
+
+        {step === 'analyzing' && (
+          <motion.div
+            key="analyzing"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 1.05 }}
+            className="flex flex-col items-center justify-center py-20 text-center"
+          >
+            <div className="relative w-24 h-24 mb-8">
+              <div className="absolute inset-0 border-4 border-emerald-500/20 rounded-full" />
+              <motion.div 
+                className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent"
+                animate={{ rotate: 360 }}
+                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              />
+              <div className="absolute inset-0 flex items-center justify-center text-emerald-500">
+                <Loader2 size={32} className="animate-pulse" />
+              </div>
+            </div>
+            <h2 className="text-xl font-black mb-2">Analisando seu print...</h2>
+            <p className="text-sm text-zinc-500 font-medium max-w-xs">
+              Nossa IA está extraindo os valores financeiros e identificando o período do relatório.
+            </p>
+          </motion.div>
+        )}
+
+        {step === 'review' && extractedData && (
+          <motion.div
+            key="review"
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            className="space-y-6"
+          >
+            {isDuplicate && (
+              <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3 text-amber-600 dark:text-amber-400">
+                <AlertCircle size={20} className="shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm font-black uppercase tracking-tight">Possível Duplicata</p>
+                  <p className="text-xs font-medium opacity-80">
+                    Este relatório parece já ter sido importado anteriormente. Verifique os dados antes de confirmar.
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <Card className="p-6 space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-lg font-black tracking-tight">Revisar Dados</h2>
+                <div className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-wider">
+                  Extraído com IA
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                    <Layers size={10} /> Tipo de Relatório
+                  </label>
+                  <select
+                    value={extractedData.report_type}
+                    onChange={(e) => setExtractedData({ ...extractedData, report_type: e.target.value as any })}
+                    className="w-full h-12 px-4 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800 text-sm font-bold focus:ring-2 focus:ring-emerald-500 outline-none transition-all"
+                  >
+                    <option value="daily">Diário</option>
+                    <option value="weekly">Semanal</option>
+                  </select>
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                    <Calendar size={10} /> Início do Período
+                  </label>
+                  <Input
+                    value={extractedData.period_start}
+                    onChange={(e) => setExtractedData({ ...extractedData, period_start: e.target.value })}
+                    className="h-12 font-bold"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                    <DollarSign size={10} /> Ganhos Totais
+                  </label>
+                  <Input
+                    type="number"
+                    value={extractedData.total_earnings}
+                    onChange={(e) => setExtractedData({ ...extractedData, total_earnings: parseFloat(e.target.value) })}
+                    className="h-12 font-bold"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                    <DollarSign size={10} /> Ganhos em Dinheiro
+                  </label>
+                  <Input
+                    type="number"
+                    value={extractedData.cash_earnings}
+                    onChange={(e) => setExtractedData({ ...extractedData, cash_earnings: parseFloat(e.target.value) })}
+                    className="h-12 font-bold"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                    <DollarSign size={10} /> Taxa Plataforma
+                  </label>
+                  <Input
+                    type="number"
+                    value={extractedData.platform_fee}
+                    onChange={(e) => setExtractedData({ ...extractedData, platform_fee: parseFloat(e.target.value) })}
+                    className="h-12 font-bold"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                    <FileText size={10} /> Total de Viagens
+                  </label>
+                  <Input
+                    type="number"
+                    value={extractedData.requests_count}
+                    onChange={(e) => setExtractedData({ ...extractedData, requests_count: parseInt(e.target.value) })}
+                    className="h-12 font-bold"
+                  />
+                </div>
+              </div>
+
+              <div className="pt-4 flex gap-3">
+                <Button 
+                  variant="outline" 
+                  className="flex-1 h-14"
+                  onClick={() => setStep('upload')}
+                >
+                  Cancelar
+                </Button>
+                <Button 
+                  variant="primary" 
+                  className="flex-1 h-14"
+                  onClick={handleConfirmImport}
+                >
+                  Confirmar Importação
+                </Button>
+              </div>
+            </Card>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+};
