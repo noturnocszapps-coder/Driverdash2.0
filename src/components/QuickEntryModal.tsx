@@ -11,7 +11,7 @@ interface QuickEntryModalProps {
 }
 
 export const QuickEntryModal = ({ isOpen, onClose }: QuickEntryModalProps) => {
-  const { cycles, addCycleAmount, startCycle } = useDriverStore();
+  const { cycles, addCycleAmount, startCycle, isSaving } = useDriverStore();
   const [amount, setAmount] = useState('');
   const [platform, setPlatform] = useState<'uber' | 'noventanove' | 'indriver' | 'extra'>('uber');
   const [note, setNote] = useState('');
@@ -25,6 +25,7 @@ export const QuickEntryModal = ({ isOpen, onClose }: QuickEntryModalProps) => {
   }, [isOpen]);
 
   const handleSave = async () => {
+    if (isSaving) return;
     const value = parseFloat(amount.replace(',', '.'));
     if (isNaN(value) || value <= 0) return;
 
@@ -146,10 +147,10 @@ export const QuickEntryModal = ({ isOpen, onClose }: QuickEntryModalProps) => {
               <div className="pt-2 pb-8">
                 <Button 
                   onClick={handleSave}
-                  disabled={!amount || parseFloat(amount.replace(',', '.')) <= 0}
+                  disabled={isSaving || !amount || parseFloat(amount.replace(',', '.')) <= 0}
                   className="w-full h-16 text-lg font-bold rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white shadow-xl shadow-emerald-600/20 transition-all"
                 >
-                  Confirmar Lançamento
+                  {isSaving ? 'Salvando...' : 'Confirmar Lançamento'}
                 </Button>
                 <p className="mt-4 text-center text-[10px] text-zinc-400 font-bold uppercase tracking-widest">
                   O valor será somado ao ciclo atual

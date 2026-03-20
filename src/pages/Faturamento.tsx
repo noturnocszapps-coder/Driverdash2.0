@@ -8,7 +8,7 @@ import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Faturamento = () => {
-  const { cycles, updateCycle, startCycle, settings } = useDriverStore();
+  const { cycles, updateCycle, startCycle, settings, isSaving: storeIsSaving } = useDriverStore();
   const navigate = useNavigate();
   
   const openCycle = cycles.find(c => c.status === 'open');
@@ -71,7 +71,7 @@ export const Faturamento = () => {
   }, [openCycle]);
 
   const handleSave = async () => {
-    if (isSaving) return;
+    if (isSaving || storeIsSaving) return;
     
     setIsSaving(true);
     setSaveStatus('idle');

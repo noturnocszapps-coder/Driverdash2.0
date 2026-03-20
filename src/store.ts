@@ -39,128 +39,174 @@ export const useDriverStore = create<DriverState>()(
         avgSpeed: 0,
         duration: 0,
       },
+      isSaving: false,
       setUser: (user) => set({ user }),
       setSyncStatus: (syncStatus) => set({ syncStatus }),
       
       startCycle: async () => {
-        const { user, cycles, settings } = get();
+        const { user, cycles, settings, isSaving } = get();
+        if (isSaving) return cycles.find(c => c.status === 'open')?.id || '';
+        
         const openCycle = cycles.find(c => c.status === 'open');
         if (openCycle) return openCycle.id;
 
-        const id = crypto.randomUUID();
-        const newCycle = {
-          id,
-          user_id: user?.id || '',
-          start_time: new Date().toISOString(),
-          uber_amount: 0,
-          noventanove_amount: 0,
-          indriver_amount: 0,
-          extra_amount: 0,
-          total_amount: 0,
-          total_km: 0,
-          ride_km: 0,
-          displacement_km: 0,
-          uber_km: 0,
-          noventanove_km: 0,
-          indriver_km: 0,
-          status: 'open' as const,
-          vehicle_id: settings.currentVehicleProfileId,
-          vehicle_name: settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId)?.name || settings.vehicle
-        };
+        set({ isSaving: true });
+        try {
+          const currentVehicle = settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
+          
+          const vehicleSnapshot = {
+            id: settings.currentVehicleProfileId || 'default',
+            name: currentVehicle?.name || settings.vehicle,
+            fixedCosts: currentVehicle?.fixedCosts || settings.fixedCosts || { vehicleType: 'owned' },
+            kmPerLiter: settings.kmPerLiter,
+            fuelPrice: settings.fuelPrice
+          };
 
-        set((state) => ({ cycles: [...state.cycles, newCycle] }));
+          const id = crypto.randomUUID();
+          const newCycle = {
+            id,
+            user_id: user?.id || '',
+            start_time: new Date().toISOString(),
+            uber_amount: 0,
+            noventanove_amount: 0,
+            indriver_amount: 0,
+            extra_amount: 0,
+            total_amount: 0,
+            total_km: 0,
+            ride_km: 0,
+            displacement_km: 0,
+            uber_km: 0,
+            noventanove_km: 0,
+            indriver_km: 0,
+            status: 'open' as const,
+            vehicle_id: settings.currentVehicleProfileId,
+            vehicle_name: currentVehicle?.name || settings.vehicle,
+            vehicle_snapshot: vehicleSnapshot
+          };
 
-        if (user && isSupabaseConfigured) {
-          set({ syncStatus: 'syncing' });
-          const { error } = await supabase.from('cycles').insert(newCycle);
-          if (error) console.error('[Store] Sync error (start cycle):', error);
-          set({ syncStatus: error ? 'offline' : 'synced' });
-          setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-          }, 3000);
+          set((state) => ({ cycles: [...state.cycles, newCycle] }));
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('cycles').insert(newCycle);
+            if (error) console.error('[Store] Sync error (start cycle):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            
+            // Force refresh to ensure data integrity
+            if (!error) await get().syncData();
+            
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+
+          return id;
+        } finally {
+          set({ isSaving: false });
         }
-
-        return id;
       },
 
       closeCycle: async (id) => {
-        const { user } = get();
-        const endTime = new Date().toISOString();
-        
-        set((state) => ({
-          cycles: state.cycles.map(c => 
-            c.id === id ? { ...c, status: 'closed', end_time: endTime } : c
-          )
-        }));
+        const { user, isSaving } = get();
+        if (isSaving) return;
 
-        if (user && isSupabaseConfigured) {
-          set({ syncStatus: 'syncing' });
-          const { error } = await supabase
-            .from('cycles')
-            .update({ status: 'closed', end_time: endTime })
-            .eq('id', id);
-          if (error) console.error('[Store] Sync error (close cycle):', error);
-          set({ syncStatus: error ? 'offline' : 'synced' });
-          setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-          }, 3000);
+        set({ isSaving: true });
+        try {
+          const endTime = new Date().toISOString();
+          
+          set((state) => ({
+            cycles: state.cycles.map(c => 
+              c.id === id ? { ...c, status: 'closed', end_time: endTime } : c
+            )
+          }));
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase
+              .from('cycles')
+              .update({ status: 'closed', end_time: endTime })
+              .eq('id', id);
+            if (error) console.error('[Store] Sync error (close cycle):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            
+            // Force refresh to ensure data integrity
+            if (!error) await get().syncData();
+
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
         }
       },
 
       updateCycle: async (id, data) => {
-        const { user } = get();
-        set((state) => ({
-          cycles: state.cycles.map(c => {
-            if (c.id === id) {
-              const updated = { ...c, ...data };
-              updated.total_amount = (updated.uber_amount || 0) + (updated.noventanove_amount || 0) + (updated.indriver_amount || 0) + (updated.extra_amount || 0);
-              updated.total_expenses = (updated.fuel_expense || 0) + (updated.food_expense || 0) + (updated.other_expense || 0);
-              
-              // Calculate displacement KM
-              if (updated.total_km !== undefined && updated.ride_km !== undefined) {
-                updated.displacement_km = Math.max(0, updated.total_km - updated.ride_km);
-              }
-              
-              return updated;
-            }
-            return c;
-          })
-        }));
+        const { user, isSaving } = get();
+        if (isSaving) return;
 
-        if (user && isSupabaseConfigured) {
-          const cycle = get().cycles.find(c => c.id === id);
-          if (!cycle) return;
-          
-          set({ syncStatus: 'syncing' });
-          const { error } = await supabase
-            .from('cycles')
-            .update({
-              uber_amount: cycle.uber_amount,
-              noventanove_amount: cycle.noventanove_amount,
-              indriver_amount: cycle.indriver_amount,
-              extra_amount: cycle.extra_amount,
-              total_amount: cycle.total_amount,
-              fuel_expense: cycle.fuel_expense,
-              food_expense: cycle.food_expense,
-              other_expense: cycle.other_expense,
-              total_expenses: cycle.total_expenses,
-              total_km: cycle.total_km,
-              ride_km: cycle.ride_km,
-              displacement_km: cycle.displacement_km,
-              uber_km: cycle.uber_km,
-              noventanove_km: cycle.noventanove_km,
-              indriver_km: cycle.indriver_km,
-              vehicle_id: cycle.vehicle_id,
-              vehicle_name: cycle.vehicle_name,
-              end_time: cycle.end_time,
-              status: cycle.status
+        set({ isSaving: true });
+        try {
+          set((state) => ({
+            cycles: state.cycles.map(c => {
+              if (c.id === id) {
+                const updated = { ...c, ...data };
+                updated.total_amount = (updated.uber_amount || 0) + (updated.noventanove_amount || 0) + (updated.indriver_amount || 0) + (updated.extra_amount || 0);
+                updated.total_expenses = (updated.fuel_expense || 0) + (updated.food_expense || 0) + (updated.other_expense || 0);
+                
+                // Calculate displacement KM
+                if (updated.total_km !== undefined && updated.ride_km !== undefined) {
+                  updated.displacement_km = Math.max(0, updated.total_km - updated.ride_km);
+                }
+                
+                return updated;
+              }
+              return c;
             })
-            .eq('id', id);
-          if (error) console.error('[Store] Sync error (update cycle):', error);
-          set({ syncStatus: error ? 'offline' : 'synced' });
-          setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-          }, 3000);
+          }));
+
+          if (user && isSupabaseConfigured) {
+            const cycle = get().cycles.find(c => c.id === id);
+            if (!cycle) return;
+            
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase
+              .from('cycles')
+              .update({
+                uber_amount: cycle.uber_amount,
+                noventanove_amount: cycle.noventanove_amount,
+                indriver_amount: cycle.indriver_amount,
+                extra_amount: cycle.extra_amount,
+                total_amount: cycle.total_amount,
+                fuel_expense: cycle.fuel_expense,
+                food_expense: cycle.food_expense,
+                other_expense: cycle.other_expense,
+                total_expenses: cycle.total_expenses,
+                total_km: cycle.total_km,
+                ride_km: cycle.ride_km,
+                displacement_km: cycle.displacement_km,
+                uber_km: cycle.uber_km,
+                noventanove_km: cycle.noventanove_km,
+                indriver_km: cycle.indriver_km,
+                vehicle_id: cycle.vehicle_id,
+                vehicle_name: cycle.vehicle_name,
+                vehicle_snapshot: cycle.vehicle_snapshot,
+                end_time: cycle.end_time,
+                status: cycle.status
+              })
+              .eq('id', id);
+            if (error) console.error('[Store] Sync error (update cycle):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            
+            // Force refresh to ensure data integrity
+            if (!error) await get().syncData();
+
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
         }
       },
 
@@ -190,136 +236,174 @@ export const useDriverStore = create<DriverState>()(
       },
 
       addExpense: async (expense) => {
-        const id = crypto.randomUUID();
-        const newExpense = { ...expense, id };
-        set((state) => ({ expenses: [...state.expenses, newExpense] }));
-        const { user } = get();
-        if (user && isSupabaseConfigured) {
-          set({ syncStatus: 'syncing' });
-          const { error } = await supabase.from('expenses').insert({
-            id,
-            user_id: user.id,
-            date: expense.date,
-            category: expense.category,
-            value: expense.value,
-            description: expense.description
-          });
-          if (error) console.error('[Store] Sync error (expense):', error);
-          set({ syncStatus: error ? 'offline' : 'synced' });
-          setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-          }, 3000);
+        const { user, isSaving } = get();
+        if (isSaving) return;
+
+        set({ isSaving: true });
+        try {
+          const id = crypto.randomUUID();
+          const newExpense = { ...expense, id };
+          set((state) => ({ expenses: [...state.expenses, newExpense] }));
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('expenses').insert({
+              id,
+              user_id: user.id,
+              date: expense.date,
+              category: expense.category,
+              value: expense.value,
+              description: expense.description
+            });
+            if (error) console.error('[Store] Sync error (expense):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
         }
       },
 
       addFueling: async (fueling) => {
-        const id = crypto.randomUUID();
-        const newFueling = { ...fueling, id };
-        set((state) => ({ fuelings: [...state.fuelings, newFueling] }));
-        const { user } = get();
-        if (user && isSupabaseConfigured) {
-          set({ syncStatus: 'syncing' });
-          const { error } = await supabase.from('fuel_logs').insert({
-            id,
-            user_id: user.id,
-            date: fueling.date,
-            liters: fueling.liters,
-            cost: fueling.value,
-            odometer: fueling.odometer
-          });
-          if (error) console.error('[Store] Sync error (fueling):', error);
-          set({ syncStatus: error ? 'offline' : 'synced' });
-          setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-          }, 3000);
+        const { user, isSaving } = get();
+        if (isSaving) return;
+
+        set({ isSaving: true });
+        try {
+          const id = crypto.randomUUID();
+          const newFueling = { ...fueling, id };
+          set((state) => ({ fuelings: [...state.fuelings, newFueling] }));
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('fuel_logs').insert({
+              id,
+              user_id: user.id,
+              date: fueling.date,
+              liters: fueling.liters,
+              cost: fueling.value,
+              odometer: fueling.odometer
+            });
+            if (error) console.error('[Store] Sync error (fueling):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
         }
       },
 
       addMaintenance: async (maintenance) => {
-        const id = crypto.randomUUID();
-        const newMaintenance = { ...maintenance, id };
-        set((state) => ({ maintenances: [...state.maintenances, newMaintenance] }));
-        const { user } = get();
-        if (user && isSupabaseConfigured) {
-          set({ syncStatus: 'syncing' });
-          const { error } = await supabase.from('maintenance_logs').insert({
-            id,
-            user_id: user.id,
-            date: maintenance.date,
-            type: maintenance.type,
-            cost: maintenance.value,
-            odometer: maintenance.currentKm,
-            next_change_km: maintenance.nextChangeKm
-          });
-          if (error) console.error('[Store] Sync error (maintenance):', error);
-          set({ syncStatus: error ? 'offline' : 'synced' });
-          setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-          }, 3000);
+        const { user, isSaving } = get();
+        if (isSaving) return;
+
+        set({ isSaving: true });
+        try {
+          const id = crypto.randomUUID();
+          const newMaintenance = { ...maintenance, id };
+          set((state) => ({ maintenances: [...state.maintenances, newMaintenance] }));
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('maintenance_logs').insert({
+              id,
+              user_id: user.id,
+              date: maintenance.date,
+              type: maintenance.type,
+              cost: maintenance.value,
+              odometer: maintenance.currentKm,
+              next_change_km: maintenance.nextChangeKm
+            });
+            if (error) console.error('[Store] Sync error (maintenance):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
         }
       },
 
       addImportedReport: async (report) => {
-        const id = crypto.randomUUID();
-        const now = new Date().toISOString();
-        const { user, settings } = get();
-        const newReport = { 
-          ...report, 
-          id, 
-          user_id: user?.id || '', 
-          imported_at: now,
-          vehicle_id: settings.currentVehicleProfileId,
-        } as any;
-        
-        set((state) => ({ importedReports: [...state.importedReports, newReport] }));
+        const { user, settings, isSaving } = get();
+        if (isSaving) return;
 
-        if (user && isSupabaseConfigured) {
-          set({ syncStatus: 'syncing' });
-          const { error } = await supabase.from('imported_reports').insert(newReport);
-          if (error) console.error('[Store] Sync error (imported report):', error);
-          set({ syncStatus: error ? 'offline' : 'synced' });
-          setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-          }, 3000);
+        set({ isSaving: true });
+        try {
+          const id = crypto.randomUUID();
+          const now = new Date().toISOString();
+          const newReport = { 
+            ...report, 
+            id, 
+            user_id: user?.id || '', 
+            imported_at: now,
+            vehicle_id: settings.currentVehicleProfileId,
+          } as any;
+          
+          set((state) => ({ importedReports: [...state.importedReports, newReport] }));
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('imported_reports').insert(newReport);
+            if (error) console.error('[Store] Sync error (imported report):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
         }
       },
 
       updateSettings: async (newSettings) => {
-        set((state) => ({ settings: { ...state.settings, ...newSettings } }));
-        const { user, settings } = get();
-        
-        // Ensure active vehicle consistency
-        const activeVehicle = settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
-        if (activeVehicle && (settings.vehicle !== activeVehicle.name)) {
-          set((state) => ({ settings: { ...state.settings, vehicle: activeVehicle.name } }));
-        }
+        const { user, isSaving } = get();
+        if (isSaving) return;
 
-        if (user && isSupabaseConfigured) {
-          set({ syncStatus: 'syncing' });
-          const { error } = await supabase.from('profiles').update({
-            name: settings.name,
-            daily_goal: settings.dailyGoal,
-            vehicle: settings.vehicle,
-            km_per_liter: settings.kmPerLiter,
-            fuel_price: settings.fuelPrice,
-            active_platforms: settings.activePlatforms,
-            transport_mode: settings.transportMode,
-            dashboard_mode: settings.dashboardMode,
-            fixed_costs: settings.fixedCosts,
-            current_vehicle_profile_id: settings.currentVehicleProfileId,
-            vehicle_profiles: settings.vehicleProfiles
-          }).eq('id', user.id);
+        set({ isSaving: true });
+        try {
+          set((state) => ({ settings: { ...state.settings, ...newSettings } }));
+          const { settings } = get();
           
-          if (error) {
-            console.error('[Store] Sync error (settings):', error);
-            set({ syncStatus: 'offline' });
-          } else {
-            set({ syncStatus: 'synced' });
+          // Ensure active vehicle consistency
+          const activeVehicle = settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
+          if (activeVehicle && (settings.vehicle !== activeVehicle.name)) {
+            set((state) => ({ settings: { ...state.settings, vehicle: activeVehicle.name } }));
           }
-          
-          setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-          }, 3000);
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('profiles').update({
+              name: settings.name,
+              daily_goal: settings.dailyGoal,
+              vehicle: settings.vehicle,
+              km_per_liter: settings.kmPerLiter,
+              fuel_price: settings.fuelPrice,
+              active_platforms: settings.activePlatforms,
+              transport_mode: settings.transportMode,
+              dashboard_mode: settings.dashboardMode,
+              fixed_costs: settings.fixedCosts,
+              current_vehicle_profile_id: settings.currentVehicleProfileId,
+              vehicle_profiles: settings.vehicleProfiles
+            }).eq('id', user.id);
+            
+            if (error) {
+              console.error('[Store] Sync error (settings):', error);
+              set({ syncStatus: 'offline' });
+            } else {
+              set({ syncStatus: 'synced' });
+              // Force refresh to ensure data integrity
+              await get().syncData();
+            }
+            
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
         }
       },
 
@@ -345,12 +429,13 @@ export const useDriverStore = create<DriverState>()(
       }),
 
       syncData: async () => {
-        const { user, syncStatus, setSyncStatus, importData, expenses, fuelings, maintenances, settings, cycles } = get();
+        const { user, syncStatus, setSyncStatus, importData, expenses, fuelings, maintenances, settings, cycles, isSaving } = get();
         
         if (!user || !isSupabaseConfigured) return;
-        if (syncStatus === 'syncing') return;
+        if (syncStatus === 'syncing' || isSaving) return;
 
         setSyncStatus('syncing');
+        set({ isSaving: true });
 
         try {
           // 1. Push local data (Upsert)
@@ -540,6 +625,8 @@ export const useDriverStore = create<DriverState>()(
         } catch (err) {
           console.error('[Store] Full sync error:', err);
           setSyncStatus('offline');
+        } finally {
+          set({ isSaving: false });
         }
       },
       clearData: () => set({

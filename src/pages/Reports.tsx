@@ -1,8 +1,8 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, formatKm } from '../utils';
-import { Card, CardContent } from '../components/UI';
+import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost } from '../utils';
+import { Card, CardContent, Button } from '../components/UI';
 import { 
   TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText
 } from 'lucide-react';
@@ -15,7 +15,7 @@ import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Reports = () => {
-  const { cycles, settings, importedReports } = useDriverStore();
+  const { cycles, settings, importedReports, isSaving } = useDriverStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -56,8 +56,7 @@ export const Reports = () => {
       const rideKm = dayCycles.reduce((acc, c) => acc + (c.ride_km || 0), 0);
 
       // Only apply fixed cost if there was activity
-      const fixedCost = dayRevenue > 0 ? dailyFixed : 0;
-      const totalDayExpenses = dayExpenses + fixedCost;
+      const totalDayExpenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
       const profit = dayRevenue - totalDayExpenses;
 
       // Earnings per KM
@@ -147,7 +146,8 @@ export const Reports = () => {
       netPerKm,
       best: sorted[0],
       platformTotals,
-      alerts
+      alerts,
+      mismatches: currentWeek.filter(d => d.hasMismatch)
     };
   }, [currentWeek]);
 
@@ -227,6 +227,41 @@ export const Reports = () => {
               </div>
             </motion.div>
           ))}
+        </div>
+      )}
+
+      {/* Correction Suggestions */}
+      {stats.mismatches.length > 0 && (
+        <div className="space-y-4">
+          <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2 px-1">
+            <Zap size={16} className="text-amber-500" />
+            Sugestões de Correção
+          </h3>
+          <div className="space-y-3">
+            {stats.mismatches.map((day, i) => (
+              <Card key={i} className="border-none bg-amber-500/5 border border-amber-500/20 shadow-sm">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{day.fullName}</p>
+                    <p className="text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                      O valor manual ({formatCurrency(day.value)}) difere do print ({formatCurrency(day.importedTotal)}).
+                    </p>
+                  </div>
+                  <Button 
+                    size="sm" 
+                    disabled={isSaving}
+                    className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase h-8"
+                    onClick={() => {
+                      const cycle = cycles.find(c => isSameDay(parseISO(c.start_time), day.date));
+                      if (cycle) navigate(`/cycle/${cycle.id}`);
+                    }}
+                  >
+                    {isSaving ? '...' : 'Corrigir'}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 

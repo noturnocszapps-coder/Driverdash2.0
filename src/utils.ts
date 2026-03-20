@@ -36,7 +36,8 @@ export function calculateDailyFixedCost(fixedCosts?: any) {
 }
 
 export function calculateOperationalCost(cycle: any, settings: any) {
-  const dailyFixed = calculateDailyFixedCost(settings.fixedCosts);
+  const fixedCosts = cycle.vehicle_snapshot?.fixedCosts || settings.fixedCosts;
+  const dailyFixed = calculateDailyFixedCost(fixedCosts);
   const cycleExpenses = cycle.total_expenses || 0;
   
   // Total cost = Daily fixed + specific cycle expenses (fuel, food, etc.)

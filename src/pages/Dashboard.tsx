@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, calculateEfficiencyMetrics, formatKm } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, calculateEfficiencyMetrics, formatKm, calculateOperationalCost } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
 import { TrendingUp, Clock, Target, Zap, LayoutGrid, Plus, ChevronRight, Navigation, Calendar, AlertCircle, Gauge } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -13,7 +13,7 @@ import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Dashboard = () => {
-  const { cycles, settings, startCycle, checkAndCloseCycles } = useDriverStore();
+  const { cycles, settings, startCycle, checkAndCloseCycles, isSaving } = useDriverStore();
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
@@ -70,18 +70,84 @@ export const Dashboard = () => {
     const chartData = last7Days.map(date => {
       const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
       const total = dayCycles.reduce((acc, c) => acc + c.total_amount, 0);
+      const totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
+      const expenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
+      const profit = total - expenses;
+      const efficiency = totalKm > 0 ? total / totalKm : 0;
+
       return {
         name: format(date, 'EEE', { locale: ptBR }),
         value: total,
+        totalKm,
+        profit,
+        efficiency,
         date
       };
     });
 
     const total7Days = chartData.reduce((acc, d) => acc + d.value, 0);
+    const totalProfit7Days = chartData.reduce((acc, d) => acc + d.profit, 0);
+    const totalKm7Days = chartData.reduce((acc, d) => acc + d.totalKm, 0);
     const avg = total7Days / 7;
+    const avgEfficiency = totalKm7Days > 0 ? total7Days / totalKm7Days : 0;
 
-    return { chartData, total7Days, avg };
-  }, [cycles]);
+    // Insights
+    const sortedByValue = [...chartData].sort((a, b) => b.value - a.value);
+    const sortedByEfficiency = [...chartData].filter(d => d.totalKm > 0).sort((a, b) => a.efficiency - b.efficiency);
+    
+    const bestDay = sortedByValue[0];
+    const worstDayByEfficiency = sortedByEfficiency[0];
+
+    // Alerts
+    const alerts = [];
+    if (total7Days > 0 && (totalProfit7Days / total7Days) < 0.3) {
+      alerts.push({
+        id: 'low-profit',
+        type: 'warning',
+        title: 'Margem de Lucro Baixa',
+        message: 'Seu lucro semanal está abaixo de 30%. Considere reduzir gastos extras.'
+      });
+    }
+
+    if (avgEfficiency > 0 && avgEfficiency < 1.5) {
+      alerts.push({
+        id: 'low-efficiency',
+        type: 'warning',
+        title: 'Baixa Eficiência (R$/km)',
+        message: 'Sua média semanal está abaixo de R$ 1,50/km. Tente selecionar melhor as corridas.'
+      });
+    }
+
+    // High cost cycles alert
+    const highCostCycles = cycles.filter(c => {
+      const startTime = new Date(c.start_time).getTime();
+      const isRecent = (new Date().getTime() - startTime) < (7 * 24 * 60 * 60 * 1000);
+      if (!isRecent) return false;
+      const expenses = calculateOperationalCost(c, settings);
+      return expenses > (c.total_amount * 0.6); // Expenses > 60% of revenue
+    });
+
+    if (highCostCycles.length > 0) {
+      alerts.push({
+        id: 'high-cost',
+        type: 'danger',
+        title: 'Ciclos de Alto Custo',
+        message: `Identificamos ${highCostCycles.length} ciclo(s) esta semana com custos acima de 60% do faturamento.`
+      });
+    }
+
+    return { 
+      chartData, 
+      total7Days, 
+      totalProfit7Days,
+      totalKm7Days,
+      avg, 
+      avgEfficiency,
+      bestDay,
+      worstDayByEfficiency,
+      alerts
+    };
+  }, [cycles, settings]);
 
   const handleStartCycle = async () => {
     await startCycle();
@@ -106,6 +172,71 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Alerts & Insights Section */}
+      {(stats.alerts.length > 0 || stats.total7Days > 0) && (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Alerts */}
+          {stats.alerts.length > 0 && (
+            <div className="space-y-3">
+              {stats.alerts.map((alert) => (
+                <motion.div 
+                  key={alert.id}
+                  initial={{ opacity: 0, x: -10 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  className={cn(
+                    "p-4 rounded-2xl border flex gap-3 items-start",
+                    alert.type === 'warning' 
+                      ? "bg-amber-500/5 border-amber-500/20 text-amber-600 dark:text-amber-400" 
+                      : "bg-red-500/5 border-red-500/20 text-red-600 dark:text-red-400"
+                  )}
+                >
+                  <Zap size={18} className="shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-xs font-black uppercase tracking-wider mb-0.5">{alert.title}</p>
+                    <p className="text-[11px] font-bold opacity-80 leading-relaxed">{alert.message}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </div>
+          )}
+
+          {/* Insights */}
+          {stats.total7Days > 0 && (
+            <Card className="border-none bg-zinc-900 text-white shadow-xl">
+              <CardContent className="p-5 space-y-4">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                    <TrendingUp size={16} className="text-emerald-400" />
+                  </div>
+                  <h3 className="text-xs font-black uppercase tracking-widest">Insights da Semana</h3>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Melhor Dia</p>
+                    <p className="text-sm font-black text-emerald-400">{stats.bestDay.name} ({formatCurrency(stats.bestDay.value)})</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Pior Eficiência</p>
+                    <p className="text-sm font-black text-red-400">
+                      {stats.worstDayByEfficiency ? `${stats.worstDayByEfficiency.name} (${formatCurrency(stats.worstDayByEfficiency.efficiency)}/km)` : '-'}
+                    </p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Média R$/KM</p>
+                    <p className="text-sm font-black text-blue-400">{formatCurrency(stats.avgEfficiency)}/km</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Lucro Semanal</p>
+                    <p className="text-sm font-black text-white">{formatCurrency(stats.totalProfit7Days)}</p>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </div>
+      )}
 
       {!isSupabaseConfigured && (
         <Card className="bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30">
@@ -196,9 +327,15 @@ export const Dashboard = () => {
               {!openCycle ? (
                 <Button 
                   onClick={handleStartCycle}
+                  disabled={isSaving}
                   className="col-span-2 h-16 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-lg rounded-2xl shadow-xl shadow-emerald-500/20"
                 >
-                  Iniciar Novo Ciclo
+                  {isSaving ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                      Iniciando...
+                    </div>
+                  ) : "Iniciar Novo Ciclo"}
                 </Button>
               ) : (
                 <>

@@ -19,7 +19,7 @@ export const Settings = () => {
   const navigate = useNavigate();
   const { 
     settings, updateSettings, clearData, clearCloudData, 
-    cycles, importData, user, setUser, syncStatus, syncData 
+    cycles, importData, user, setUser, syncStatus, syncData, isSaving 
   } = useDriverStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -468,6 +468,7 @@ export const Settings = () => {
                 <div className="flex flex-col gap-3 pt-2">
                   <Button 
                     onClick={handleSaveVehicle}
+                    disabled={isSaving}
                     className={cn(
                       "w-full h-14 font-black text-lg rounded-2xl transition-all duration-300",
                       saveSuccess 
@@ -475,7 +476,12 @@ export const Settings = () => {
                         : "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-emerald-500 hover:text-zinc-950"
                     )}
                   >
-                    {saveSuccess ? (
+                    {isSaving ? (
+                      <span className="flex items-center gap-2">
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                        Salvando...
+                      </span>
+                    ) : saveSuccess ? (
                       <span className="flex items-center gap-2">
                         <CheckCircle2 size={20} /> Perfil Salvo
                       </span>
@@ -768,8 +774,17 @@ export const Settings = () => {
                         </Select>
                       </div>
                     </div>
-                    <Button type="submit" className="w-full h-16 bg-emerald-500 text-zinc-950 font-black text-lg rounded-2xl shadow-xl shadow-emerald-500/20 mt-4">
-                      Salvar Veículo
+                    <Button 
+                      type="submit" 
+                      disabled={isSaving}
+                      className="w-full h-16 bg-emerald-500 text-zinc-950 font-black text-lg rounded-2xl shadow-xl shadow-emerald-500/20 mt-4"
+                    >
+                      {isSaving ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                          Salvando...
+                        </div>
+                      ) : "Salvar Veículo"}
                     </Button>
                   </form>
                 </CardContent>
@@ -860,10 +875,14 @@ const CostInput = ({ label, value, onChange }: { label: string, value?: number, 
   </div>
 );
 
-const SettingsItem = ({ icon: Icon, title, description, onClick, color, loading }: any) => (
+const SettingsItem = ({ icon: Icon, title, description, onClick, color, loading, disabled }: any) => (
   <button 
     onClick={onClick}
-    className="flex items-center justify-between w-full group py-2"
+    disabled={disabled || loading}
+    className={cn(
+      "flex items-center justify-between w-full group py-2 transition-opacity",
+      (disabled || loading) && "opacity-50 cursor-not-allowed"
+    )}
   >
     <div className="flex items-center gap-4">
       <div className={cn("w-10 h-10 rounded-xl bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center transition-colors", color)}>
@@ -879,9 +898,22 @@ const SettingsItem = ({ icon: Icon, title, description, onClick, color, loading 
 );
 
 const PatchNotes = () => {
-  const [expanded, setExpanded] = useState<string | null>('2.4.1');
+  const [expanded, setExpanded] = useState<string | null>('2.5.0');
 
   const versions = [
+    {
+      id: '2.5.0',
+      date: '20 Mar, 2026',
+      notes: [
+        'Veículo agora é salvo por ciclo, garantindo integridade dos dados históricos.',
+        'Novo sistema de insights automáticos no dashboard.',
+        'Identificação do melhor dia da semana e pior desempenho por eficiência.',
+        'Cálculo de média semanal de ganhos por KM e lucro total.',
+        'Alertas inteligentes para baixa margem de lucro e baixa eficiência (R$/km).',
+        'Sistema de sugestão de correções comparando prints importados com ciclos manuais.',
+        'Otimização de performance nos cálculos do dashboard e relatórios.'
+      ]
+    },
     {
       id: '2.4.1',
       date: '18 Mar, 2026',

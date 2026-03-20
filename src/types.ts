@@ -58,6 +58,13 @@ export interface Cycle {
   indriver_km?: number;
   vehicle_id?: string;
   vehicle_name?: string;
+  vehicle_snapshot?: {
+    id: string;
+    name: string;
+    fixedCosts: FixedCosts;
+    kmPerLiter?: number;
+    fuelPrice?: number;
+  };
   imported_report_id?: string;
   source?: 'manual' | 'screenshot';
 }
@@ -244,6 +251,7 @@ export interface DriverState {
   importedReports: ImportedReport[];
   settings: UserSettings;
   tracking: TrackingSession;
+  isSaving: boolean;
   setUser: (user: AuthUser | null) => void;
   setSyncStatus: (status: SyncStatus) => void;
   
