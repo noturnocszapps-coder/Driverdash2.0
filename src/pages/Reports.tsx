@@ -44,31 +44,42 @@ export const Reports = () => {
     return Array.from({ length: 7 }).map((_, i) => {
       const date = addDays(start, i);
       const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
-      const dayRevenue = dayCycles.reduce((acc, c) => acc + c.total_amount, 0);
-      const dayExpenses = dayCycles.reduce((acc, c) => acc + (c.total_expenses || 0), 0);
       
-      const uber = dayCycles.reduce((acc, c) => acc + c.uber_amount, 0);
-      const noventanove = dayCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
-      const indriver = dayCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
-      const extra = dayCycles.reduce((acc, c) => acc + c.extra_amount, 0);
+      // Manual Values
+      const manualUber = dayCycles.reduce((acc, c) => acc + c.uber_amount, 0);
+      const manual99 = dayCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
+      const manualInDriver = dayCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
+      const manualExtra = dayCycles.reduce((acc, c) => acc + c.extra_amount, 0);
+      const manualRevenue = dayCycles.reduce((acc, c) => acc + c.total_amount, 0);
       
       const totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
       const rideKm = dayCycles.reduce((acc, c) => acc + (c.ride_km || 0), 0);
-
-      // Only apply fixed cost if there was activity
       const totalDayExpenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
+
+      // Imported Reports (Daily)
+      const dayImportedReports = importedReports.filter(r => 
+        r.report_type === 'daily' && isSameDay(parseISO(r.period_start), date)
+      );
+      
+      const importedUber = dayImportedReports.filter(r => r.platform === 'Uber').reduce((acc, r) => acc + r.total_earnings, 0);
+      const imported99 = dayImportedReports.filter(r => r.platform === '99').reduce((acc, r) => acc + r.total_earnings, 0);
+      const importedInDriver = dayImportedReports.filter(r => r.platform === 'inDrive').reduce((acc, r) => acc + r.total_earnings, 0);
+
+      // Consolidation: Use manual if exists (has KM/Expenses context), otherwise use imported
+      const uber = manualUber > 0 ? manualUber : importedUber;
+      const noventanove = manual99 > 0 ? manual99 : imported99;
+      const indriver = manualInDriver > 0 ? manualInDriver : importedInDriver;
+      const extra = manualExtra;
+
+      const dayRevenue = uber + noventanove + indriver + extra;
       const profit = dayRevenue - totalDayExpenses;
 
       // Earnings per KM
       const grossPerKm = totalKm > 0 ? dayRevenue / totalKm : 0;
       const netPerKm = totalKm > 0 ? profit / totalKm : 0;
 
-      // Find matching imported reports for this day
-      const dayImportedReports = importedReports.filter(r => 
-        r.report_type === 'daily' && isSameDay(parseISO(r.period_start), date)
-      );
-      const importedTotal = dayImportedReports.reduce((acc, r) => acc + r.total_earnings, 0);
-      const hasMismatch = dayRevenue > 0 && importedTotal > 0 && Math.abs(dayRevenue - importedTotal) > 5;
+      const importedTotal = importedUber + imported99 + importedInDriver;
+      const hasMismatch = manualRevenue > 0 && importedTotal > 0 && Math.abs(manualRevenue - importedTotal) > 5;
 
       return {
         name: format(date, 'EEE', { locale: ptBR }),
@@ -89,7 +100,7 @@ export const Reports = () => {
         date: date
       };
     });
-  }, [cycles, today, dailyFixed, importedReports]);
+  }, [cycles, today, settings, importedReports]);
 
   const stats = useMemo(() => {
     const total = currentWeek.reduce((acc, d) => acc + d.value, 0);
@@ -441,7 +452,11 @@ export const Reports = () => {
               <Card key={report.id} className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center",
+                      report.platform === 'Uber' ? "bg-zinc-900 text-white" : 
+                      report.platform === '99' ? "bg-yellow-500 text-black" : "bg-emerald-500 text-white"
+                    )}>
                       <Camera size={18} />
                     </div>
                     <div>
@@ -452,7 +467,10 @@ export const Reports = () => {
                         </span>
                       </div>
                       <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                        {report.period_start} {report.period_end && ` - ${report.period_end}`} • {report.report_type === 'daily' ? 'Diário' : 'Semanal'}
+                        {report.period_start || 'Período não identificado'} 
+                        {report.period_end && ` - ${report.period_end}`} 
+                        <span className="mx-1 opacity-20">•</span>
+                        {report.report_type === 'daily' ? 'Diário' : 'Semanal'}
                       </p>
                     </div>
                   </div>

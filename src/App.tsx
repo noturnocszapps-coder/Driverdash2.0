@@ -1,14 +1,5 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
-import { LandingPage } from './LandingPage';
-import { Dashboard } from './pages/Dashboard';
-import { Reports } from './pages/Reports';
-import { Settings } from './pages/Settings';
-import { Login } from './pages/Login';
-import { Register } from './pages/Register';
-import { ForgotPassword } from './pages/ForgotPassword';
-import { Faturamento } from './pages/Faturamento';
-import { ImportReport } from './pages/ImportReport';
 import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncIndicator } from './components/SyncIndicator';
 import { SyncManager } from './components/SyncManager';
@@ -16,6 +7,26 @@ import { Footer } from './components/Footer';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { useDriverStore } from './store';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { ReloadPrompt } from './ReloadPrompt';
+import { PWAInstallPrompt } from './PWAInstallPrompt';
+import { OfflineFallback } from './components/OfflineFallback';
+
+// Lazy load pages
+const LandingPage = lazy(() => import('./LandingPage').then(m => ({ default: m.LandingPage })));
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
+const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
+const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
+const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
+const Register = lazy(() => import('./pages/Register').then(m => ({ default: m.Register })));
+const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
+const Faturamento = lazy(() => import('./pages/Faturamento').then(m => ({ default: m.Faturamento })));
+const ImportReport = lazy(() => import('./pages/ImportReport').then(m => ({ default: m.ImportReport })));
+
+const PageLoader = () => (
+  <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+    <div className="w-8 h-8 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+  </div>
+);
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -45,6 +56,20 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 export default function App() {
   const { setUser, setSyncStatus } = useDriverStore();
   const [isAuthReady, setIsAuthReady] = React.useState(false);
+  const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {
@@ -118,33 +143,37 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [setUser, setSyncStatus]);
 
+  if (isOffline) {
+    return <OfflineFallback />;
+  }
+
   if (!isAuthReady) {
-    return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
-      </div>
-    );
+    return <PageLoader />;
   }
 
   return (
     <Router>
       <SyncManager />
+      <ReloadPrompt />
+      <PWAInstallPrompt />
       <Layout>
-        <Routes>
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/forgot-password" element={<ForgotPassword />} />
-          
-          {/* Protected Routes */}
-          <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-          <Route path="/faturamento" element={<ProtectedRoute><Faturamento /></ProtectedRoute>} />
-          <Route path="/import-report" element={<ProtectedRoute><ImportReport /></ProtectedRoute>} />
-          <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-          <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-          
-          <Route path="*" element={<Navigate to="/" replace />} />
-        </Routes>
+        <Suspense fallback={<PageLoader />}>
+          <Routes>
+            <Route path="/" element={<LandingPage />} />
+            <Route path="/login" element={<Login />} />
+            <Route path="/register" element={<Register />} />
+            <Route path="/forgot-password" element={<ForgotPassword />} />
+            
+            {/* Protected Routes */}
+            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
+            <Route path="/faturamento" element={<ProtectedRoute><Faturamento /></ProtectedRoute>} />
+            <Route path="/import-report" element={<ProtectedRoute><ImportReport /></ProtectedRoute>} />
+            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
+            
+            <Route path="*" element={<Navigate to="/" replace />} />
+          </Routes>
+        </Suspense>
       </Layout>
     </Router>
   );

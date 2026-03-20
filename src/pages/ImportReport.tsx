@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDriverStore } from '../store';
+import { cn } from '../utils';
 import { Button, Card, Input } from '../components/UI';
 import { 
   extractReportFromImage, 
@@ -34,7 +35,8 @@ export const ImportReport = () => {
     console.log('DEBUG - import.meta.env:', import.meta.env);
   }, []);
 
-  const [step, setStep] = useState<'upload' | 'analyzing' | 'review'>('upload');
+  const [step, setStep] = useState<'upload' | 'analyzing' | 'review' | 'success'>('upload');
+  const [loadingStep, setLoadingStep] = useState(0);
   const [platform, setPlatform] = useState<AppType>('Uber');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -64,14 +66,18 @@ export const ImportReport = () => {
     if (!selectedFile) return;
 
     setStep('analyzing');
+    setLoadingStep(0);
     setError(null);
     setIsDuplicate(false);
     setExtractedData(null);
 
     console.log("[ImportReport] Iniciando análise...");
-    console.log("[ImportReport] VITE_GEMINI_API_KEY existe:", !!import.meta.env.VITE_GEMINI_API_KEY);
-
+    
     try {
+      // Step 0: Enviando imagem
+      setLoadingStep(0);
+      await new Promise(r => setTimeout(r, 800));
+
       // 1. Generate hash for duplicate check
       const imageHash = await generateImageHash(selectedFile);
       
@@ -81,6 +87,9 @@ export const ImportReport = () => {
         setIsDuplicate(true);
       }
 
+      // Step 1: Lendo print
+      setLoadingStep(1);
+      
       // 2. Convert to base64 for AI
       const reader = new FileReader();
       const base64Promise = new Promise<string>((resolve, reject) => {
@@ -90,8 +99,16 @@ export const ImportReport = () => {
       });
       const base64Image = await base64Promise;
 
+      // Step 2: Extraindo valores
+      setLoadingStep(2);
+      
       // 3. Extract data using AI
       const data = await extractReportFromImage(base64Image, platform);
+      
+      // Step 3: Organizando relatório
+      setLoadingStep(3);
+      await new Promise(r => setTimeout(r, 600));
+      
       setExtractedData(data);
 
       // 4. Content fingerprint check
@@ -139,8 +156,7 @@ export const ImportReport = () => {
         uncertain_fields: extractedData.uncertain_fields
       });
 
-      setStep('upload');
-      navigate('/reports', { state: { successMessage: 'Relatório importado com sucesso!' } });
+      setStep('success');
     } catch (err) {
       console.error('[ImportReport] Save error:', err);
       setError('Erro ao salvar o relatório. Tente novamente.');
@@ -281,23 +297,50 @@ export const ImportReport = () => {
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 1.05 }}
-            className="flex flex-col items-center justify-center py-20 text-center"
+            className="flex flex-col items-center justify-center py-12 text-center"
           >
-            <div className="relative w-24 h-24 mb-8">
-              <div className="absolute inset-0 border-4 border-emerald-500/20 rounded-full" />
+            <div className="relative w-32 h-32 mb-12">
+              <div className="absolute inset-0 border-4 border-emerald-500/10 rounded-full" />
               <motion.div 
                 className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent"
                 animate={{ rotate: 360 }}
-                transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+                transition={{ duration: 1.5, repeat: Infinity, ease: "linear" }}
               />
               <div className="absolute inset-0 flex items-center justify-center text-emerald-500">
-                <Loader2 size={32} className="animate-pulse" />
+                <motion.div
+                  animate={{ scale: [1, 1.1, 1] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                >
+                  <Camera size={40} />
+                </motion.div>
+              </div>
+              
+              {/* Progress dots */}
+              <div className="absolute -bottom-4 left-1/2 -translate-x-1/2 flex gap-1.5">
+                {[0, 1, 2, 3].map((i) => (
+                  <motion.div
+                    key={i}
+                    className={cn(
+                      "w-1.5 h-1.5 rounded-full transition-colors duration-300",
+                      loadingStep >= i ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                    )}
+                    animate={loadingStep === i ? { scale: [1, 1.5, 1] } : {}}
+                  />
+                ))}
               </div>
             </div>
-            <h2 className="text-xl font-black mb-2">Analisando seu print...</h2>
-            <p className="text-sm text-zinc-500 font-medium max-w-xs">
-              Nossa IA está extraindo os valores financeiros e identificando o período do relatório.
-            </p>
+
+            <div className="space-y-4">
+              <h2 className="text-2xl font-black tracking-tight">
+                {loadingStep === 0 && "Enviando imagem..."}
+                {loadingStep === 1 && "Lendo print..."}
+                {loadingStep === 2 && "Extraindo valores..."}
+                {loadingStep === 3 && "Organizando relatório..."}
+              </h2>
+              <p className="text-sm text-zinc-500 font-medium max-w-xs mx-auto leading-relaxed">
+                Nossa IA está processando os dados financeiros para gerar sua análise automática.
+              </p>
+            </div>
           </motion.div>
         )}
 
@@ -416,6 +459,55 @@ export const ImportReport = () => {
                 </Button>
               </div>
             </Card>
+          </motion.div>
+        )}
+        {step === 'success' && extractedData && (
+          <motion.div
+            key="success"
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex flex-col items-center justify-center py-12 text-center"
+          >
+            <motion.div 
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              transition={{ type: "spring", damping: 12 }}
+              className="w-24 h-24 rounded-full bg-emerald-500 flex items-center justify-center text-white mb-8 shadow-lg shadow-emerald-500/20"
+            >
+              <CheckCircle2 size={48} />
+            </motion.div>
+
+            <div className="space-y-2 mb-12">
+              <h2 className="text-3xl font-black tracking-tight">Importado com Sucesso!</h2>
+              <p className="text-zinc-500 font-medium">
+                <span className="text-emerald-500 font-black">
+                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(extractedData.total_earnings)}
+                </span> adicionados à sua análise.
+              </p>
+            </div>
+
+            <Card className="w-full p-6 mb-8 text-left space-y-4">
+              <div className="flex justify-between items-center pb-4 border-bottom border-zinc-100 dark:border-zinc-800">
+                <span className="text-xs font-black uppercase text-zinc-400">Plataforma</span>
+                <span className="text-sm font-black">{platform}</span>
+              </div>
+              <div className="flex justify-between items-center pb-4 border-bottom border-zinc-100 dark:border-zinc-800">
+                <span className="text-xs font-black uppercase text-zinc-400">Tipo</span>
+                <span className="text-sm font-black">{extractedData.report_type === 'daily' ? 'Diário' : 'Semanal'}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-xs font-black uppercase text-zinc-400">Período</span>
+                <span className="text-sm font-black">{extractedData.period_start}</span>
+              </div>
+            </Card>
+
+            <Button 
+              variant="primary" 
+              className="w-full h-14"
+              onClick={() => navigate('/reports')}
+            >
+              Ver Relatórios
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>
