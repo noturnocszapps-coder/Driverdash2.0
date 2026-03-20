@@ -48,7 +48,16 @@ export const ImportReport = () => {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setError(null);
+      setIsDuplicate(false);
+      setExtractedData(null);
     }
+  };
+
+  const handlePlatformChange = (p: AppType) => {
+    setPlatform(p);
+    setError(null);
+    setIsDuplicate(false);
+    setExtractedData(null);
   };
 
   const handleStartAnalysis = async () => {
@@ -56,6 +65,11 @@ export const ImportReport = () => {
 
     setStep('analyzing');
     setError(null);
+    setIsDuplicate(false);
+    setExtractedData(null);
+
+    console.log("[ImportReport] Iniciando análise...");
+    console.log("[ImportReport] VITE_GEMINI_API_KEY existe:", !!import.meta.env.VITE_GEMINI_API_KEY);
 
     try {
       // 1. Generate hash for duplicate check
@@ -69,8 +83,9 @@ export const ImportReport = () => {
 
       // 2. Convert to base64 for AI
       const reader = new FileReader();
-      const base64Promise = new Promise<string>((resolve) => {
+      const base64Promise = new Promise<string>((resolve, reject) => {
         reader.onload = () => resolve(reader.result as string);
+        reader.onerror = () => reject(new Error("Erro ao ler o arquivo de imagem."));
         reader.readAsDataURL(selectedFile);
       });
       const base64Image = await base64Promise;
@@ -88,8 +103,9 @@ export const ImportReport = () => {
       }
 
       setStep('review');
+      console.log("[ImportReport] Análise concluída com sucesso.");
     } catch (err: any) {
-      console.error('[ImportReport] Analysis error:', err);
+      console.error('[ImportReport] Erro na análise:', err);
       setError(err.message || 'Ocorreu um erro ao analisar a imagem. Tente novamente.');
       setStep('upload');
     }
@@ -163,7 +179,7 @@ export const ImportReport = () => {
                 {(['Uber', '99', 'inDrive'] as AppType[]).map((p) => (
                   <button
                     key={p}
-                    onClick={() => setPlatform(p)}
+                    onClick={() => handlePlatformChange(p)}
                     className={`p-4 rounded-2xl border-2 transition-all flex flex-col items-center gap-2 ${
                       platform === p 
                         ? 'border-emerald-500 bg-emerald-500/5 text-emerald-500' 
@@ -211,7 +227,12 @@ export const ImportReport = () => {
                       className="w-full h-full object-cover"
                     />
                     <button
-                      onClick={() => setSelectedFile(null)}
+                      onClick={() => {
+                        setSelectedFile(null);
+                        setError(null);
+                        setExtractedData(null);
+                        setIsDuplicate(false);
+                      }}
                       className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/70 transition-colors"
                     >
                       <AlertCircle size={20} />
@@ -219,11 +240,11 @@ export const ImportReport = () => {
                   </div>
                   
                   <div className="mb-4 p-3 rounded-xl bg-zinc-100 dark:bg-zinc-900 border border-zinc-200 dark:border-zinc-800">
-                    <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400 mb-1">Debug Runtime</p>
+                    <p className="text-[10px] font-black uppercase tracking-wider text-zinc-400 mb-1">Status da IA</p>
                     <p className="text-xs font-bold">
                       {import.meta.env.VITE_GEMINI_API_KEY 
-                        ? `Gemini key detectada: ${import.meta.env.VITE_GEMINI_API_KEY.substring(0, 6)}...`
-                        : "Gemini key ausente no runtime"}
+                        ? "Pronto para analisar"
+                        : "Aguardando configuração da API Key"}
                     </p>
                   </div>
 
