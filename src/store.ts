@@ -11,6 +11,7 @@ export const useDriverStore = create<DriverState>()(
     (set, get) => ({
       user: null,
       syncStatus: 'idle',
+      hasSynced: false,
       rides: [],
       workLogs: [],
       faturamentoLogs: [],
@@ -41,6 +42,9 @@ export const useDriverStore = create<DriverState>()(
       tracking: {
         isActive: false,
         distance: 0,
+        productiveDistance: 0,
+        idleDistance: 0,
+        isProductive: false,
         avgSpeed: 0,
         duration: 0,
         movingTime: 0,
@@ -494,12 +498,14 @@ export const useDriverStore = create<DriverState>()(
       },
 
       updateSettings: async (newSettings) => {
-        const { user, isSaving } = get();
+        const { user, isSaving, syncData } = get();
         if (isSaving) return;
 
         set({ isSaving: true });
         try {
+          // Update local state immediately
           set((state) => ({ settings: { ...state.settings, ...newSettings } }));
+          
           const { settings } = get();
           
           // Ensure active vehicle consistency
@@ -510,29 +516,32 @@ export const useDriverStore = create<DriverState>()(
 
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
-            const { error } = await supabase.from('profiles').update({
-              name: settings.name,
-              daily_goal: settings.dailyGoal,
-              vehicle: settings.vehicle,
-              km_per_liter: settings.kmPerLiter,
-              fuel_price: settings.fuelPrice,
-              active_platforms: settings.activePlatforms,
-              transport_mode: settings.transportMode,
-              dashboard_mode: settings.dashboardMode,
-              theme: settings.theme,
-              photo_url: settings.photoUrl,
-              fixed_costs: settings.fixedCosts,
-              current_vehicle_profile_id: settings.currentVehicleProfileId,
-              vehicle_profiles: settings.vehicleProfiles
-            }).eq('id', user.id);
+            
+            // Prepare update object
+            const updateObj: any = {};
+            if (newSettings.name !== undefined) updateObj.name = newSettings.name;
+            if (newSettings.dailyGoal !== undefined) updateObj.daily_goal = newSettings.dailyGoal;
+            if (newSettings.vehicle !== undefined || activeVehicle) updateObj.vehicle = activeVehicle?.name || newSettings.vehicle;
+            if (newSettings.kmPerLiter !== undefined) updateObj.km_per_liter = newSettings.kmPerLiter;
+            if (newSettings.fuelPrice !== undefined) updateObj.fuel_price = newSettings.fuelPrice;
+            if (newSettings.activePlatforms !== undefined) updateObj.active_platforms = newSettings.activePlatforms;
+            if (newSettings.transportMode !== undefined) updateObj.transport_mode = newSettings.transportMode;
+            if (newSettings.dashboardMode !== undefined) updateObj.dashboard_mode = newSettings.dashboardMode;
+            if (newSettings.theme !== undefined) updateObj.theme = newSettings.theme;
+            if (newSettings.photoUrl !== undefined) updateObj.photo_url = newSettings.photoUrl;
+            if (newSettings.fixedCosts !== undefined) updateObj.fixed_costs = newSettings.fixedCosts;
+            if (newSettings.currentVehicleProfileId !== undefined) updateObj.current_vehicle_profile_id = newSettings.currentVehicleProfileId;
+            if (newSettings.vehicleProfiles !== undefined) updateObj.vehicle_profiles = newSettings.vehicleProfiles;
+
+            const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
             
             if (error) {
               console.error('[Store] Sync error (settings):', error);
               set({ syncStatus: 'offline' });
             } else {
               set({ syncStatus: 'synced' });
-              // Force refresh to ensure data integrity
-              await get().syncData();
+              // Refresh data to be sure
+              await syncData();
             }
             
             setTimeout(() => {
@@ -570,6 +579,9 @@ export const useDriverStore = create<DriverState>()(
             duration: 0,
             movingTime: 0,
             stoppedTime: 0,
+            productiveDistance: 0,
+            idleDistance: 0,
+            isProductive: false,
             points: [],
             lastPoint: undefined
           }
@@ -588,22 +600,45 @@ export const useDriverStore = create<DriverState>()(
             let newDistance = currentTracking.distance;
             let newMovingTime = currentTracking.movingTime;
             let newStoppedTime = currentTracking.stoppedTime;
+            let newProductiveDistance = currentTracking.productiveDistance;
+            let newIdleDistance = currentTracking.idleDistance;
+            let newIsProductive = currentTracking.isProductive;
+            let newLastStopTimestamp = currentTracking.lastStopTimestamp;
 
             if (lastPoint) {
               const dist = calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng);
-              const timeDiff = newPoint.timestamp - lastPoint.timestamp;
+              const timeDiff = timestamp - lastPoint.timestamp;
 
               // Noise filter
               if (accuracy && accuracy > 50) return;
               
-              if (dist > 0.005) { // 5 meters
-                const speedKmh = (dist / (timeDiff / 3600000));
-                if (speedKmh < 160) { // Max realistic speed
-                  newDistance += dist;
-                  newMovingTime += timeDiff;
+              const speedKmh = timeDiff > 0 ? (dist / (timeDiff / 3600000)) : 0;
+
+              if (dist > 0.005 && speedKmh < 160) { // 5 meters and realistic speed
+                newDistance += dist;
+                newMovingTime += timeDiff;
+
+                // Classification Logic
+                if (speedKmh > 5) {
+                  // If we were stopped for > 60s, assume a state change (pickup/dropoff)
+                  if (newLastStopTimestamp && (timestamp - newLastStopTimestamp) > 60000) {
+                    newIsProductive = !newIsProductive;
+                    newLastStopTimestamp = undefined;
+                  } else {
+                    newLastStopTimestamp = undefined;
+                  }
+
+                  if (newIsProductive) {
+                    newProductiveDistance += dist;
+                  } else {
+                    newIdleDistance += dist;
+                  }
                 }
               } else {
                 newStoppedTime += timeDiff;
+                if (!newLastStopTimestamp) {
+                  newLastStopTimestamp = timestamp;
+                }
               }
             }
 
@@ -616,6 +651,10 @@ export const useDriverStore = create<DriverState>()(
                 distance: newDistance,
                 movingTime: newMovingTime,
                 stoppedTime: newStoppedTime,
+                productiveDistance: newProductiveDistance,
+                idleDistance: newIdleDistance,
+                isProductive: newIsProductive,
+                lastStopTimestamp: newLastStopTimestamp,
                 duration: totalDuration,
                 avgSpeed,
                 points: [...currentTracking.points, newPoint],
@@ -645,10 +684,21 @@ export const useDriverStore = create<DriverState>()(
 
         const openCycle = cycles.find(c => c.status === 'open');
         if (openCycle) {
+          const efficiency = tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0;
+          
+          // Calculate driver score (0-100)
+          // Factors: efficiency (40%), profit per km (30%), revenue per hour (30%)
+          // Simplified for now based on available tracking data
+          const score = Math.min(100, Math.round(efficiency));
+
           updateCycle(openCycle.id, {
             tracked_km: tracking.distance,
             tracked_moving_time: tracking.movingTime,
             tracked_stopped_time: tracking.stoppedTime,
+            productive_km: tracking.productiveDistance,
+            idle_km: tracking.idleDistance,
+            efficiency_percentage: efficiency,
+            driver_score: score,
             route_points: tracking.points
           });
         }
@@ -680,7 +730,7 @@ export const useDriverStore = create<DriverState>()(
       }),
 
       syncData: async () => {
-        const { user, syncStatus, setSyncStatus, importData, expenses, fuelings, maintenances, settings, cycles, isSaving } = get();
+        const { user, syncStatus, setSyncStatus, importData, expenses, fuelings, maintenances, settings, cycles, isSaving, hasSynced } = get();
         
         if (!user || !isSupabaseConfigured) return;
         if (syncStatus === 'syncing' || isSaving) return;
@@ -689,92 +739,7 @@ export const useDriverStore = create<DriverState>()(
         set({ isSaving: true });
 
         try {
-          // 1. Push local data (Upsert)
-          if (expenses.length > 0) {
-            await supabase.from('expenses').upsert(expenses.map(e => ({
-              id: e.id,
-              user_id: user.id,
-              date: e.date,
-              category: e.category,
-              value: e.value,
-              description: e.description
-            })));
-          }
-
-          if (fuelings.length > 0) {
-            await supabase.from('fuel_logs').upsert(fuelings.map(f => ({
-              id: f.id,
-              user_id: user.id,
-              date: f.date,
-              liters: f.liters,
-              cost: f.value,
-              odometer: f.odometer
-            })));
-          }
-
-          if (maintenances.length > 0) {
-            await supabase.from('maintenance_logs').upsert(maintenances.map(m => ({
-              id: m.id,
-              user_id: user.id,
-              date: m.date,
-              type: m.type,
-              cost: m.value,
-              odometer: m.currentKm,
-              next_change_km: m.nextChangeKm
-            })));
-          }
-
-          if (cycles.length > 0) {
-            await supabase.from('cycles').upsert(cycles.map(c => ({
-              id: c.id,
-              user_id: user.id,
-              start_time: c.start_time,
-              end_time: c.end_time,
-              uber_amount: c.uber_amount,
-              noventanove_amount: c.noventanove_amount,
-              indriver_amount: c.indriver_amount,
-              extra_amount: c.extra_amount,
-              total_amount: c.total_amount,
-              fuel_expense: c.fuel_expense,
-              food_expense: c.food_expense,
-              other_expense: c.other_expense,
-              total_expenses: c.total_expenses,
-              total_km: c.total_km,
-              ride_km: c.ride_km,
-              displacement_km: c.displacement_km,
-              uber_km: c.uber_km,
-              noventanove_km: c.noventanove_km,
-              indriver_km: c.indriver_km,
-              tracked_km: c.tracked_km,
-              tracked_moving_time: c.tracked_moving_time,
-              tracked_stopped_time: c.tracked_stopped_time,
-              route_points: c.route_points,
-              vehicle_id: c.vehicle_id,
-              vehicle_name: c.vehicle_name,
-              status: c.status
-            })));
-          }
-
-          if (get().importedReports.length > 0) {
-            await supabase.from('imported_reports').upsert(get().importedReports);
-          }
-
-          await supabase.from('profiles').upsert({
-            id: user.id,
-            name: settings.name,
-            daily_goal: settings.dailyGoal,
-            vehicle: settings.vehicle,
-            km_per_liter: settings.kmPerLiter,
-            fuel_price: settings.fuelPrice,
-            active_platforms: settings.activePlatforms,
-            transport_mode: settings.transportMode,
-            dashboard_mode: settings.dashboardMode,
-            fixed_costs: settings.fixedCosts,
-            current_vehicle_profile_id: settings.currentVehicleProfileId,
-            vehicle_profiles: settings.vehicleProfiles
-          });
-
-          // 2. Fetch latest data
+          // 1. Pull latest data first
           const [
             { data: profile },
             { data: dbExpenses },
@@ -807,7 +772,64 @@ export const useDriverStore = create<DriverState>()(
               photoUrl: profile.photo_url,
               fixedCosts: profile.fixed_costs,
               currentVehicleProfileId: profile.current_vehicle_profile_id,
-              vehicleProfiles: profile.vehicle_profiles
+              vehicleProfiles: profile.vehicle_profiles || []
+            };
+
+            // If no vehicle profiles exist even in cloud, create one
+            if (!importedData.settings.vehicleProfiles || importedData.settings.vehicleProfiles.length === 0) {
+              const defaultProfile = {
+                id: crypto.randomUUID(),
+                name: importedData.settings.vehicle || 'Meu Veículo',
+                brand: '',
+                model: '',
+                year: '',
+                type: 'owned',
+                category: importedData.settings.transportMode || 'car',
+                fixedCosts: importedData.settings.fixedCosts || { vehicleType: 'owned' },
+                createdAt: new Date().toISOString()
+              };
+              importedData.settings.vehicleProfiles = [defaultProfile];
+              importedData.settings.currentVehicleProfileId = defaultProfile.id;
+              
+              await supabase.from('profiles').update({
+                vehicle_profiles: [defaultProfile],
+                current_vehicle_profile_id: defaultProfile.id
+              }).eq('id', user.id);
+            }
+          } else {
+            // New user - create profile
+            const defaultProfile = {
+              id: crypto.randomUUID(),
+              name: settings.vehicle || 'Meu Veículo',
+              brand: '',
+              model: '',
+              year: '',
+              type: 'owned',
+              category: settings.transportMode || 'car',
+              fixedCosts: settings.fixedCosts || { vehicleType: 'owned' },
+              createdAt: new Date().toISOString()
+            };
+
+            const initialSettings = {
+              id: user.id,
+              name: settings.name || user.email.split('@')[0],
+              daily_goal: settings.dailyGoal,
+              vehicle: settings.vehicle,
+              km_per_liter: settings.kmPerLiter,
+              fuel_price: settings.fuelPrice,
+              active_platforms: settings.activePlatforms,
+              transport_mode: settings.transportMode,
+              dashboard_mode: settings.dashboardMode,
+              fixed_costs: settings.fixedCosts,
+              current_vehicle_profile_id: defaultProfile.id,
+              vehicle_profiles: [defaultProfile]
+            };
+
+            await supabase.from('profiles').upsert(initialSettings);
+            importedData.settings = {
+              ...settings,
+              vehicleProfiles: [defaultProfile],
+              currentVehicleProfileId: defaultProfile.id
             };
           }
 
@@ -866,6 +888,10 @@ export const useDriverStore = create<DriverState>()(
               tracked_km: Number(c.tracked_km || 0),
               tracked_moving_time: Number(c.tracked_moving_time || 0),
               tracked_stopped_time: Number(c.tracked_stopped_time || 0),
+              productive_km: Number(c.productive_km || 0),
+              idle_km: Number(c.idle_km || 0),
+              efficiency_percentage: Number(c.efficiency_percentage || 0),
+              driver_score: Number(c.driver_score || 0),
               route_points: c.route_points || [],
               vehicle_id: c.vehicle_id,
               vehicle_name: c.vehicle_name,
@@ -877,7 +903,82 @@ export const useDriverStore = create<DriverState>()(
             importedData.importedReports = dbImported;
           }
 
+          // 2. Push local data (only if not first sync or if local data is present)
+          if (expenses.length > 0) {
+            await supabase.from('expenses').upsert(expenses.map(e => ({
+              id: e.id,
+              user_id: user.id,
+              date: e.date,
+              category: e.category,
+              value: e.value,
+              description: e.description
+            })));
+          }
+
+          if (fuelings.length > 0) {
+            await supabase.from('fuel_logs').upsert(fuelings.map(f => ({
+              id: f.id,
+              user_id: user.id,
+              date: f.date,
+              liters: f.liters,
+              cost: f.value,
+              odometer: f.odometer
+            })));
+          }
+
+          if (maintenances.length > 0) {
+            await supabase.from('maintenance_logs').upsert(maintenances.map(m => ({
+              id: m.id,
+              user_id: user.id,
+              date: m.date,
+              type: m.type,
+              cost: m.value,
+              odometer: m.currentKm,
+              next_change_km: m.nextChangeKm
+            })));
+          }
+
+          if (cycles.length > 0) {
+            await supabase.from('cycles').upsert(cycles.map(c => ({
+              id: c.id,
+              user_id: user.id,
+              start_time: c.start_time,
+              end_time: c.end_time,
+              uber_amount: c.uber_amount,
+              noventanove_amount: c.noventanove_amount,
+              indriver_amount: c.indriver_amount,
+              extra_amount: c.extra_amount,
+              total_amount: c.total_amount,
+              fuel_expense: c.fuel_expense,
+              food_expense: c.food_expense,
+              other_expense: c.other_expense,
+              total_expenses: c.total_expenses,
+              total_km: c.total_km,
+              ride_km: c.ride_km,
+              displacement_km: c.displacement_km,
+              uber_km: c.uber_km,
+              noventanove_km: c.noventanove_km,
+              indriver_km: c.indriver_km,
+              tracked_km: c.tracked_km,
+              tracked_moving_time: c.tracked_moving_time,
+              tracked_stopped_time: c.tracked_stopped_time,
+              productive_km: c.productive_km,
+              idle_km: c.idle_km,
+              efficiency_percentage: c.efficiency_percentage,
+              driver_score: c.driver_score,
+              route_points: c.route_points,
+              vehicle_id: c.vehicle_id,
+              vehicle_name: c.vehicle_name,
+              status: c.status
+            })));
+          }
+
+          if (get().importedReports.length > 0) {
+            await supabase.from('imported_reports').upsert(get().importedReports);
+          }
+
           importData(importedData);
+          set({ hasSynced: true });
           setSyncStatus('synced');
           setTimeout(() => {
             if (get().syncStatus === 'synced') setSyncStatus('idle');
@@ -899,6 +1000,9 @@ export const useDriverStore = create<DriverState>()(
         tracking: {
           isActive: false,
           distance: 0,
+          productiveDistance: 0,
+          idleDistance: 0,
+          isProductive: false,
           avgSpeed: 0,
           duration: 0,
           movingTime: 0,

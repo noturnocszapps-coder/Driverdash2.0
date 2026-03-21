@@ -71,6 +71,10 @@ export interface Cycle {
   tracked_km?: number;
   tracked_moving_time?: number;
   tracked_stopped_time?: number;
+  productive_km?: number;
+  idle_km?: number;
+  efficiency_percentage?: number;
+  driver_score?: number;
   route_points?: TrackingPoint[];
 }
 
@@ -201,6 +205,10 @@ export interface TrackingSession {
   duration: number;
   movingTime: number;
   stoppedTime: number;
+  productiveDistance: number;
+  idleDistance: number;
+  isProductive: boolean;
+  lastStopTimestamp?: number;
   points: TrackingPoint[];
   lastPoint?: TrackingPoint;
 }
@@ -260,6 +268,7 @@ export interface ImportedReport {
 export interface DriverState {
   user: AuthUser | null;
   syncStatus: SyncStatus;
+  hasSynced: boolean;
   rides: Ride[];
   workLogs: WorkLog[];
   faturamentoLogs: FaturamentoLog[];

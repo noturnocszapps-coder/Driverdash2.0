@@ -48,21 +48,48 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
   const totalAmount = cycle.total_amount || 0;
   // Prioritize tracked_km over total_km (manual)
   const totalKm = cycle.tracked_km || cycle.total_km || 0;
-  const rideKm = cycle.ride_km || 0;
+  const rideKm = cycle.ride_km || cycle.productive_km || 0;
   const totalCost = calculateOperationalCost(cycle, settings);
   
   const grossPerKm = totalKm > 0 ? totalAmount / totalKm : 0;
   const netAmount = totalAmount - totalCost;
   const netPerKm = totalKm > 0 ? netAmount / totalKm : 0;
   const profitPerKm = rideKm > 0 ? netAmount / rideKm : 0;
+  const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
 
   return {
     totalCost,
     grossPerKm,
     netAmount,
     netPerKm,
-    profitPerKm
+    profitPerKm,
+    efficiencyPercentage
   };
+}
+
+export function calculateDriverScore(metrics: any) {
+  // Score 0-100
+  // efficiency (60%), profit per km (40%)
+  const efficiencyScore = Math.min(100, (metrics.efficiencyPercentage || 0));
+  const profitScore = Math.min(100, (metrics.profitPerKm || 0) * 20); // R$ 5/km = 100 points
+  
+  const score = Math.round((efficiencyScore * 0.6) + (profitScore * 0.4));
+  
+  let label = 'Baixo';
+  let color = 'text-red-500 bg-red-500/10 border-red-500/20';
+  
+  if (score >= 85) {
+    label = 'Excelente';
+    color = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+  } else if (score >= 70) {
+    label = 'Bom';
+    color = 'text-blue-500 bg-blue-500/10 border-blue-500/20';
+  } else if (score >= 50) {
+    label = 'Médio';
+    color = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+  }
+  
+  return { score, label, color };
 }
 
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {

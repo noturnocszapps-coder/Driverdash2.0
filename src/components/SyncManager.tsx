@@ -6,13 +6,33 @@ export const SyncManager = () => {
   const { user, syncData, setSyncStatus } = useDriverStore();
 
   useEffect(() => {
-    if (!user || !isSupabaseConfigured) {
-      if (!user) setSyncStatus('offline');
-      return;
-    }
+    const check = async () => {
+      if (user && isSupabaseConfigured) {
+        try {
+          const { error } = await supabase.from('profiles').select('id').limit(1);
+          if (error) {
+            setSyncStatus('offline');
+          } else {
+            // Only set to online if we are not currently syncing or synced
+            const currentStatus = useDriverStore.getState().syncStatus;
+            if (currentStatus === 'offline' || currentStatus === 'idle') {
+              setSyncStatus('online');
+            }
+          }
+        } catch (err) {
+          setSyncStatus('offline');
+        }
+      }
+    };
 
-    syncData();
-  }, [user?.id]); // Only re-run if user ID changes
+    if (user && isSupabaseConfigured) {
+      syncData();
+      check();
+    }
+    
+    const interval = setInterval(check, 30000);
+    return () => clearInterval(interval);
+  }, [user?.id]);
 
 
   return null;

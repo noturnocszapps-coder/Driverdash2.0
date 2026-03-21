@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
   TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon
@@ -55,6 +55,8 @@ export const Reports = () => {
       const manualRevenue = dayCycles.reduce((acc, c) => acc + c.total_amount, 0);
       
       const totalKm = dayCycles.reduce((acc, c) => acc + (c.tracked_km || c.total_km || 0), 0);
+      const productiveKm = dayCycles.reduce((acc, c) => acc + (c.productive_km || 0), 0);
+      const idleKm = dayCycles.reduce((acc, c) => acc + (c.idle_km || 0), 0);
       const rideKm = dayCycles.reduce((acc, c) => acc + (c.ride_km || 0), 0);
       const totalDayExpenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
 
@@ -96,6 +98,10 @@ export const Reports = () => {
       // Earnings per KM
       const grossPerKm = totalKm > 0 ? dayRevenue / totalKm : 0;
       const netPerKm = totalKm > 0 ? profit / totalKm : 0;
+      
+      const rideKmConsolidated = rideKm > 0 ? rideKm : (productiveKm > 0 ? productiveKm : 0);
+      const profitPerProductiveKm = rideKmConsolidated > 0 ? profit / rideKmConsolidated : 0;
+      const efficiencyPercentage = totalKm > 0 ? (rideKmConsolidated / totalKm) * 100 : 0;
 
       const importedTotal = importedUber + imported99 + importedInDriver;
       const hasMismatch = manualRevenue > 0 && importedTotal > 0 && Math.abs(manualRevenue - importedTotal) > 5;
@@ -107,9 +113,13 @@ export const Reports = () => {
         expenses: totalDayExpenses,
         profit,
         totalKm,
+        productiveKm,
+        idleKm,
         rideKm,
         grossPerKm,
         netPerKm,
+        profitPerProductiveKm,
+        efficiencyPercentage,
         hasMismatch,
         importedTotal,
         uber,
@@ -126,6 +136,9 @@ export const Reports = () => {
     const totalExpenses = currentWeek.reduce((acc, d) => acc + d.expenses, 0);
     const totalProfit = total - totalExpenses;
     const totalKm = currentWeek.reduce((acc, d) => acc + d.totalKm, 0);
+    const totalProductiveKm = currentWeek.reduce((acc, d) => acc + d.productiveKm, 0);
+    const totalIdleKm = currentWeek.reduce((acc, d) => acc + d.idleKm, 0);
+    const avgEfficiency = totalKm > 0 ? (totalProductiveKm / totalKm) * 100 : 0;
     const avg = total / 7;
     const sorted = [...currentWeek].sort((a, b) => b.value - a.value);
     
@@ -171,6 +184,9 @@ export const Reports = () => {
       totalExpenses,
       totalProfit,
       totalKm,
+      totalProductiveKm,
+      totalIdleKm,
+      avgEfficiency,
       avg,
       grossPerKm,
       netPerKm,
@@ -240,8 +256,15 @@ export const Reports = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard label="Faturado" value={formatCurrency(stats.total)} color="text-zinc-900 dark:text-white" />
         <SummaryCard label="Lucro Total" value={formatCurrency(stats.totalProfit)} color="text-emerald-500" />
-        <SummaryCard label="KM Total" value={formatKm(stats.totalKm)} color="text-blue-500" />
+        <SummaryCard label="KM Produtivo" value={formatKm(stats.totalProductiveKm)} color="text-emerald-500" />
+        <SummaryCard label="Eficiência" value={`${stats.avgEfficiency.toFixed(0)}%`} color="text-blue-500" />
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <SummaryCard label="KM Total" value={formatKm(stats.totalKm)} color="text-zinc-500" />
+        <SummaryCard label="KM Ocioso" value={formatKm(stats.totalIdleKm)} color="text-zinc-400" />
         <SummaryCard label="R$/KM Bruto" value={formatCurrency(stats.grossPerKm)} color="text-zinc-500" />
+        <SummaryCard label="R$/KM Líquido" value={formatCurrency(stats.netPerKm)} color="text-zinc-500" />
       </div>
 
       {/* Smart Alerts */}
@@ -354,6 +377,14 @@ export const Reports = () => {
                               <span className="text-zinc-500 uppercase">R$/KM Bruto</span>
                               <span className="text-zinc-300">{formatCurrency(data.grossPerKm)}</span>
                             </div>
+                            <div className="flex justify-between items-center text-[9px] font-bold">
+                              <span className="text-zinc-500 uppercase">Eficiência</span>
+                              <span className="text-blue-400">{Math.round(data.efficiencyPercentage)}%</span>
+                            </div>
+                            <div className="flex justify-between items-center text-[9px] font-bold">
+                              <span className="text-zinc-500 uppercase">Lucro/KM Real</span>
+                              <span className="text-emerald-400">{formatCurrency(data.profitPerProductiveKm)}</span>
+                            </div>
                             {data.hasMismatch && (
                               <div className="flex justify-between items-center text-[9px] font-bold text-amber-400 pt-1 border-t border-white/5">
                                 <span className="uppercase">Diferença Print</span>
@@ -462,6 +493,14 @@ export const Reports = () => {
                       {formatKm(cycle.tracked_km || cycle.total_km || 0)} • {format(new Date(cycle.start_time), 'HH:mm')} 
                       {cycle.end_time && ` • ${format(new Date(cycle.end_time), 'HH:mm')}`}
                     </p>
+                    <div className="flex items-center gap-2 mt-1">
+                      <span className="text-[8px] font-black uppercase tracking-widest text-blue-500">
+                        {Math.round(calculateEfficiencyMetrics(cycle, settings).efficiencyPercentage)}% Efic.
+                      </span>
+                      <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">
+                        {formatCurrency(calculateEfficiencyMetrics(cycle, settings).profitPerKm)}/km Real
+                      </span>
+                    </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

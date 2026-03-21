@@ -1,9 +1,9 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, calculateEfficiencyMetrics, formatKm, calculateOperationalCost, formatDuration } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, calculateEfficiencyMetrics, formatKm, calculateOperationalCost, formatDuration, calculateDriverScore } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
-import { TrendingUp, Clock, Target, Zap, LayoutGrid, Plus, ChevronRight, Navigation, Calendar, AlertCircle, Gauge, Map as MapIcon } from 'lucide-react';
+import { TrendingUp, Clock, Target, Zap, LayoutGrid, Plus, ChevronRight, Navigation, Calendar, AlertCircle, Gauge, Map as MapIcon, Award, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfDay, isSameDay, parseISO, subDays, format, differenceInMinutes, addHours } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -66,6 +66,28 @@ export const Dashboard = () => {
     if (!openCycle) return null;
     return calculateEfficiencyMetrics(openCycle, settings);
   }, [openCycle, settings]);
+
+  const driverScore = useMemo(() => {
+    if (!efficiencyStats) return null;
+    return calculateDriverScore(efficiencyStats);
+  }, [efficiencyStats]);
+
+  const smartAlerts = useMemo(() => {
+    if (!tracking.isActive) return [];
+    const alerts = [];
+    const efficiency = tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0;
+    
+    if (tracking.idleDistance > 5 && efficiency < 30) {
+      alerts.push({ id: 'high-idle', message: 'Você está rodando vazio. Considere mudar de região.', type: 'warning' });
+    }
+    if (efficiency > 80 && tracking.distance > 2) {
+      alerts.push({ id: 'high-efficiency', message: 'Ótimo desempenho agora! Continue assim.', type: 'success' });
+    }
+    if (tracking.stoppedTime > 900000 && !tracking.isProductive) { // 15 minutes idle
+      alerts.push({ id: 'long-idle', message: 'Muito tempo parado. Considere se movimentar.', type: 'info' });
+    }
+    return alerts;
+  }, [tracking]);
 
   const cycleProgress = useMemo(() => {
     if (!openCycle) return null;
@@ -192,7 +214,15 @@ export const Dashboard = () => {
       <div className="flex justify-between items-end px-1">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Visão Geral</p>
-          <h1 className="text-3xl font-black tracking-tighter">Olá, {settings.name.split(' ')[0]}</h1>
+          <div className="flex items-center gap-3">
+            <h1 className="text-3xl font-black tracking-tighter">Olá, {settings.name.split(' ')[0]}</h1>
+            {driverScore && (
+              <div className={cn("px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider flex items-center gap-1", driverScore.color)}>
+                <Award size={10} />
+                {driverScore.label}
+              </div>
+            )}
+          </div>
         </div>
         <div className="flex flex-col items-end">
           <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
@@ -250,22 +280,45 @@ export const Dashboard = () => {
 
             {tracking.isActive && (
               <div className="space-y-6">
+                {smartAlerts.length > 0 && (
+                  <div className="mt-4 space-y-2">
+                    {smartAlerts.map(alert => (
+                      <motion.div 
+                        key={alert.id}
+                        initial={{ opacity: 0, y: -5 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        className={cn(
+                          "p-2 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-wider",
+                          alert.type === 'warning' ? "bg-amber-500/20 text-amber-900" : 
+                          alert.type === 'success' ? "bg-emerald-500/20 text-emerald-900" : 
+                          "bg-blue-500/20 text-blue-900"
+                        )}
+                      >
+                        <Info size={12} />
+                        {alert.message}
+                      </motion.div>
+                    ))}
+                  </div>
+                )}
+
                 <div className="grid grid-cols-2 gap-6 pt-6 mt-6 border-t border-zinc-950/10">
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">KM Atual</p>
-                    <p className="text-3xl font-black tracking-tighter">{tracking.distance.toFixed(2)} km</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">KM Produtivo</p>
+                    <p className="text-3xl font-black tracking-tighter">{tracking.productiveDistance.toFixed(2)} km</p>
+                  </div>
+                  <div className="space-y-1 text-right">
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">KM Ocioso</p>
+                    <p className="text-3xl font-black tracking-tighter opacity-60">{tracking.idleDistance.toFixed(2)} km</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Eficiência Atual</p>
+                    <p className="text-sm font-black">
+                      {tracking.distance > 0 ? ((tracking.productiveDistance / tracking.distance) * 100).toFixed(0) : 0}%
+                    </p>
                   </div>
                   <div className="space-y-1 text-right">
                     <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Velocidade Média</p>
-                    <p className="text-3xl font-black tracking-tighter">{tracking.avgSpeed.toFixed(1)} km/h</p>
-                  </div>
-                  <div className="space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Em Movimento</p>
-                    <p className="text-sm font-black">{formatDuration(tracking.movingTime)}</p>
-                  </div>
-                  <div className="space-y-1 text-right">
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Tempo Parado</p>
-                    <p className="text-sm font-black">{formatDuration(tracking.stoppedTime)}</p>
+                    <p className="text-sm font-black">{tracking.avgSpeed.toFixed(1)} km/h</p>
                   </div>
                 </div>
 
@@ -545,7 +598,7 @@ export const Dashboard = () => {
                 </div>
               </div>
 
-              <div className="bg-zinc-50/50 dark:bg-zinc-800/20 p-4 grid grid-cols-2 gap-4">
+              <div className="bg-zinc-50/50 dark:bg-zinc-800/20 p-4 grid grid-cols-3 gap-2">
                 <div className="flex items-center gap-3">
                   <div className="w-8 h-8 rounded-lg bg-white dark:bg-zinc-800 flex items-center justify-center text-zinc-400 shadow-sm">
                     <TrendingUp size={14} />
@@ -553,6 +606,15 @@ export const Dashboard = () => {
                   <div>
                     <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">R$/km Líquido</p>
                     <p className="text-xs font-black">{formatCurrency(efficiencyStats?.netPerKm || 0)}/km</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-500 shadow-sm">
+                    <Target size={14} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Eficiência</p>
+                    <p className="text-xs font-black text-blue-500">{Math.round(efficiencyStats?.efficiencyPercentage || 0)}%</p>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">

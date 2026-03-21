@@ -29,27 +29,6 @@ export const Settings = () => {
   const [isAddingVehicle, setIsAddingVehicle] = useState(false);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
-  // Migration: Create default profile if none exists
-  useEffect(() => {
-    if (!settings.vehicleProfiles || settings.vehicleProfiles.length === 0) {
-      const defaultProfile: VehicleProfile = {
-        id: crypto.randomUUID(),
-        name: settings.vehicle || 'Meu Veículo',
-        brand: '',
-        model: '',
-        year: '',
-        type: settings.fixedCosts?.vehicleType || 'owned',
-        category: settings.transportMode || 'car',
-        fixedCosts: settings.fixedCosts || { vehicleType: 'owned' },
-        createdAt: new Date().toISOString()
-      };
-      updateSettings({
-        vehicleProfiles: [defaultProfile],
-        currentVehicleProfileId: defaultProfile.id
-      });
-    }
-  }, []);
-
   const currentVehicle = useMemo(() => {
     return settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
   }, [settings.vehicleProfiles, settings.currentVehicleProfileId]);
