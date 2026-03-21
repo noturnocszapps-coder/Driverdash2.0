@@ -9,13 +9,22 @@ export const SyncManager = () => {
     const check = async () => {
       if (user && isSupabaseConfigured) {
         try {
+          // Simple health check
           const { error } = await supabase.from('profiles').select('id').limit(1);
+          
           if (error) {
             setSyncStatus('offline');
           } else {
-            // Only set to online if we are not currently syncing or synced
+            // If we were offline, try to sync
             const currentStatus = useDriverStore.getState().syncStatus;
-            if (currentStatus === 'offline' || currentStatus === 'idle') {
+            const hasSynced = useDriverStore.getState().hasSynced;
+            
+            if (currentStatus === 'offline') {
+              setSyncStatus('online');
+              if (!hasSynced) {
+                syncData();
+              }
+            } else if (currentStatus === 'idle') {
               setSyncStatus('online');
             }
           }
@@ -26,7 +35,10 @@ export const SyncManager = () => {
     };
 
     if (user && isSupabaseConfigured) {
-      syncData();
+      const hasSynced = useDriverStore.getState().hasSynced;
+      if (!hasSynced) {
+        syncData();
+      }
       check();
     }
     

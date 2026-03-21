@@ -1131,47 +1131,62 @@ const PatchNotes = () => {
 
   return (
     <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
-      {versions.map((v) => (
-        <div key={v.id} className="overflow-hidden">
-          <button 
-            onClick={() => setExpanded(expanded === v.id ? null : v.id)}
-            className="w-full p-6 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors"
-          >
-            <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                <Zap size={16} />
-              </div>
-              <div className="text-left">
-                <p className="text-sm font-black tracking-tight">Versão {v.id}</p>
-                <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">{v.date}</p>
-              </div>
-            </div>
-            <ChevronDown 
-              size={18} 
-              className={cn("text-zinc-300 transition-transform duration-300", expanded === v.id && "rotate-180")} 
-            />
-          </button>
-          <AnimatePresence>
-            {expanded === v.id && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="px-6 pb-6 pt-2 space-y-3">
-                  {v.notes.map((note, i) => (
-                    <div key={i} className="flex items-start gap-3">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
-                      <p className="text-xs text-zinc-600 dark:text-zinc-400 font-medium leading-relaxed">{note}</p>
-                    </div>
-                  ))}
+      {versions.map((v, idx) => {
+        const isLatest = idx === 0;
+        const isExpanded = expanded === v.id;
+        
+        return (
+          <div key={v.id} className={cn("overflow-hidden transition-all", !isLatest && "bg-zinc-50/30 dark:bg-zinc-900/30")}>
+            <button 
+              onClick={() => setExpanded(isExpanded ? null : v.id)}
+              className={cn(
+                "w-full flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-all",
+                isLatest ? "p-6" : "p-4"
+              )}
+            >
+              <div className="flex items-center gap-3">
+                <div className={cn(
+                  "rounded-lg flex items-center justify-center transition-all",
+                  isLatest ? "w-8 h-8 bg-emerald-500/10 text-emerald-500" : "w-6 h-6 bg-zinc-200 dark:bg-zinc-800 text-zinc-400"
+                )}>
+                  <Zap size={isLatest ? 16 : 12} />
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      ))}
+                <div className="text-left">
+                  <p className={cn("font-black tracking-tight", isLatest ? "text-sm" : "text-xs")}>
+                    Versão {v.id} {isLatest && <span className="ml-2 px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 text-[8px] rounded-md uppercase tracking-widest">Atual</span>}
+                  </p>
+                  <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">{v.date}</p>
+                </div>
+              </div>
+              <ChevronDown 
+                size={isLatest ? 18 : 14} 
+                className={cn("text-zinc-300 transition-transform duration-300", isExpanded && "rotate-180")} 
+              />
+            </button>
+            <AnimatePresence>
+              {isExpanded && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }}
+                  animate={{ height: 'auto', opacity: 1 }}
+                  exit={{ height: 0, opacity: 0 }}
+                  className="overflow-hidden"
+                >
+                  <div className={cn("pb-6 pt-2 space-y-3", isLatest ? "px-6" : "px-4 ml-9")}>
+                    {v.notes.map((note, i) => (
+                      <div key={i} className="flex items-start gap-3">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                        <p className={cn("font-medium leading-relaxed", isLatest ? "text-xs text-zinc-600 dark:text-zinc-400" : "text-[11px] text-zinc-500 dark:text-zinc-500")}>
+                          {note}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+        );
+      })}
     </div>
   );
 };

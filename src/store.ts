@@ -775,25 +775,13 @@ export const useDriverStore = create<DriverState>()(
               vehicleProfiles: profile.vehicle_profiles || []
             };
 
-            // If no vehicle profiles exist even in cloud, create one
-            if (!importedData.settings.vehicleProfiles || importedData.settings.vehicleProfiles.length === 0) {
-              const defaultProfile = {
-                id: crypto.randomUUID(),
-                name: importedData.settings.vehicle || 'Meu Veículo',
-                brand: '',
-                model: '',
-                year: '',
-                type: 'owned',
-                category: importedData.settings.transportMode || 'car',
-                fixedCosts: importedData.settings.fixedCosts || { vehicleType: 'owned' },
-                createdAt: new Date().toISOString()
-              };
-              importedData.settings.vehicleProfiles = [defaultProfile];
-              importedData.settings.currentVehicleProfileId = defaultProfile.id;
-              
+            // Remove the auto-recreation of default vehicle for existing profiles.
+            // This was causing deleted vehicles to return.
+            // Only ensure we have a valid currentVehicleProfileId if profiles exist.
+            if (importedData.settings.vehicleProfiles.length > 0 && !importedData.settings.currentVehicleProfileId) {
+              importedData.settings.currentVehicleProfileId = importedData.settings.vehicleProfiles[0].id;
               await supabase.from('profiles').update({
-                vehicle_profiles: [defaultProfile],
-                current_vehicle_profile_id: defaultProfile.id
+                current_vehicle_profile_id: importedData.settings.currentVehicleProfileId
               }).eq('id', user.id);
             }
           } else {

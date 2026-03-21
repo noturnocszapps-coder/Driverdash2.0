@@ -56,9 +56,32 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 };
 
 export default function App() {
-  const { setUser, setSyncStatus } = useDriverStore();
+  const { setUser, setSyncStatus, settings } = useDriverStore();
   const [isAuthReady, setIsAuthReady] = React.useState(false);
   const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
+
+  useEffect(() => {
+    const root = window.document.documentElement;
+    const applyTheme = (t: string) => {
+      if (t === 'system') {
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        root.classList.remove('light', 'dark');
+        root.classList.add(systemTheme);
+      } else {
+        root.classList.remove('light', 'dark');
+        root.classList.add(t);
+      }
+    };
+
+    applyTheme(settings.theme || 'dark');
+
+    if (settings.theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      const handleChange = () => applyTheme('system');
+      mediaQuery.addEventListener('change', handleChange);
+      return () => mediaQuery.removeEventListener('change', handleChange);
+    }
+  }, [settings.theme]);
 
   useEffect(() => {
     const handleOnline = () => setIsOffline(false);
