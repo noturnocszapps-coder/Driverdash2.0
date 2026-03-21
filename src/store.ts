@@ -498,27 +498,25 @@ export const useDriverStore = create<DriverState>()(
       },
 
       updateSettings: async (newSettings) => {
-        const { user, isSaving, syncData } = get();
+        const { user, isSaving, syncData, settings: currentSettings } = get();
         if (isSaving) return;
 
         set({ isSaving: true });
         try {
-          // Update local state immediately
-          set((state) => ({ settings: { ...state.settings, ...newSettings } }));
-          
-          const { settings } = get();
-          
-          // Ensure active vehicle consistency
-          const activeVehicle = settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
-          if (activeVehicle && (settings.vehicle !== activeVehicle.name)) {
-            set((state) => ({ settings: { ...state.settings, vehicle: activeVehicle.name } }));
-          }
-
+          // If user is logged in, update Supabase FIRST (Cloud-First)
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             
             // Prepare update object
-            const updateObj: any = {};
+            const updateObj: any = {
+              updated_at: new Date().toISOString()
+            };
+
+            // Ensure we have the latest active vehicle for consistency
+            const activeVehicle = (newSettings.vehicleProfiles || currentSettings.vehicleProfiles)?.find(
+              v => v.id === (newSettings.currentVehicleProfileId || currentSettings.currentVehicleProfileId)
+            );
+
             if (newSettings.name !== undefined) updateObj.name = newSettings.name;
             if (newSettings.dailyGoal !== undefined) updateObj.daily_goal = newSettings.dailyGoal;
             if (newSettings.vehicle !== undefined || activeVehicle) updateObj.vehicle = activeVehicle?.name || newSettings.vehicle;
@@ -536,18 +534,30 @@ export const useDriverStore = create<DriverState>()(
             const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
             
             if (error) {
-              console.error('[Store] Sync error (settings):', error);
+              console.error('[Store] Error updating settings in Supabase:', error);
               set({ syncStatus: 'offline' });
-            } else {
-              set({ syncStatus: 'synced' });
-              // Refresh data to be sure
-              await syncData();
+              throw error; // Throw to let UI handle it
             }
+
+            // Only update local state if Supabase update succeeded
+            set((state) => ({ 
+              settings: { ...state.settings, ...newSettings },
+              syncStatus: 'synced'
+            }));
+
+            // Force refresh to ensure data integrity
+            await syncData();
             
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
+          } else {
+            // Guest mode - update local only
+            set((state) => ({ settings: { ...state.settings, ...newSettings } }));
           }
+        } catch (err) {
+          console.error('[Store] updateSettings error:', err);
+          throw err;
         } finally {
           set({ isSaving: false });
         }
@@ -730,7 +740,7 @@ export const useDriverStore = create<DriverState>()(
       }),
 
       syncData: async () => {
-        const { user, syncStatus, setSyncStatus, importData, expenses, fuelings, maintenances, settings, cycles, isSaving, hasSynced } = get();
+        const { user, syncStatus, setSyncStatus, importData, expenses, fuelings, maintenances, settings, cycles, isSaving, hasSynced, importedReports } = get();
         
         if (!user || !isSupabaseConfigured) return;
         if (syncStatus === 'syncing' || isSaving) return;
@@ -739,7 +749,90 @@ export const useDriverStore = create<DriverState>()(
         set({ isSaving: true });
 
         try {
-          // 1. Pull latest data first
+          // 1. PUSH local data FIRST to ensure Supabase has the latest
+          // This prevents local fresh data from being overwritten by stale cloud data
+          if (hasSynced) {
+            const pushPromises = [];
+            
+            if (expenses.length > 0) {
+              pushPromises.push(supabase.from('expenses').upsert(expenses.map(e => ({
+                id: e.id,
+                user_id: user.id,
+                date: e.date,
+                category: e.category,
+                value: e.value,
+                description: e.description
+              }))));
+            }
+
+            if (fuelings.length > 0) {
+              pushPromises.push(supabase.from('fuel_logs').upsert(fuelings.map(f => ({
+                id: f.id,
+                user_id: user.id,
+                date: f.date,
+                liters: f.liters,
+                cost: f.value,
+                odometer: f.odometer
+              }))));
+            }
+
+            if (maintenances.length > 0) {
+              pushPromises.push(supabase.from('maintenance_logs').upsert(maintenances.map(m => ({
+                id: m.id,
+                user_id: user.id,
+                date: m.date,
+                type: m.type,
+                cost: m.value,
+                odometer: m.currentKm,
+                next_change_km: m.nextChangeKm
+              }))));
+            }
+
+            if (cycles.length > 0) {
+              pushPromises.push(supabase.from('cycles').upsert(cycles.map(c => ({
+                id: c.id,
+                user_id: user.id,
+                start_time: c.start_time,
+                end_time: c.end_time,
+                uber_amount: c.uber_amount,
+                noventanove_amount: c.noventanove_amount,
+                indriver_amount: c.indriver_amount,
+                extra_amount: c.extra_amount,
+                total_amount: c.total_amount,
+                fuel_expense: c.fuel_expense,
+                food_expense: c.food_expense,
+                other_expense: c.other_expense,
+                total_expenses: c.total_expenses,
+                total_km: c.total_km,
+                ride_km: c.ride_km,
+                displacement_km: c.displacement_km,
+                uber_km: c.uber_km,
+                noventanove_km: c.noventanove_km,
+                indriver_km: c.indriver_km,
+                tracked_km: c.tracked_km,
+                tracked_moving_time: c.tracked_moving_time,
+                tracked_stopped_time: c.tracked_stopped_time,
+                productive_km: c.productive_km,
+                idle_km: c.idle_km,
+                efficiency_percentage: c.efficiency_percentage,
+                driver_score: c.driver_score,
+                route_points: c.route_points,
+                vehicle_id: c.vehicle_id,
+                vehicle_name: c.vehicle_name,
+                status: c.status
+              }))));
+            }
+
+            if (importedReports.length > 0) {
+              pushPromises.push(supabase.from('imported_reports').upsert(importedReports.map(r => ({ ...r, user_id: user.id }))));
+            }
+
+            if (pushPromises.length > 0) {
+              await Promise.all(pushPromises);
+            }
+          }
+
+          // 2. PULL latest data SECOND
           const [
             { data: profile },
             { data: dbExpenses },
@@ -775,9 +868,6 @@ export const useDriverStore = create<DriverState>()(
               vehicleProfiles: profile.vehicle_profiles || []
             };
 
-            // Remove the auto-recreation of default vehicle for existing profiles.
-            // This was causing deleted vehicles to return.
-            // Only ensure we have a valid currentVehicleProfileId if profiles exist.
             if (importedData.settings.vehicleProfiles.length > 0 && !importedData.settings.currentVehicleProfileId) {
               importedData.settings.currentVehicleProfileId = importedData.settings.vehicleProfiles[0].id;
               await supabase.from('profiles').update({
@@ -891,80 +981,7 @@ export const useDriverStore = create<DriverState>()(
             importedData.importedReports = dbImported;
           }
 
-          // 2. Push local data (only if not first sync or if local data is present)
-          if (expenses.length > 0) {
-            await supabase.from('expenses').upsert(expenses.map(e => ({
-              id: e.id,
-              user_id: user.id,
-              date: e.date,
-              category: e.category,
-              value: e.value,
-              description: e.description
-            })));
-          }
-
-          if (fuelings.length > 0) {
-            await supabase.from('fuel_logs').upsert(fuelings.map(f => ({
-              id: f.id,
-              user_id: user.id,
-              date: f.date,
-              liters: f.liters,
-              cost: f.value,
-              odometer: f.odometer
-            })));
-          }
-
-          if (maintenances.length > 0) {
-            await supabase.from('maintenance_logs').upsert(maintenances.map(m => ({
-              id: m.id,
-              user_id: user.id,
-              date: m.date,
-              type: m.type,
-              cost: m.value,
-              odometer: m.currentKm,
-              next_change_km: m.nextChangeKm
-            })));
-          }
-
-          if (cycles.length > 0) {
-            await supabase.from('cycles').upsert(cycles.map(c => ({
-              id: c.id,
-              user_id: user.id,
-              start_time: c.start_time,
-              end_time: c.end_time,
-              uber_amount: c.uber_amount,
-              noventanove_amount: c.noventanove_amount,
-              indriver_amount: c.indriver_amount,
-              extra_amount: c.extra_amount,
-              total_amount: c.total_amount,
-              fuel_expense: c.fuel_expense,
-              food_expense: c.food_expense,
-              other_expense: c.other_expense,
-              total_expenses: c.total_expenses,
-              total_km: c.total_km,
-              ride_km: c.ride_km,
-              displacement_km: c.displacement_km,
-              uber_km: c.uber_km,
-              noventanove_km: c.noventanove_km,
-              indriver_km: c.indriver_km,
-              tracked_km: c.tracked_km,
-              tracked_moving_time: c.tracked_moving_time,
-              tracked_stopped_time: c.tracked_stopped_time,
-              productive_km: c.productive_km,
-              idle_km: c.idle_km,
-              efficiency_percentage: c.efficiency_percentage,
-              driver_score: c.driver_score,
-              route_points: c.route_points,
-              vehicle_id: c.vehicle_id,
-              vehicle_name: c.vehicle_name,
-              status: c.status
-            })));
-          }
-
-          if (get().importedReports.length > 0) {
-            await supabase.from('imported_reports').upsert(get().importedReports);
-          }
-
+          // 3. IMPORT data into local state
           importData(importedData);
           set({ hasSynced: true });
           setSyncStatus('synced');

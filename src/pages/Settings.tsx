@@ -73,7 +73,7 @@ export const Settings = () => {
     }
   };
 
-  const handleDeleteVehicle = (id: string) => {
+  const handleDeleteVehicle = async (id: string) => {
     if (settings.vehicleProfiles && settings.vehicleProfiles.length <= 1) {
       alert('Você precisa ter pelo menos um veículo cadastrado.');
       return;
@@ -83,13 +83,17 @@ export const Settings = () => {
       const updated = settings.vehicleProfiles?.filter(v => v.id !== id);
       const nextVehicle = updated?.[0];
       
-      updateSettings({ 
-        vehicleProfiles: updated,
-        currentVehicleProfileId: nextVehicle?.id,
-        fixedCosts: nextVehicle?.fixedCosts,
-        transportMode: nextVehicle?.category,
-        vehicle: nextVehicle?.name || ''
-      });
+      try {
+        await updateSettings({ 
+          vehicleProfiles: updated,
+          currentVehicleProfileId: nextVehicle?.id,
+          fixedCosts: nextVehicle?.fixedCosts,
+          transportMode: nextVehicle?.category,
+          vehicle: nextVehicle?.name || ''
+        });
+      } catch (error) {
+        alert('Erro ao excluir veículo. Verifique sua conexão.');
+      }
     }
   };
 
@@ -99,7 +103,7 @@ export const Settings = () => {
     navigate('/');
   };
 
-  const handleAddVehicle = (e: React.FormEvent<HTMLFormElement>) => {
+  const handleAddVehicle = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
     const newVehicle: VehicleProfile = {
@@ -118,25 +122,33 @@ export const Settings = () => {
       createdAt: new Date().toISOString()
     };
 
-    updateSettings({
-      vehicleProfiles: [...(settings.vehicleProfiles || []), newVehicle],
-      currentVehicleProfileId: newVehicle.id,
-      fixedCosts: newVehicle.fixedCosts,
-      transportMode: newVehicle.category,
-      vehicle: newVehicle.name
-    });
-    setIsAddingVehicle(false);
+    try {
+      await updateSettings({
+        vehicleProfiles: [...(settings.vehicleProfiles || []), newVehicle],
+        currentVehicleProfileId: newVehicle.id,
+        fixedCosts: newVehicle.fixedCosts,
+        transportMode: newVehicle.category,
+        vehicle: newVehicle.name
+      });
+      setIsAddingVehicle(false);
+    } catch (error) {
+      alert('Erro ao adicionar veículo. Verifique sua conexão.');
+    }
   };
 
-  const updateCurrentVehicleCosts = (newFixedCosts: any) => {
+  const updateCurrentVehicleCosts = async (newFixedCosts: any) => {
     if (!settings.currentVehicleProfileId) return;
     const updatedProfiles = settings.vehicleProfiles?.map(v => 
       v.id === settings.currentVehicleProfileId ? { ...v, fixedCosts: { ...v.fixedCosts, ...newFixedCosts } } : v
     );
-    updateSettings({ 
-      vehicleProfiles: updatedProfiles,
-      fixedCosts: { ...settings.fixedCosts, ...newFixedCosts }
-    });
+    try {
+      await updateSettings({ 
+        vehicleProfiles: updatedProfiles,
+        fixedCosts: { ...settings.fixedCosts, ...newFixedCosts }
+      });
+    } catch (error) {
+      alert('Erro ao atualizar custos. Verifique sua conexão.');
+    }
   };
 
   const handleClearData = async () => {

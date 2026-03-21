@@ -9,26 +9,33 @@ export const SyncManager = () => {
     const check = async () => {
       if (user && isSupabaseConfigured) {
         try {
-          // Simple health check
-          const { error } = await supabase.from('profiles').select('id').limit(1);
+          // Simple health check - use a query that should always work if online
+          // We use auth.getSession() as a lightweight check for connectivity
+          const { error } = await supabase.auth.getSession();
           
           if (error) {
-            setSyncStatus('offline');
+            // Only set offline if it's a network-related error
+            const isNetworkError = error.message.toLowerCase().includes('fetch') || 
+                                 error.message.toLowerCase().includes('network') ||
+                                 error.message.toLowerCase().includes('failed to fetch');
+            if (isNetworkError) {
+              setSyncStatus('offline');
+            }
           } else {
-            // If we were offline, try to sync
+            // If we were offline or idle, set to online
             const currentStatus = useDriverStore.getState().syncStatus;
             const hasSynced = useDriverStore.getState().hasSynced;
             
-            if (currentStatus === 'offline') {
+            if (currentStatus === 'offline' || currentStatus === 'idle') {
               setSyncStatus('online');
-              if (!hasSynced) {
+              // If we haven't synced yet, or if we were offline, trigger a sync
+              if (!hasSynced || currentStatus === 'offline') {
                 syncData();
               }
-            } else if (currentStatus === 'idle') {
-              setSyncStatus('online');
             }
           }
         } catch (err) {
+          // Catch any unexpected fetch errors
           setSyncStatus('offline');
         }
       }
