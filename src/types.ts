@@ -168,6 +168,7 @@ export interface VehicleProfile {
   category: 'car' | 'motorcycle';
   fixedCosts: FixedCosts;
   createdAt: string;
+  is_active?: boolean;
 }
 
 export interface UserSettings {

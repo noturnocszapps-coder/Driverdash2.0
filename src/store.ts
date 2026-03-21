@@ -521,6 +521,7 @@ export const useDriverStore = create<DriverState>()(
               plate: v.plate,
               type: v.type,
               category: v.category,
+              is_active: v.is_active,
               fixedCosts: {
                 vehicleType: v.type,
                 insurance: v.insurance,
@@ -660,9 +661,27 @@ export const useDriverStore = create<DriverState>()(
         const { user, vehicles } = get();
         if (!user || !isSupabaseConfigured) return;
         
+        const activeVehicle = vehicles.find(v => v.id === id);
+        if (!activeVehicle) return;
+
+        // Update local state IMMEDIATELY for responsiveness
+        set((state) => ({
+          vehicles: state.vehicles.map(v => ({
+            ...v,
+            is_active: v.id === id
+          })),
+          settings: {
+            ...state.settings,
+            currentVehicleProfileId: id,
+            vehicle: activeVehicle.name,
+            transportMode: activeVehicle.category,
+            fixedCosts: activeVehicle.fixedCosts
+          }
+        }));
+
         set({ isSaving: true });
         try {
-          // Update all vehicles to inactive and the selected one to active
+          // Update all vehicles to inactive and the selected one to active in Supabase
           const { error: updateAllError } = await supabase
             .from('vehicles')
             .update({ is_active: false })
@@ -677,17 +696,17 @@ export const useDriverStore = create<DriverState>()(
             
           if (updateActiveError) throw updateActiveError;
 
-          const activeVehicle = vehicles.find(v => v.id === id);
-          if (activeVehicle) {
-            await get().updateSettings({
-              currentVehicleProfileId: id,
-              vehicle: activeVehicle.name,
-              transportMode: activeVehicle.category,
-              fixedCosts: activeVehicle.fixedCosts
-            });
-          }
+          // Persist to profile
+          await get().updateSettings({
+            currentVehicleProfileId: id,
+            vehicle: activeVehicle.name,
+            transportMode: activeVehicle.category,
+            fixedCosts: activeVehicle.fixedCosts
+          });
         } catch (error: any) {
           console.error('[Vehicle Error] setActiveVehicle:', error);
+          // Force sync to restore consistency on error
+          await get().syncData();
           throw error;
         } finally {
           set({ isSaving: false });
@@ -1090,6 +1109,7 @@ export const useDriverStore = create<DriverState>()(
               plate: v.plate,
               type: v.type,
               category: v.category,
+              is_active: v.is_active,
               fixedCosts: {
                 vehicleType: v.type,
                 insurance: v.insurance,
