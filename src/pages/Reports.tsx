@@ -15,7 +15,7 @@ import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Reports = () => {
-  const { cycles, settings, importedReports, isSaving } = useDriverStore();
+  const { cycles, settings, importedReports, isSaving, vehicles } = useDriverStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -31,8 +31,8 @@ export const Reports = () => {
   }, [location.state]);
   
   const currentVehicle = useMemo(() => {
-    return settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
-  }, [settings.vehicleProfiles, settings.currentVehicleProfileId]);
+    return vehicles.find(v => v.id === settings.currentVehicleProfileId);
+  }, [vehicles, settings.currentVehicleProfileId]);
 
   const dailyFixed = useMemo(() => {
     const fixedCosts = currentVehicle?.fixedCosts || settings.fixedCosts;

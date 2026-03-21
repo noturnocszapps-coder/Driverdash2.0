@@ -19,7 +19,8 @@ export const Settings = () => {
   const navigate = useNavigate();
   const { 
     settings, updateSettings, clearData, clearCloudData, 
-    cycles, importData, user, setUser, syncStatus, syncData, isSaving 
+    cycles, importData, user, setUser, syncStatus, syncData, isSaving,
+    vehicles, addVehicle, updateVehicle, deleteVehicle, setActiveVehicle
   } = useDriverStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -30,23 +31,19 @@ export const Settings = () => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const currentVehicle = useMemo(() => {
-    return settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
-  }, [settings.vehicleProfiles, settings.currentVehicleProfileId]);
+    return vehicles.find(v => v.id === settings.currentVehicleProfileId);
+  }, [vehicles, settings.currentVehicleProfileId]);
 
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
-  const handleSelectVehicle = (id: string) => {
-    const selected = settings.vehicleProfiles?.find(v => v.id === id);
-    if (!selected) return;
-
-    updateSettings({
-      currentVehicleProfileId: id,
-      fixedCosts: selected.fixedCosts,
-      transportMode: selected.category,
-      vehicle: selected.name
-    });
-    setShowVehicleSelector(false);
+  const handleSelectVehicle = async (id: string) => {
+    try {
+      await setActiveVehicle(id);
+      setShowVehicleSelector(false);
+    } catch (error: any) {
+      alert(`Erro ao trocar veículo: ${error.message || 'Verifique sua conexão'}`);
+    }
   };
 
   const handleSaveVehicle = async () => {
@@ -58,41 +55,36 @@ export const Settings = () => {
     }
 
     try {
-      // Ensure all fields are persisted to the store and Supabase
-      await updateSettings({
-        vehicleProfiles: settings.vehicleProfiles,
-        currentVehicleProfileId: settings.currentVehicleProfileId,
-        vehicle: currentVehicle.name
+      await updateVehicle(currentVehicle.id, {
+        name: currentVehicle.name,
+        brand: currentVehicle.brand,
+        model: currentVehicle.model,
+        year: currentVehicle.year,
+        plate: currentVehicle.plate,
+        type: currentVehicle.type,
+        category: currentVehicle.category,
+        fixedCosts: currentVehicle.fixedCosts
       });
 
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 3000);
-    } catch (error) {
+    } catch (error: any) {
       console.error('[Settings] Error saving vehicle:', error);
-      alert('Erro ao salvar veículo. Verifique sua conexão.');
+      alert(`Erro ao salvar veículo: ${error.message || 'Verifique sua conexão'}`);
     }
   };
 
   const handleDeleteVehicle = async (id: string) => {
-    if (settings.vehicleProfiles && settings.vehicleProfiles.length <= 1) {
+    if (vehicles.length <= 1) {
       alert('Você precisa ter pelo menos um veículo cadastrado.');
       return;
     }
 
     if (confirm('Tem certeza que deseja excluir este veículo?')) {
-      const updated = settings.vehicleProfiles?.filter(v => v.id !== id);
-      const nextVehicle = updated?.[0];
-      
       try {
-        await updateSettings({ 
-          vehicleProfiles: updated,
-          currentVehicleProfileId: nextVehicle?.id,
-          fixedCosts: nextVehicle?.fixedCosts,
-          transportMode: nextVehicle?.category,
-          vehicle: nextVehicle?.name || ''
-        });
-      } catch (error) {
-        alert('Erro ao excluir veículo. Verifique sua conexão.');
+        await deleteVehicle(id);
+      } catch (error: any) {
+        alert(`Erro ao excluir veículo: ${error.message || 'Verifique sua conexão'}`);
       }
     }
   };
@@ -106,8 +98,7 @@ export const Settings = () => {
   const handleAddVehicle = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
-    const newVehicle: VehicleProfile = {
-      id: crypto.randomUUID(),
+    const vehicleData: Omit<VehicleProfile, 'id' | 'createdAt'> = {
       name: formData.get('name') as string,
       brand: formData.get('brand') as string,
       model: formData.get('model') as string,
@@ -118,36 +109,26 @@ export const Settings = () => {
       fixedCosts: {
         vehicleType: formData.get('type') as any,
         rentalPeriod: 'weekly',
-      },
-      createdAt: new Date().toISOString()
+      }
     };
 
     try {
-      await updateSettings({
-        vehicleProfiles: [...(settings.vehicleProfiles || []), newVehicle],
-        currentVehicleProfileId: newVehicle.id,
-        fixedCosts: newVehicle.fixedCosts,
-        transportMode: newVehicle.category,
-        vehicle: newVehicle.name
-      });
+      await addVehicle(vehicleData);
       setIsAddingVehicle(false);
-    } catch (error) {
-      alert('Erro ao adicionar veículo. Verifique sua conexão.');
+    } catch (error: any) {
+      alert(`Erro ao adicionar veículo: ${error.message || 'Verifique sua conexão'}`);
     }
   };
 
   const updateCurrentVehicleCosts = async (newFixedCosts: any) => {
-    if (!settings.currentVehicleProfileId) return;
-    const updatedProfiles = settings.vehicleProfiles?.map(v => 
-      v.id === settings.currentVehicleProfileId ? { ...v, fixedCosts: { ...v.fixedCosts, ...newFixedCosts } } : v
-    );
+    if (!currentVehicle) return;
+    
     try {
-      await updateSettings({ 
-        vehicleProfiles: updatedProfiles,
-        fixedCosts: { ...settings.fixedCosts, ...newFixedCosts }
+      await updateVehicle(currentVehicle.id, {
+        fixedCosts: { ...currentVehicle.fixedCosts, ...newFixedCosts }
       });
-    } catch (error) {
-      alert('Erro ao atualizar custos. Verifique sua conexão.');
+    } catch (error: any) {
+      alert(`Erro ao atualizar custos: ${error.message || 'Verifique sua conexão'}`);
     }
   };
 
@@ -461,11 +442,7 @@ export const Settings = () => {
                     <Input 
                       value={currentVehicle.name}
                       onChange={e => {
-                        const updated = settings.vehicleProfiles?.map(v => v.id === currentVehicle.id ? { ...v, name: e.target.value } : v);
-                        updateSettings({ 
-                          vehicleProfiles: updated,
-                          vehicle: e.target.value
-                        });
+                        updateVehicle(currentVehicle.id, { name: e.target.value });
                       }}
                       className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
                     />
@@ -475,8 +452,7 @@ export const Settings = () => {
                     <Input 
                       value={currentVehicle.year}
                       onChange={e => {
-                        const updated = settings.vehicleProfiles?.map(v => v.id === currentVehicle.id ? { ...v, year: e.target.value } : v);
-                        updateSettings({ vehicleProfiles: updated });
+                        updateVehicle(currentVehicle.id, { year: e.target.value });
                       }}
                       className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
                     />
@@ -488,10 +464,9 @@ export const Settings = () => {
                   <Select
                     value={currentVehicle.type}
                     onChange={e => {
-                      const updated = settings.vehicleProfiles?.map(v => v.id === currentVehicle.id ? { ...v, type: e.target.value as any, fixedCosts: { ...v.fixedCosts, vehicleType: e.target.value as any } } : v);
-                      updateSettings({ 
-                        vehicleProfiles: updated,
-                        fixedCosts: { ...settings.fixedCosts, vehicleType: e.target.value as any }
+                      updateVehicle(currentVehicle.id, { 
+                        type: e.target.value as any, 
+                        fixedCosts: { ...currentVehicle.fixedCosts, vehicleType: e.target.value as any } 
                       });
                     }}
                     className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
@@ -738,7 +713,7 @@ export const Settings = () => {
               </div>
 
               <div className="space-y-3">
-                {settings.vehicleProfiles?.map(v => (
+                {vehicles.map(v => (
                   <button
                     key={v.id}
                     onClick={() => handleSelectVehicle(v.id)}
@@ -769,7 +744,7 @@ export const Settings = () => {
                       </div>
                     ) : (
                       <div className="flex items-center gap-2">
-                        {settings.vehicleProfiles && settings.vehicleProfiles.length > 1 && (
+                        {vehicles.length > 1 && (
                           <Button 
                             variant="ghost" 
                             size="sm"
@@ -788,7 +763,7 @@ export const Settings = () => {
                   </button>
                 ))}
 
-                {(!settings.vehicleProfiles || settings.vehicleProfiles.length === 0) && (
+                {vehicles.length === 0 && (
                   <div className="text-center py-12 space-y-4">
                     <div className="w-16 h-16 bg-zinc-100 dark:bg-zinc-800 rounded-2xl flex items-center justify-center text-zinc-400 mx-auto">
                       <Car size={32} />

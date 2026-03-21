@@ -20,6 +20,7 @@ export const useDriverStore = create<DriverState>()(
       fuelings: [],
       maintenances: [],
       importedReports: [],
+      vehicles: [],
       settings: {
         dailyGoal: 250,
         name: 'Motorista',
@@ -36,7 +37,6 @@ export const useDriverStore = create<DriverState>()(
         fixedCosts: {
           vehicleType: 'owned',
         },
-        vehicleProfiles: [],
         currentVehicleProfileId: undefined,
       },
       tracking: {
@@ -64,7 +64,8 @@ export const useDriverStore = create<DriverState>()(
 
         set({ isSaving: true });
         try {
-          const currentVehicle = settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
+          const { vehicles } = get();
+          const currentVehicle = vehicles.find(v => v.id === settings.currentVehicleProfileId);
           
           const vehicleSnapshot = {
             id: settings.currentVehicleProfileId || 'default',
@@ -497,6 +498,202 @@ export const useDriverStore = create<DriverState>()(
         }
       },
 
+      loadVehicles: async () => {
+        const { user } = get();
+        if (!user || !isSupabaseConfigured) return;
+        
+        try {
+          const { data, error } = await supabase
+            .from('vehicles')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('created_at', { ascending: false });
+            
+          if (error) throw error;
+          
+          if (data) {
+            const mappedVehicles = data.map(v => ({
+              id: v.id,
+              name: v.name,
+              brand: v.brand,
+              model: v.model,
+              year: v.year,
+              plate: v.plate,
+              type: v.type,
+              category: v.category,
+              fixedCosts: {
+                vehicleType: v.type,
+                insurance: v.insurance,
+                ipva: v.ipva,
+                oilChange: v.oil_change,
+                tires: v.tires,
+                maintenance: v.maintenance,
+                financing: v.installment,
+                rentalPeriod: v.rental_type,
+                rentalValue: v.rental_value
+              },
+              createdAt: v.created_at
+            }));
+            set({ vehicles: mappedVehicles });
+          }
+        } catch (error) {
+          console.error('[Vehicle Error] loadVehicles:', error);
+        }
+      },
+
+      addVehicle: async (vehicle) => {
+        const { user } = get();
+        if (!user || !isSupabaseConfigured) return;
+        
+        set({ isSaving: true });
+        try {
+          const id = crypto.randomUUID();
+          const dbVehicle = {
+            id,
+            user_id: user.id,
+            name: vehicle.name,
+            brand: vehicle.brand,
+            model: vehicle.model,
+            year: vehicle.year,
+            plate: vehicle.plate,
+            type: vehicle.type,
+            category: vehicle.category,
+            insurance: vehicle.fixedCosts.insurance,
+            ipva: vehicle.fixedCosts.ipva,
+            oil_change: vehicle.fixedCosts.oilChange,
+            tires: vehicle.fixedCosts.tires,
+            maintenance: vehicle.fixedCosts.maintenance,
+            installment: vehicle.fixedCosts.financing,
+            rental_type: vehicle.fixedCosts.rentalPeriod,
+            rental_value: vehicle.fixedCosts.rentalValue,
+            is_active: false
+          };
+
+          const { error } = await supabase.from('vehicles').insert(dbVehicle);
+          if (error) throw error;
+
+          const newVehicle = { ...vehicle, id, createdAt: new Date().toISOString() };
+          set((state) => ({ vehicles: [newVehicle, ...state.vehicles] }));
+          
+          // If it's the first vehicle, set it as active
+          if (get().vehicles.length === 1) {
+            await get().setActiveVehicle(id);
+          }
+        } catch (error: any) {
+          console.error('[Vehicle Error] addVehicle:', error);
+          throw error;
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      updateVehicle: async (id, updates) => {
+        const { user } = get();
+        if (!user || !isSupabaseConfigured) return;
+        
+        set({ isSaving: true });
+        try {
+          const dbUpdates: any = {};
+          if (updates.name) dbUpdates.name = updates.name;
+          if (updates.brand) dbUpdates.brand = updates.brand;
+          if (updates.model) dbUpdates.model = updates.model;
+          if (updates.year) dbUpdates.year = updates.year;
+          if (updates.plate) dbUpdates.plate = updates.plate;
+          if (updates.type) dbUpdates.type = updates.type;
+          if (updates.category) dbUpdates.category = updates.category;
+          
+          if (updates.fixedCosts) {
+            if (updates.fixedCosts.insurance !== undefined) dbUpdates.insurance = updates.fixedCosts.insurance;
+            if (updates.fixedCosts.ipva !== undefined) dbUpdates.ipva = updates.fixedCosts.ipva;
+            if (updates.fixedCosts.oilChange !== undefined) dbUpdates.oil_change = updates.fixedCosts.oilChange;
+            if (updates.fixedCosts.tires !== undefined) dbUpdates.tires = updates.fixedCosts.tires;
+            if (updates.fixedCosts.maintenance !== undefined) dbUpdates.maintenance = updates.fixedCosts.maintenance;
+            if (updates.fixedCosts.financing !== undefined) dbUpdates.installment = updates.fixedCosts.financing;
+            if (updates.fixedCosts.rentalPeriod !== undefined) dbUpdates.rental_type = updates.fixedCosts.rentalPeriod;
+            if (updates.fixedCosts.rentalValue !== undefined) dbUpdates.rental_value = updates.fixedCosts.rentalValue;
+          }
+
+          const { error } = await supabase.from('vehicles').update(dbUpdates).eq('id', id);
+          if (error) throw error;
+
+          set((state) => ({
+            vehicles: state.vehicles.map(v => v.id === id ? { ...v, ...updates } : v)
+          }));
+        } catch (error: any) {
+          console.error('[Vehicle Error] updateVehicle:', error);
+          throw error;
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      deleteVehicle: async (id) => {
+        const { user, settings } = get();
+        if (!user || !isSupabaseConfigured) return;
+        
+        set({ isSaving: true });
+        try {
+          const { error } = await supabase.from('vehicles').delete().eq('id', id);
+          if (error) throw error;
+
+          set((state) => ({
+            vehicles: state.vehicles.filter(v => v.id !== id)
+          }));
+
+          if (settings.currentVehicleProfileId === id) {
+            const nextVehicle = get().vehicles[0];
+            if (nextVehicle) {
+              await get().setActiveVehicle(nextVehicle.id);
+            } else {
+              await get().updateSettings({ currentVehicleProfileId: undefined });
+            }
+          }
+        } catch (error: any) {
+          console.error('[Vehicle Error] deleteVehicle:', error);
+          throw error;
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      setActiveVehicle: async (id) => {
+        const { user, vehicles } = get();
+        if (!user || !isSupabaseConfigured) return;
+        
+        set({ isSaving: true });
+        try {
+          // Update all vehicles to inactive and the selected one to active
+          const { error: updateAllError } = await supabase
+            .from('vehicles')
+            .update({ is_active: false })
+            .eq('user_id', user.id);
+            
+          if (updateAllError) throw updateAllError;
+
+          const { error: updateActiveError } = await supabase
+            .from('vehicles')
+            .update({ is_active: true })
+            .eq('id', id);
+            
+          if (updateActiveError) throw updateActiveError;
+
+          const activeVehicle = vehicles.find(v => v.id === id);
+          if (activeVehicle) {
+            await get().updateSettings({
+              currentVehicleProfileId: id,
+              vehicle: activeVehicle.name,
+              transportMode: activeVehicle.category,
+              fixedCosts: activeVehicle.fixedCosts
+            });
+          }
+        } catch (error: any) {
+          console.error('[Vehicle Error] setActiveVehicle:', error);
+          throw error;
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
       updateSettings: async (newSettings) => {
         const { user, isSaving, syncData, settings: currentSettings } = get();
         if (isSaving) return;
@@ -512,14 +709,9 @@ export const useDriverStore = create<DriverState>()(
               updated_at: new Date().toISOString()
             };
 
-            // Ensure we have the latest active vehicle for consistency
-            const activeVehicle = (newSettings.vehicleProfiles || currentSettings.vehicleProfiles)?.find(
-              v => v.id === (newSettings.currentVehicleProfileId || currentSettings.currentVehicleProfileId)
-            );
-
             if (newSettings.name !== undefined) updateObj.name = newSettings.name;
             if (newSettings.dailyGoal !== undefined) updateObj.daily_goal = newSettings.dailyGoal;
-            if (newSettings.vehicle !== undefined || activeVehicle) updateObj.vehicle = activeVehicle?.name || newSettings.vehicle;
+            if (newSettings.vehicle !== undefined) updateObj.vehicle = newSettings.vehicle;
             if (newSettings.kmPerLiter !== undefined) updateObj.km_per_liter = newSettings.kmPerLiter;
             if (newSettings.fuelPrice !== undefined) updateObj.fuel_price = newSettings.fuelPrice;
             if (newSettings.activePlatforms !== undefined) updateObj.active_platforms = newSettings.activePlatforms;
@@ -529,7 +721,6 @@ export const useDriverStore = create<DriverState>()(
             if (newSettings.photoUrl !== undefined) updateObj.photo_url = newSettings.photoUrl;
             if (newSettings.fixedCosts !== undefined) updateObj.fixed_costs = newSettings.fixedCosts;
             if (newSettings.currentVehicleProfileId !== undefined) updateObj.current_vehicle_profile_id = newSettings.currentVehicleProfileId;
-            if (newSettings.vehicleProfiles !== undefined) updateObj.vehicle_profiles = newSettings.vehicleProfiles;
 
             const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
             
@@ -735,12 +926,13 @@ export const useDriverStore = create<DriverState>()(
           maintenances: data.maintenances ? mergeById(state.maintenances, data.maintenances) : state.maintenances,
           importedReports: data.importedReports ? mergeById(state.importedReports, data.importedReports) : state.importedReports,
           cycles: data.cycles ? mergeById(state.cycles, data.cycles) : state.cycles,
+          vehicles: data.vehicles ? mergeById(state.vehicles, data.vehicles) : state.vehicles,
           settings: data.settings ? { ...state.settings, ...data.settings } : state.settings,
         };
       }),
 
       syncData: async () => {
-        const { user, syncStatus, setSyncStatus, importData, expenses, fuelings, maintenances, settings, cycles, isSaving, hasSynced, importedReports } = get();
+        const { user, syncStatus, setSyncStatus, importData, expenses, fuelings, maintenances, settings, cycles, isSaving, hasSynced, importedReports, vehicles } = get();
         
         if (!user || !isSupabaseConfigured) return;
         if (syncStatus === 'syncing' || isSaving) return;
@@ -839,14 +1031,16 @@ export const useDriverStore = create<DriverState>()(
             { data: dbFuel },
             { data: dbMaintenance },
             { data: dbCycles },
-            { data: dbImported }
+            { data: dbImported },
+            { data: dbVehicles }
           ] = await Promise.all([
             supabase.from('profiles').select('*').eq('id', user.id).single(),
             supabase.from('expenses').select('*').eq('user_id', user.id),
             supabase.from('fuel_logs').select('*').eq('user_id', user.id),
             supabase.from('maintenance_logs').select('*').eq('user_id', user.id),
             supabase.from('cycles').select('*').eq('user_id', user.id),
-            supabase.from('imported_reports').select('*').eq('user_id', user.id)
+            supabase.from('imported_reports').select('*').eq('user_id', user.id),
+            supabase.from('vehicles').select('*').eq('user_id', user.id).order('created_at', { ascending: false })
           ]);
 
           const importedData: any = {};
@@ -864,30 +1058,10 @@ export const useDriverStore = create<DriverState>()(
               theme: profile.theme || 'dark',
               photoUrl: profile.photo_url,
               fixedCosts: profile.fixed_costs,
-              currentVehicleProfileId: profile.current_vehicle_profile_id,
-              vehicleProfiles: profile.vehicle_profiles || []
+              currentVehicleProfileId: profile.current_vehicle_profile_id
             };
-
-            if (importedData.settings.vehicleProfiles.length > 0 && !importedData.settings.currentVehicleProfileId) {
-              importedData.settings.currentVehicleProfileId = importedData.settings.vehicleProfiles[0].id;
-              await supabase.from('profiles').update({
-                current_vehicle_profile_id: importedData.settings.currentVehicleProfileId
-              }).eq('id', user.id);
-            }
           } else {
             // New user - create profile
-            const defaultProfile = {
-              id: crypto.randomUUID(),
-              name: settings.vehicle || 'Meu Veículo',
-              brand: '',
-              model: '',
-              year: '',
-              type: 'owned',
-              category: settings.transportMode || 'car',
-              fixedCosts: settings.fixedCosts || { vehicleType: 'owned' },
-              createdAt: new Date().toISOString()
-            };
-
             const initialSettings = {
               id: user.id,
               name: settings.name || user.email.split('@')[0],
@@ -899,16 +1073,36 @@ export const useDriverStore = create<DriverState>()(
               transport_mode: settings.transportMode,
               dashboard_mode: settings.dashboardMode,
               fixed_costs: settings.fixedCosts,
-              current_vehicle_profile_id: defaultProfile.id,
-              vehicle_profiles: [defaultProfile]
+              current_vehicle_profile_id: settings.currentVehicleProfileId
             };
 
             await supabase.from('profiles').upsert(initialSettings);
-            importedData.settings = {
-              ...settings,
-              vehicleProfiles: [defaultProfile],
-              currentVehicleProfileId: defaultProfile.id
-            };
+            importedData.settings = { ...settings };
+          }
+
+          if (dbVehicles) {
+            importedData.vehicles = dbVehicles.map(v => ({
+              id: v.id,
+              name: v.name,
+              brand: v.brand,
+              model: v.model,
+              year: v.year,
+              plate: v.plate,
+              type: v.type,
+              category: v.category,
+              fixedCosts: {
+                vehicleType: v.type,
+                insurance: v.insurance,
+                ipva: v.ipva,
+                oilChange: v.oil_change,
+                tires: v.tires,
+                maintenance: v.maintenance,
+                financing: v.installment,
+                rentalPeriod: v.rental_type,
+                rentalValue: v.rental_value
+              },
+              createdAt: v.created_at
+            }));
           }
 
           if (dbExpenses) {
@@ -1045,6 +1239,7 @@ export const useDriverStore = create<DriverState>()(
         fuelings: state.fuelings,
         maintenances: state.maintenances,
         importedReports: state.importedReports,
+        vehicles: state.vehicles,
         settings: state.settings,
         tracking: state.tracking,
       }),

@@ -13,7 +13,7 @@ import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Dashboard = () => {
-  const { cycles, settings, startCycle, checkAndCloseCycles, isSaving, tracking, startTracking, stopTracking } = useDriverStore();
+  const { cycles, settings, startCycle, checkAndCloseCycles, isSaving, tracking, startTracking, stopTracking, vehicles } = useDriverStore();
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
@@ -49,8 +49,8 @@ export const Dashboard = () => {
   const openCycle = useMemo(() => cycles.find(c => c.status === 'open'), [cycles]);
   
   const currentVehicle = useMemo(() => {
-    return settings.vehicleProfiles?.find(v => v.id === settings.currentVehicleProfileId);
-  }, [settings.vehicleProfiles, settings.currentVehicleProfileId]);
+    return vehicles.find(v => v.id === settings.currentVehicleProfileId);
+  }, [vehicles, settings.currentVehicleProfileId]);
 
   const profitStats = useMemo(() => {
     if (!openCycle) return null;

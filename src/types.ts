@@ -186,7 +186,6 @@ export interface UserSettings {
   theme?: 'dark' | 'light' | 'system';
   photoUrl?: string;
   currentVehicleProfileId?: string;
-  vehicleProfiles?: VehicleProfile[];
 }
 
 export interface TrackingPoint {
@@ -277,6 +276,7 @@ export interface DriverState {
   fuelings: Fueling[];
   maintenances: Maintenance[];
   importedReports: ImportedReport[];
+  vehicles: VehicleProfile[];
   settings: UserSettings;
   tracking: TrackingSession;
   isSaving: boolean;
@@ -297,11 +297,19 @@ export interface DriverState {
   addImportedReport: (report: Omit<ImportedReport, 'id' | 'user_id' | 'imported_at'>) => Promise<void>;
   deleteCycle: (id: string) => Promise<void>;
   deleteImportedReport: (id: string) => Promise<void>;
+  
+  // Vehicle methods
+  loadVehicles: () => Promise<void>;
+  addVehicle: (vehicle: Omit<VehicleProfile, 'id' | 'createdAt'>) => Promise<void>;
+  updateVehicle: (id: string, updates: Partial<VehicleProfile>) => Promise<void>;
+  deleteVehicle: (id: string) => Promise<void>;
+  setActiveVehicle: (id: string) => Promise<void>;
+
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   updateTracking: (tracking: Partial<TrackingSession>) => void;
   startTracking: () => void;
   stopTracking: () => void;
-  importData: (data: { cycles?: Cycle[], expenses?: Expense[], fuelings?: Fueling[], maintenances?: Maintenance[], settings?: Partial<UserSettings>, importedReports?: ImportedReport[] }) => void;
+  importData: (data: { cycles?: Cycle[], expenses?: Expense[], fuelings?: Fueling[], maintenances?: Maintenance[], settings?: Partial<UserSettings>, importedReports?: ImportedReport[], vehicles?: VehicleProfile[] }) => void;
   syncData: () => Promise<void>;
   clearData: () => void;
   clearCloudData: () => Promise<{ success: boolean; error?: any }>;
