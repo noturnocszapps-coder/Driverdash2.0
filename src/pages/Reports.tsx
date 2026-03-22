@@ -1,10 +1,11 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics, consolidateDailyData } from '../utils';
+import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
-  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check
+  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check, AlertCircle
 } from 'lucide-react';
 import { 
   startOfDay, isSameDay, parseISO, format, subDays, startOfWeek, addDays
@@ -40,95 +41,34 @@ export const Reports = () => {
   }, [currentVehicle, settings.fixedCosts]);
   
   const today = startOfDay(new Date());
-  
+  const start = useMemo(() => startOfWeek(today, { weekStartsOn: 1 }), [today]);
+  const end = useMemo(() => addDays(start, 6), [start]);
+
+  const { dailyData: weekData, totals: weekTotals } = useConsolidatedAnalytics(start, end, filter);
+
   const currentWeek = useMemo(() => {
-    const start = startOfWeek(today, { weekStartsOn: 1 });
-    return Array.from({ length: 7 }).map((_, i) => {
-      const date = addDays(start, i);
-      const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
-      
-      // Manual Values (excluding those created from imports to avoid double counting)
-      const manualCycles = dayCycles.filter(c => !c.imported_report_id);
-      
-      const manualUber = manualCycles.reduce((acc, c) => acc + c.uber_amount, 0);
-      const manual99 = manualCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
-      const manualInDriver = manualCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
-      const manualExtra = manualCycles.reduce((acc, c) => acc + c.extra_amount, 0);
-      const manualRevenue = manualCycles.reduce((acc, c) => acc + c.total_amount, 0);
-      
-      const totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
-      const rideKm = dayCycles.reduce((acc, c) => acc + (c.ride_km || 0), 0);
-      const idleKm = dayCycles.reduce((acc, c) => acc + (c.displacement_km || 0), 0);
-      const totalDayExpenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
-
-      // Imported Reports (Daily)
-      const dayImportedReports = importedReports.filter(r => 
-        r.report_type === 'daily' && isSameDay(parseISO(r.period_start), date)
-      );
-      
-      const importedUber = dayImportedReports.filter(r => r.platform === 'Uber').reduce((acc, r) => acc + r.total_earnings, 0);
-      const imported99 = dayImportedReports.filter(r => r.platform === '99').reduce((acc, r) => acc + r.total_earnings, 0);
-      const importedInDriver = dayImportedReports.filter(r => r.platform === 'inDrive').reduce((acc, r) => acc + r.total_earnings, 0);
-
-      // Consolidation logic based on filter
-      let uber = 0;
-      let noventanove = 0;
-      let indriver = 0;
-      let extra = 0;
-
-      if (filter === 'all') {
-        uber = manualUber > 0 ? manualUber : importedUber;
-        noventanove = manual99 > 0 ? manual99 : imported99;
-        indriver = manualInDriver > 0 ? manualInDriver : importedInDriver;
-        extra = manualExtra;
-      } else if (filter === 'manual') {
-        uber = manualUber;
-        noventanove = manual99;
-        indriver = manualInDriver;
-        extra = manualExtra;
-      } else if (filter === 'imported') {
-        uber = importedUber;
-        noventanove = imported99;
-        indriver = importedInDriver;
-        extra = 0;
-      }
-
-      const dayRevenue = uber + noventanove + indriver + extra;
-      const profit = dayRevenue - totalDayExpenses;
-
-      // Earnings per KM
-      const grossPerKm = totalKm > 0 ? dayRevenue / totalKm : 0;
-      const netPerKm = totalKm > 0 ? profit / totalKm : 0;
-      
-      const profitPerProductiveKm = rideKm > 0 ? profit / rideKm : 0;
-      const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
-
-      const importedTotal = importedUber + imported99 + importedInDriver;
-      const hasMismatch = manualRevenue > 0 && importedTotal > 0 && Math.abs(manualRevenue - importedTotal) > 5;
-
-      return {
-        name: format(date, 'EEE', { locale: ptBR }),
-        fullName: format(date, "dd 'de' MMM", { locale: ptBR }),
-        value: dayRevenue,
-        expenses: totalDayExpenses,
-        profit,
-        totalKm,
-        idleKm,
-        rideKm,
-        grossPerKm,
-        netPerKm,
-        profitPerProductiveKm,
-        efficiencyPercentage,
-        hasMismatch,
-        importedTotal,
-        uber,
-        noventanove,
-        indriver,
-        extra,
-        date: date
-      };
-    });
-  }, [cycles, today, settings, importedReports]);
+    return weekData.map(day => ({
+      name: format(day.date, 'EEE', { locale: ptBR }),
+      fullName: format(day.date, "dd 'de' MMM", { locale: ptBR }),
+      value: day.totalRevenue,
+      expenses: day.expenses,
+      profit: day.profit,
+      totalKm: day.totalKm,
+      idleKm: day.idleKm,
+      rideKm: day.rideKm,
+      grossPerKm: day.totalKm > 0 ? day.totalRevenue / day.totalKm : 0,
+      netPerKm: day.totalKm > 0 ? day.profit / day.totalKm : 0,
+      profitPerProductiveKm: day.rideKm > 0 ? day.profit / day.rideKm : 0,
+      efficiencyPercentage: day.efficiency,
+      hasMismatch: day.hasMismatch,
+      importedTotal: day.importedTotal,
+      uber: day.uber,
+      noventanove: day.noventanove,
+      indriver: day.indriver,
+      extra: day.extra,
+      date: day.date
+    }));
+  }, [weekData]);
 
   const stats = useMemo(() => {
     const total = currentWeek.reduce((acc, d) => acc + d.value, 0);
@@ -196,15 +136,31 @@ export const Reports = () => {
     };
   }, [currentWeek]);
 
-  const recentCycles = useMemo(() => {
-    let filtered = [...cycles];
-    if (filter === 'manual') filtered = filtered.filter(c => c.source !== 'screenshot');
-    if (filter === 'imported') filtered = filtered.filter(c => c.source === 'screenshot');
+  const recentDays = useMemo(() => {
+    const days: any[] = [];
+    const now = startOfDay(new Date());
     
-    return filtered
-      .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-      .slice(0, 15);
-  }, [cycles, filter]);
+    // Get all unique days from cycles and imported reports
+    const allDates = new Set<string>();
+    cycles.forEach(c => allDates.add(format(parseISO(c.start_time), 'yyyy-MM-dd')));
+    importedReports.forEach(r => allDates.add(format(parseISO(r.period_start), 'yyyy-MM-dd')));
+    
+    const sortedDates = Array.from(allDates)
+      .map(d => parseISO(d))
+      .sort((a, b) => b.getTime() - a.getTime())
+      .slice(0, 30);
+
+    return sortedDates.map(date => {
+      const consolidated = consolidateDailyData(date, cycles, importedReports, settings, undefined, filter);
+      const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
+      
+      return {
+        ...consolidated,
+        cycles: dayCycles,
+        id: format(date, 'yyyy-MM-dd'),
+      };
+    }).filter(d => d.totalRevenue > 0 || d.totalKm > 0);
+  }, [cycles, importedReports, settings, filter]);
 
   return (
     <motion.div 
@@ -456,72 +412,57 @@ export const Reports = () => {
         </div>
         
         <div className="space-y-3">
-          {recentCycles.map((cycle) => (
+          {recentDays.map((day) => (
             <Card 
-              key={cycle.id} 
+              key={day.id} 
               className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group active:scale-[0.98] transition-all cursor-pointer"
-              onClick={() => navigate(`/cycle/${cycle.id}`)}
+              onClick={() => {
+                if (day.cycles.length === 1) {
+                  navigate(`/cycle/${day.cycles[0].id}`);
+                } else if (day.cycles.length > 1) {
+                  // If multiple cycles, go to the first one for now
+                  navigate(`/cycle/${day.cycles[0].id}`);
+                }
+              }}
             >
               <CardContent className="p-4 flex items-center justify-between">
                 <div className="flex items-center gap-4">
                   <div className="text-center min-w-[40px]">
                     <p className="text-[9px] font-black text-zinc-400 uppercase">
-                      {format(new Date(cycle.start_time), 'MMM', { locale: ptBR })}
+                      {format(day.date, 'MMM', { locale: ptBR })}
                     </p>
                     <p className="text-xl font-black tracking-tighter">
-                      {format(new Date(cycle.start_time), 'dd')}
+                      {format(day.date, 'dd')}
                     </p>
                   </div>
                   <div className="h-8 w-px bg-zinc-100 dark:bg-zinc-800" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-black tracking-tight">{formatCurrency(cycle.total_amount)}</p>
-                      {cycle.source === 'Importado via print' && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-emerald-500/10 text-[8px] font-black uppercase text-emerald-500">
-                          <Camera size={8} />
-                          Print
+                      <p className="text-sm font-black tracking-tight">{formatCurrency(day.totalRevenue)}</p>
+                      {day.hasMismatch && (
+                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-[8px] font-black uppercase text-amber-400">
+                          <AlertCircle size={8} />
+                          Divergência
                         </span>
                       )}
-                      {cycle.imported_report_id && (
+                      {day.cycles.length > 1 && (
                         <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-[8px] font-black uppercase text-blue-500">
-                          Verificado
+                          {day.cycles.length} Ciclos
                         </span>
                       )}
                     </div>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                      {formatKm(cycle.tracked_km || cycle.total_km || 0)} • {format(new Date(cycle.start_time), 'HH:mm')} 
-                      {cycle.end_time && ` • ${format(new Date(cycle.end_time), 'HH:mm')}`}
+                      {formatKm(day.totalKm)} • {day.rideKm > 0 ? `${Math.round(day.efficiency)}% Efic.` : 'Sem KM'}
                     </p>
                     <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[8px] font-black uppercase tracking-widest text-blue-500">
-                        {Math.round(calculateEfficiencyMetrics(cycle, settings).efficiencyPercentage)}% Efic.
-                      </span>
                       <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">
-                        {formatCurrency(calculateEfficiencyMetrics(cycle, settings).profitPerKm)}/km Real
+                        Lucro: {formatCurrency(day.profit)}
                       </span>
                     </div>
                   </div>
                 </div>
                 <div className="flex items-center gap-3">
-                  {(cycle.route_points?.length || 0) > 0 && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        navigate(`/cycle-map/${cycle.id}`);
-                      }}
-                      className="p-2 hover:bg-emerald-500/10 text-emerald-500 rounded-full transition-colors"
-                      title="Ver Mapa"
-                    >
-                      <MapIcon size={16} />
-                    </button>
-                  )}
-                  <div className={cn(
-                    "px-2 py-1 rounded-full text-[8px] font-black uppercase tracking-widest",
-                    cycle.status === 'open' ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-500/10 dark:text-emerald-400" : "bg-zinc-100 text-zinc-500 dark:bg-zinc-800 dark:text-zinc-500"
-                  )}>
-                    {cycle.status === 'open' ? 'Aberto' : 'Fechado'}
-                  </div>
-                  <ChevronRight size={16} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />
+                  <ChevronRight size={18} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />
                 </div>
               </CardContent>
             </Card>

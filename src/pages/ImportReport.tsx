@@ -41,7 +41,7 @@ export const ImportReport = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [extractedData, setExtractedData] = useState<ExtractedReportData | null>(null);
-  const [isDuplicate, setIsDuplicate] = useState(false);
+  const [duplicateInfo, setDuplicateInfo] = useState<{ date: string; platform: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -50,7 +50,7 @@ export const ImportReport = () => {
       setSelectedFile(file);
       setPreviewUrl(URL.createObjectURL(file));
       setError(null);
-      setIsDuplicate(false);
+      setDuplicateInfo(null);
       setExtractedData(null);
     }
   };
@@ -58,7 +58,7 @@ export const ImportReport = () => {
   const handlePlatformChange = (p: AppType) => {
     setPlatform(p);
     setError(null);
-    setIsDuplicate(false);
+    setDuplicateInfo(null);
     setExtractedData(null);
   };
 
@@ -68,7 +68,7 @@ export const ImportReport = () => {
     setStep('analyzing');
     setLoadingStep(0);
     setError(null);
-    setIsDuplicate(false);
+    setDuplicateInfo(null);
     setExtractedData(null);
 
     console.log("[ImportReport] Iniciando análise...");
@@ -81,12 +81,6 @@ export const ImportReport = () => {
       // 1. Generate hash for duplicate check
       const imageHash = await generateImageHash(selectedFile);
       
-      // Check if hash already exists
-      const hashExists = importedReports.some(r => r.image_hash === imageHash);
-      if (hashExists) {
-        setIsDuplicate(true);
-      }
-
       // Step 1: Lendo print
       setLoadingStep(1);
       
@@ -111,12 +105,18 @@ export const ImportReport = () => {
       
       setExtractedData(data);
 
-      // 4. Content fingerprint check
+      // 4. Duplicate check (Hash + Fingerprint)
       const fingerprint = generateContentFingerprint(user?.id || '', platform, data);
-      const fingerprintExists = importedReports.some(r => r.content_fingerprint === fingerprint);
       
-      if (fingerprintExists) {
-        setIsDuplicate(true);
+      const duplicate = importedReports.find(r => 
+        r.image_hash === imageHash || r.content_fingerprint === fingerprint
+      );
+      
+      if (duplicate) {
+        setDuplicateInfo({
+          date: new Date(duplicate.imported_at).toLocaleDateString('pt-BR'),
+          platform: duplicate.platform
+        });
       }
 
       setStep('review');
@@ -247,7 +247,7 @@ export const ImportReport = () => {
                         setSelectedFile(null);
                         setError(null);
                         setExtractedData(null);
-                        setIsDuplicate(false);
+                        setDuplicateInfo(null);
                       }}
                       className="absolute top-4 right-4 w-10 h-10 rounded-full bg-black/50 backdrop-blur-md text-white flex items-center justify-center hover:bg-black/70 transition-colors"
                     >
@@ -352,13 +352,14 @@ export const ImportReport = () => {
             exit={{ opacity: 0, x: -20 }}
             className="space-y-6"
           >
-            {isDuplicate && (
+            {duplicateInfo && (
               <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3 text-amber-600 dark:text-amber-400">
                 <AlertCircle size={20} className="shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-black uppercase tracking-tight">Possível Duplicata</p>
-                  <p className="text-xs font-medium opacity-80">
-                    Este relatório parece já ter sido importado anteriormente. Verifique os dados antes de confirmar.
+                  <p className="text-xs font-medium opacity-80 leading-relaxed">
+                    Este relatório parece já ter sido importado anteriormente em <span className="font-black">{duplicateInfo.date}</span> via <span className="font-black">{duplicateInfo.platform}</span>. 
+                    Verifique os dados antes de confirmar para evitar duplicidade nas suas estatísticas.
                   </p>
                 </div>
               </div>

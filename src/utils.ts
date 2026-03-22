@@ -1,5 +1,6 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
+import { isSameDay, parseISO } from 'date-fns';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -129,4 +130,114 @@ export function downloadFile(content: string, fileName: string, contentType: str
   a.download = fileName;
   a.click();
   URL.revokeObjectURL(a.href);
+}
+
+export interface ConsolidatedDayData {
+  date: Date;
+  uber: number;
+  noventanove: number;
+  indriver: number;
+  extra: number;
+  totalRevenue: number;
+  totalKm: number;
+  rideKm: number;
+  idleKm: number;
+  expenses: number;
+  profit: number;
+  efficiency: number;
+  hasMismatch: boolean;
+  isTrackingActive: boolean;
+  manualRevenue: number;
+  importedTotal: number;
+}
+
+export function consolidateDailyData(
+  date: Date,
+  cycles: any[],
+  importedReports: any[],
+  settings: any,
+  tracking?: any,
+  filter: 'all' | 'manual' | 'imported' = 'all'
+): ConsolidatedDayData {
+  const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
+  const dayImportedReports = importedReports.filter(r => 
+    r.report_type === 'daily' && isSameDay(parseISO(r.period_start), date)
+  );
+
+  // Manual Values (excluding those created from imports to avoid double counting)
+  const manualCycles = dayCycles.filter(c => !c.imported_report_id);
+  
+  const manualUber = manualCycles.reduce((acc, c) => acc + (c.uber_amount || 0), 0);
+  const manual99 = manualCycles.reduce((acc, c) => acc + (c.noventanove_amount || 0), 0);
+  const manualInDriver = manualCycles.reduce((acc, c) => acc + (c.indriver_amount || 0), 0);
+  const manualExtra = manualCycles.reduce((acc, c) => acc + (c.extra_amount || 0), 0);
+  const manualRevenue = manualCycles.reduce((acc, c) => acc + (c.total_amount || 0), 0);
+  
+  // Imported Values
+  const importedUber = dayImportedReports.filter(r => r.platform === 'Uber').reduce((acc, r) => acc + r.total_earnings, 0);
+  const imported99 = dayImportedReports.filter(r => r.platform === '99').reduce((acc, r) => acc + r.total_earnings, 0);
+  const importedInDriver = dayImportedReports.filter(r => r.platform === 'inDrive').reduce((acc, r) => acc + r.total_earnings, 0);
+  const importedTotal = importedUber + imported99 + importedInDriver;
+
+  // Consolidation logic based on filter
+  let uber = 0;
+  let noventanove = 0;
+  let indriver = 0;
+  let extra = 0;
+
+  if (filter === 'all') {
+    uber = manualUber > 0 ? manualUber : importedUber;
+    noventanove = manual99 > 0 ? manual99 : imported99;
+    indriver = manualInDriver > 0 ? manualInDriver : importedInDriver;
+    extra = manualExtra;
+  } else if (filter === 'manual') {
+    uber = manualUber;
+    noventanove = manual99;
+    indriver = manualInDriver;
+    extra = manualExtra;
+  } else if (filter === 'imported') {
+    uber = importedUber;
+    noventanove = imported99;
+    indriver = importedInDriver;
+    extra = 0;
+  }
+
+  const totalRevenue = uber + noventanove + indriver + extra;
+
+  // Distances (Sum from all cycles + live tracking if applicable)
+  let totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
+  let rideKm = dayCycles.reduce((acc, c) => acc + (c.ride_km || 0), 0);
+  let idleKm = dayCycles.reduce((acc, c) => acc + (c.displacement_km || 0), 0);
+
+  const isTrackingActive = tracking?.isActive && isSameDay(new Date(), date);
+  if (isTrackingActive) {
+    totalKm += tracking.distance;
+    rideKm += tracking.productiveDistance;
+    idleKm += tracking.idleDistance;
+  }
+
+  // Expenses
+  const expenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
+  const profit = totalRevenue - expenses;
+  const efficiency = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
+  const hasMismatch = manualRevenue > 0 && importedTotal > 0 && Math.abs(manualRevenue - importedTotal) > 5;
+
+  return {
+    date,
+    uber,
+    noventanove,
+    indriver,
+    extra,
+    totalRevenue,
+    totalKm,
+    rideKm,
+    idleKm,
+    expenses,
+    profit,
+    efficiency,
+    hasMismatch,
+    isTrackingActive,
+    manualRevenue,
+    importedTotal
+  };
 }

@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, formatKm, cn } from '../utils';
+import { formatCurrency, formatKm, cn, consolidateDailyData } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
   ChevronLeft, 
@@ -16,10 +16,11 @@ import {
   MapIcon,
   Camera,
   Trash2,
-  AlertCircle
+  AlertCircle,
+  TrendingUp as TrendingUpIcon
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { format, parseISO } from 'date-fns';
+import { format, parseISO, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export const CycleDetail = () => {
@@ -69,6 +70,18 @@ export const CycleDetail = () => {
   const totalExpenses = (cycle.fuel_expense || 0) + (cycle.food_expense || 0) + (cycle.other_expense || 0);
   const profit = cycle.total_amount - totalExpenses;
 
+  const { settings, importedReports } = useDriverStore();
+  const dayDate = useMemo(() => parseISO(cycle.start_time), [cycle.start_time]);
+  const consolidatedDay = useMemo(() => {
+    return consolidateDailyData(dayDate, cycles, importedReports, settings);
+  }, [dayDate, cycles, importedReports, settings]);
+
+  const hasOtherData = useMemo(() => {
+    const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), dayDate));
+    const dayImports = importedReports.filter(r => r.report_type === 'daily' && isSameDay(parseISO(r.period_start), dayDate));
+    return dayCycles.length > 1 || dayImports.length > 0;
+  }, [cycles, importedReports, dayDate]);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
@@ -86,7 +99,7 @@ export const CycleDetail = () => {
           <div>
             <h1 className="text-2xl font-black tracking-tight">Detalhes do Ciclo</h1>
             <p className="text-sm text-zinc-500 font-medium uppercase tracking-widest">
-              {format(parseISO(cycle.start_time), "dd 'de' MMMM", { locale: ptBR })}
+              {format(dayDate, "dd 'de' MMMM", { locale: ptBR })}
             </p>
           </div>
         </div>
@@ -97,6 +110,34 @@ export const CycleDetail = () => {
           <Trash2 size={18} />
         </button>
       </div>
+
+      {hasOtherData && (
+        <Card className="border-none bg-blue-500/5 border border-blue-500/10">
+          <CardContent className="p-4 space-y-3">
+            <div className="flex justify-between items-center">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-500 flex items-center gap-2">
+                <TrendingUp size={14} />
+                Resumo Consolidado do Dia
+              </h3>
+              <span className="text-[10px] font-bold text-blue-400 uppercase">Manual + IA</span>
+            </div>
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <p className="text-[8px] font-black text-zinc-400 uppercase">Faturamento</p>
+                <p className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(consolidatedDay.totalRevenue)}</p>
+              </div>
+              <div>
+                <p className="text-[8px] font-black text-zinc-400 uppercase">Lucro Real</p>
+                <p className="text-sm font-black text-emerald-500">{formatCurrency(consolidatedDay.profit)}</p>
+              </div>
+              <div>
+                <p className="text-[8px] font-black text-zinc-400 uppercase">KM Total</p>
+                <p className="text-sm font-black text-zinc-600 dark:text-zinc-300">{formatKm(consolidatedDay.totalKm)}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Main Stats */}
       <div className="grid grid-cols-2 gap-4">

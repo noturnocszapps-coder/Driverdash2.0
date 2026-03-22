@@ -1,7 +1,8 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, calculateEfficiencyMetrics, formatKm, calculateOperationalCost, formatDuration, calculateDriverScore } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, calculateEfficiencyMetrics, formatKm, calculateOperationalCost, formatDuration, calculateDriverScore, consolidateDailyData } from '../utils';
+import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
 import { TrendingUp, Clock, Target, Zap, LayoutGrid, Plus, ChevronRight, Navigation, Calendar, AlertCircle, Gauge, Map as MapIcon, Award, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -18,6 +19,16 @@ export const Dashboard = () => {
   const [now, setNow] = useState(new Date());
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+  const [filter, setFilter] = useState<'all' | 'manual' | 'imported'>('all');
+
+  const today = useMemo(() => startOfDay(new Date()), []);
+  const last7DaysStart = useMemo(() => subDays(today, 6), [today]);
+
+  const { dailyData: last7DaysData, totals: last7DaysTotals } = useConsolidatedAnalytics(last7DaysStart, today, filter);
+
+  const todayData = useMemo(() => {
+    return last7DaysData.find(d => isSameDay(d.date, today)) || consolidateDailyData(today, cycles, importedReports, settings, tracking, filter);
+  }, [last7DaysData, today, cycles, importedReports, settings, tracking, filter]);
 
   const handleToggleTracking = async () => {
     if (tracking.isActive) {
@@ -65,25 +76,25 @@ export const Dashboard = () => {
   const efficiencyStats = useMemo(() => {
     if (!openCycle) return null;
     
-    // Consolidate persisted data with active tracking data for real-time analysis
-    const totalKm = (openCycle.total_km || 0) + (tracking.isActive ? tracking.distance : 0);
-    const rideKm = (openCycle.ride_km || 0) + (tracking.isActive ? tracking.productiveDistance : 0);
-    const displacementKm = (openCycle.displacement_km || 0) + (tracking.isActive ? tracking.idleDistance : 0);
-    
     const consolidatedCycle = {
       ...openCycle,
-      total_km: totalKm,
-      ride_km: rideKm,
-      displacement_km: displacementKm
+      total_amount: todayData.totalRevenue,
+      total_km: todayData.totalKm,
+      ride_km: todayData.rideKm,
+      displacement_km: todayData.idleKm,
+      uber_amount: todayData.uber,
+      noventanove_amount: todayData.noventanove,
+      indriver_amount: todayData.indriver,
+      extra_amount: todayData.extra
     };
     
     return {
       ...calculateEfficiencyMetrics(consolidatedCycle, settings),
-      totalKm,
-      rideKm,
-      displacementKm
+      totalKm: todayData.totalKm,
+      rideKm: todayData.rideKm,
+      displacementKm: todayData.idleKm
     };
-  }, [openCycle, tracking, settings]);
+  }, [openCycle, todayData, settings]);
 
   const driverScore = useMemo(() => {
     if (!efficiencyStats) return null;
@@ -123,57 +134,22 @@ export const Dashboard = () => {
   }, [openCycle, now]);
 
   const stats = useMemo(() => {
-    const today = startOfDay(new Date());
-    const last7Days = Array.from({ length: 7 }, (_, i) => subDays(today, 6 - i));
-    
-    const chartData = last7Days.map(date => {
-      const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
-      const dayImportedReports = importedReports.filter(r => 
-        r.report_type === 'daily' && isSameDay(parseISO(r.period_start), date)
-      );
+    const chartData = last7DaysData.map(day => ({
+      name: format(day.date, 'EEE', { locale: ptBR }),
+      value: day.totalRevenue,
+      totalKm: day.totalKm,
+      profit: day.profit,
+      efficiency: day.efficiency,
+      date: day.date,
+      uber: day.uber,
+      noventanove: day.noventanove,
+      indriver: day.indriver,
+      extra: day.extra
+    }));
 
-      // Manual Values (excluding those created from imports to avoid double counting)
-      const manualCycles = dayCycles.filter(c => !c.imported_report_id);
-      
-      const manualUber = manualCycles.reduce((acc, c) => acc + c.uber_amount, 0);
-      const manual99 = manualCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
-      const manualInDriver = manualCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
-      const manualExtra = manualCycles.reduce((acc, c) => acc + c.extra_amount, 0);
-      
-      // Imported Values
-      const importedUber = dayImportedReports.filter(r => r.platform === 'Uber').reduce((acc, r) => acc + r.total_earnings, 0);
-      const imported99 = dayImportedReports.filter(r => r.platform === '99').reduce((acc, r) => acc + r.total_earnings, 0);
-      const importedInDriver = dayImportedReports.filter(r => r.platform === 'inDrive').reduce((acc, r) => acc + r.total_earnings, 0);
-
-      // Consolidate (prefer manual if exists, otherwise imported)
-      const uber = manualUber > 0 ? manualUber : importedUber;
-      const noventanove = manual99 > 0 ? manual99 : imported99;
-      const indriver = manualInDriver > 0 ? manualInDriver : importedInDriver;
-      const extra = manualExtra;
-
-      const total = uber + noventanove + indriver + extra;
-      const totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
-      const expenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
-      const profit = total - expenses;
-      const efficiency = totalKm > 0 ? total / totalKm : 0;
-
-      return {
-        name: format(date, 'EEE', { locale: ptBR }),
-        value: total,
-        totalKm,
-        profit,
-        efficiency,
-        date,
-        uber,
-        noventanove,
-        indriver,
-        extra
-      };
-    });
-
-    const total7Days = chartData.reduce((acc, d) => acc + d.value, 0);
-    const totalProfit7Days = chartData.reduce((acc, d) => acc + d.profit, 0);
-    const totalKm7Days = chartData.reduce((acc, d) => acc + d.totalKm, 0);
+    const total7Days = last7DaysTotals.totalRevenue;
+    const totalProfit7Days = last7DaysTotals.profit;
+    const totalKm7Days = last7DaysTotals.totalKm;
     const avg = total7Days / 7;
     const avgEfficiency = totalKm7Days > 0 ? total7Days / totalKm7Days : 0;
 
@@ -233,7 +209,7 @@ export const Dashboard = () => {
       worstDayByEfficiency,
       alerts
     };
-  }, [cycles, settings]);
+  }, [last7DaysData, last7DaysTotals, cycles, settings]);
 
   const handleStartCycle = async () => {
     await startCycle();
@@ -259,9 +235,38 @@ export const Dashboard = () => {
             )}
           </div>
         </div>
-        <div className="flex flex-col items-end">
-          <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
-          <div className="mt-1">
+        <div className="flex flex-col items-end gap-2">
+          <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
+            <button 
+              onClick={() => setFilter('all')}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                filter === 'all' ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm" : "text-zinc-500"
+              )}
+            >
+              Tudo
+            </button>
+            <button 
+              onClick={() => setFilter('manual')}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                filter === 'manual' ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm" : "text-zinc-500"
+              )}
+            >
+              Manual
+            </button>
+            <button 
+              onClick={() => setFilter('imported')}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all",
+                filter === 'imported' ? "bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm" : "text-zinc-500"
+              )}
+            >
+              IA
+            </button>
+          </div>
+          <div className="flex items-center gap-2">
+            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">{format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}</p>
             <SyncIndicator />
           </div>
         </div>
@@ -270,16 +275,16 @@ export const Dashboard = () => {
       {/* Tracking Section */}
       {openCycle && (
         <Card className={cn(
-          "relative border-none shadow-xl transition-all duration-500",
+          "relative border-none shadow-xl transition-all duration-500 overflow-hidden",
           tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-zinc-900 text-white"
         )}>
           {tracking.isLoading && (
-            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-50 flex items-center justify-center rounded-2xl">
+            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-10 flex items-center justify-center">
               <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
             </div>
           )}
           <CardContent className="p-6">
-            <div className="flex justify-between items-center">
+            <div className="flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <div className={cn(
                   "w-10 h-10 rounded-full flex items-center justify-center shadow-inner",
