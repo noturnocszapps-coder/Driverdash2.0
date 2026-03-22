@@ -4,6 +4,7 @@ import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncManager } from './components/SyncManager';
 import { Footer } from './components/Footer';
 import { useDriverStore } from './store';
+import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Lazy pages
 const LandingPage = lazy(() => import('./LandingPage').then(m => ({ default: m.LandingPage })));
@@ -47,7 +48,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 export default function App() {
   const { settings } = useDriverStore();
 
-  // Evita erro com settings undefined
   useEffect(() => {
     if (!settings) return;
   }, [settings]);
@@ -64,13 +64,14 @@ export default function App() {
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
 
-            {/* 🔥 TESTE DASHBOARD */}
             <Route
               path="/dashboard"
               element={
-                <div className="min-h-screen bg-black text-white p-10 text-2xl font-bold">
-                  TESTE DASHBOARD OK 🚀
-                </div>
+                <ProtectedRoute>
+                  <div className="min-h-screen bg-black text-white p-10 text-2xl font-bold">
+                    TESTE PROTECTED ROUTE OK ✅
+                  </div>
+                </ProtectedRoute>
               }
             />
 
