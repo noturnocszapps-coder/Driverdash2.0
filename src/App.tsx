@@ -1,4 +1,4 @@
-import React, { useEffect, Suspense, lazy } from 'react';
+import React, { useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncManager } from './components/SyncManager';
@@ -6,20 +6,54 @@ import { Footer } from './components/Footer';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { useDriverStore } from './store';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { lazyWithRetry } from './lib/lazyWithRetry';
 
-// Lazy load pages
-const LandingPage = lazy(() => import('./LandingPage').then(m => ({ default: m.LandingPage })));
-const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
-const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
-const Settings = lazy(() => import('./pages/Settings').then(m => ({ default: m.Settings })));
-const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
-const Register = lazy(() => import('./pages/Register').then(m => ({ default: m.Register })));
-const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
-const Faturamento = lazy(() => import('./pages/Faturamento').then(m => ({ default: m.Faturamento })));
-const ImportReport = lazy(() => import('./pages/ImportReport').then(m => ({ default: m.ImportReport })));
-const CycleMap = lazy(() => import('./pages/CycleMap'));
-const CycleDetail = lazy(() => import('./pages/CycleDetail').then(m => ({ default: m.CycleDetail })));
-const HeatmapIntelligence = lazy(() => import('./pages/HeatmapIntelligence'));
+// Lazy load pages with retry
+const LandingPage = lazyWithRetry(
+  () => import('./LandingPage').then((m) => ({ default: m.LandingPage })),
+  'LandingPage'
+);
+const Dashboard = lazyWithRetry(
+  () => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })),
+  'Dashboard'
+);
+const Reports = lazyWithRetry(
+  () => import('./pages/Reports').then((m) => ({ default: m.Reports })),
+  'Reports'
+);
+const Settings = lazyWithRetry(
+  () => import('./pages/Settings').then((m) => ({ default: m.Settings })),
+  'Settings'
+);
+const Login = lazyWithRetry(
+  () => import('./pages/Login').then((m) => ({ default: m.Login })),
+  'Login'
+);
+const Register = lazyWithRetry(
+  () => import('./pages/Register').then((m) => ({ default: m.Register })),
+  'Register'
+);
+const ForgotPassword = lazyWithRetry(
+  () => import('./pages/ForgotPassword').then((m) => ({ default: m.ForgotPassword })),
+  'ForgotPassword'
+);
+const Faturamento = lazyWithRetry(
+  () => import('./pages/Faturamento').then((m) => ({ default: m.Faturamento })),
+  'Faturamento'
+);
+const ImportReport = lazyWithRetry(
+  () => import('./pages/ImportReport').then((m) => ({ default: m.ImportReport })),
+  'ImportReport'
+);
+const CycleMap = lazyWithRetry(() => import('./pages/CycleMap'), 'CycleMap');
+const CycleDetail = lazyWithRetry(
+  () => import('./pages/CycleDetail').then((m) => ({ default: m.CycleDetail })),
+  'CycleDetail'
+);
+const HeatmapIntelligence = lazyWithRetry(
+  () => import('./pages/HeatmapIntelligence'),
+  'HeatmapIntelligence'
+);
 
 const PageLoader = () => (
   <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -264,7 +298,9 @@ export default function App() {
 
     const checkSession = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const {
+          data: { session },
+        } = await supabase.auth.getSession();
 
         if (session?.user) {
           setUser({
@@ -286,7 +322,9 @@ export default function App() {
 
     checkSession();
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_, session) => {
       if (session?.user) {
         setUser({
           id: session.user.id,
