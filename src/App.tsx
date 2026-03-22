@@ -27,6 +27,71 @@ const PageLoader = () => (
   </div>
 );
 
+class RouteErrorBoundary extends React.Component<
+  { children: React.ReactNode; routeName: string },
+  { hasError: boolean; errorMessage: string }
+> {
+  constructor(props: { children: React.ReactNode; routeName: string }) {
+    super(props);
+    this.state = { hasError: false, errorMessage: '' };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return {
+      hasError: true,
+      errorMessage: error?.message || 'Erro desconhecido ao renderizar a rota.',
+    };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error(`[RouteErrorBoundary] Erro na rota ${this.props.routeName}:`, error);
+    console.error('[RouteErrorBoundary] Stack:', errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
+          <div className="w-full max-w-xl rounded-3xl border border-red-500/20 bg-zinc-900 p-6 shadow-2xl">
+            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-400 mb-2">
+              Erro de Rota
+            </p>
+            <h1 className="text-2xl font-black tracking-tight mb-3">
+              Falha ao abrir: {this.props.routeName}
+            </h1>
+            <p className="text-sm text-zinc-400 mb-4">
+              A navegação funcionou, mas esta página quebrou ao renderizar.
+            </p>
+            <div className="rounded-2xl bg-zinc-950 border border-zinc-800 p-4 overflow-auto">
+              <pre className="text-xs text-zinc-300 whitespace-pre-wrap break-words">
+                {this.state.errorMessage}
+              </pre>
+            </div>
+            <button
+              onClick={() => window.location.reload()}
+              className="mt-5 w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-zinc-950"
+            >
+              Recarregar página
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
+
+const SafeRoute = ({
+  children,
+  routeName,
+}: {
+  children: React.ReactNode;
+  routeName: string;
+}) => {
+  return <RouteErrorBoundary routeName={routeName}>{children}</RouteErrorBoundary>;
+};
+
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const isLanding = location.pathname === '/';
@@ -53,6 +118,139 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     </div>
   );
 };
+
+function AppRoutes() {
+  return (
+    <Layout>
+      <Suspense fallback={<PageLoader />}>
+        <Routes>
+          <Route
+            path="/"
+            element={
+              <SafeRoute routeName="LandingPage">
+                <LandingPage />
+              </SafeRoute>
+            }
+          />
+          <Route
+            path="/login"
+            element={
+              <SafeRoute routeName="Login">
+                <Login />
+              </SafeRoute>
+            }
+          />
+          <Route
+            path="/register"
+            element={
+              <SafeRoute routeName="Register">
+                <Register />
+              </SafeRoute>
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              <SafeRoute routeName="ForgotPassword">
+                <ForgotPassword />
+              </SafeRoute>
+            }
+          />
+
+          <Route
+            path="/dashboard"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="Dashboard">
+                  <Dashboard />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/faturamento"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="Faturamento">
+                  <Faturamento />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/cycle-map/:id"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="CycleMap">
+                  <CycleMap />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/cycle/:id"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="CycleDetail">
+                  <CycleDetail />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/import-report"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="ImportReport">
+                  <ImportReport />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/reports"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="Reports">
+                  <Reports />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/heatmap"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="HeatmapIntelligence">
+                  <HeatmapIntelligence />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/settings"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="Settings">
+                  <Settings />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
+      </Suspense>
+    </Layout>
+  );
+}
 
 export default function App() {
   const { setUser, setSyncStatus } = useDriverStore();
@@ -112,29 +310,7 @@ export default function App() {
   return (
     <Router>
       <SyncManager />
-
-      <Layout>
-        <Suspense fallback={<PageLoader />}>
-          <Routes>
-            <Route path="/" element={<LandingPage />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/register" element={<Register />} />
-            <Route path="/forgot-password" element={<ForgotPassword />} />
-
-            {/* Protected */}
-            <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
-            <Route path="/faturamento" element={<ProtectedRoute><Faturamento /></ProtectedRoute>} />
-            <Route path="/cycle-map/:id" element={<ProtectedRoute><CycleMap /></ProtectedRoute>} />
-            <Route path="/cycle/:id" element={<ProtectedRoute><CycleDetail /></ProtectedRoute>} />
-            <Route path="/import-report" element={<ProtectedRoute><ImportReport /></ProtectedRoute>} />
-            <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
-            <Route path="/heatmap" element={<ProtectedRoute><HeatmapIntelligence /></ProtectedRoute>} />
-            <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </Suspense>
-      </Layout>
+      <AppRoutes />
     </Router>
   );
 }
