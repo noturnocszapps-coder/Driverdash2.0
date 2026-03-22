@@ -1,7 +1,6 @@
 import React, { useEffect, Suspense, lazy } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar, BottomNav } from './components/Navigation';
-import { SyncIndicator } from './components/SyncIndicator';
 import { SyncManager } from './components/SyncManager';
 import { Footer } from './components/Footer';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
@@ -11,7 +10,7 @@ import { ReloadPrompt } from './ReloadPrompt';
 import { PWAInstallPrompt } from './PWAInstallPrompt';
 import { OfflineFallback } from './components/OfflineFallback';
 
-// Lazy load pages
+// Lazy load
 const LandingPage = lazy(() => import('./LandingPage').then(m => ({ default: m.LandingPage })));
 const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const Reports = lazy(() => import('./pages/Reports').then(m => ({ default: m.Reports })));
@@ -36,12 +35,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const isLanding = location.pathname === '/';
   const isAuth = ['/login', '/register', '/forgot-password'].includes(location.pathname);
 
-  if (isLanding || isAuth) return (
-    <>
-      {children}
-      {isLanding && <Footer />}
-    </>
-  );
+  if (isLanding || isAuth) {
+    return (
+      <>
+        {children}
+        {isLanding && <Footer />}
+      </>
+    );
+  }
 
   return (
     <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
@@ -58,33 +59,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
 export default function App() {
   const { setUser, setSyncStatus, settings } = useDriverStore();
+
   const [isAuthReady, setIsAuthReady] = React.useState(false);
-  const [isOffline, setIsOffline] = React.useState(!navigator.onLine);
+  const [isOffline, setIsOffline] = React.useState(false);
 
+  // ✅ SAFE ONLINE CHECK
   useEffect(() => {
-    const root = window.document.documentElement;
-    const applyTheme = (t: string) => {
-      if (t === 'system') {
-        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        root.classList.remove('light', 'dark');
-        root.classList.add(systemTheme);
-      } else {
-        root.classList.remove('light', 'dark');
-        root.classList.add(t);
-      }
-    };
+    setIsOffline(!navigator.onLine);
 
-    applyTheme(settings.theme || 'dark');
-
-    if (settings.theme === 'system') {
-      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
-      const handleChange = () => applyTheme('system');
-      mediaQuery.addEventListener('change', handleChange);
-      return () => mediaQuery.removeEventListener('change', handleChange);
-    }
-  }, [settings.theme]);
-
-  useEffect(() => {
     const handleOnline = () => setIsOffline(false);
     const handleOffline = () => setIsOffline(true);
 
@@ -97,32 +79,44 @@ export default function App() {
     };
   }, []);
 
+  // ✅ SAFE THEME
+  useEffect(() => {
+    if (!settings) return;
+
+    const root = document.documentElement;
+
+    const applyTheme = (t: string) => {
+      const theme = t || 'dark';
+
+      if (theme === 'system') {
+        const systemTheme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+        root.classList.remove('light', 'dark');
+        root.classList.add(systemTheme);
+      } else {
+        root.classList.remove('light', 'dark');
+        root.classList.add(theme);
+      }
+    };
+
+    applyTheme(settings?.theme || 'dark');
+  }, [settings]);
+
+  // ✅ AUTH
   useEffect(() => {
     if (!isSupabaseConfigured) {
       setIsAuthReady(true);
       return;
     }
 
-    // Check active sessions and sets the user
     const checkSession = async () => {
       try {
-        const { data: { session }, error } = await supabase.auth.getSession();
-        if (error) {
-          console.error('[App] Auth session error:', error.message);
-          // If refresh token is invalid, clear everything
-          if (
-            error.message.includes('Refresh Token Not Found') || 
-            error.message.includes('refresh_token_not_found') ||
-            error.message.includes('Invalid Refresh Token')
-          ) {
-            await supabase.auth.signOut();
-            setUser(null);
-          }
-        } else if (session?.user) {
+        const { data: { session } } = await supabase.auth.getSession();
+
+        if (session?.user) {
           setUser({
             id: session.user.id,
             email: session.user.email!,
-            name: session.user.user_metadata.name,
+            name: session.user.user_metadata?.name || 'User',
           });
           setSyncStatus('online');
         } else {
@@ -130,7 +124,7 @@ export default function App() {
           setSyncStatus('offline');
         }
       } catch (err) {
-        console.error('[App] Unexpected auth error:', err);
+        console.error('[App] Auth error:', err);
       } finally {
         setIsAuthReady(true);
       }
@@ -138,50 +132,37 @@ export default function App() {
 
     checkSession();
 
-    // Listen for changes on auth state (logged in, signed out, etc.)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      console.log('[App] Auth event:', event);
-      
-      if (event === 'TOKEN_REFRESHED') {
-        console.log('[App] Token refreshed successfully');
-      }
-
-      if (event === 'SIGNED_OUT') {
-        // Clear local storage if needed or handle sign out
-        setUser(null);
-        setSyncStatus('offline');
-      } else if (session?.user) {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
+      if (session?.user) {
         setUser({
           id: session.user.id,
           email: session.user.email!,
-          name: session.user.user_metadata.name,
+          name: session.user.user_metadata?.name || 'User',
         });
         setSyncStatus('online');
       } else {
         setUser(null);
         setSyncStatus('offline');
       }
-      
-      // Ensure we mark auth as ready if it wasn't already
+
       setIsAuthReady(true);
     });
 
     return () => subscription.unsubscribe();
   }, [setUser, setSyncStatus]);
 
-  if (isOffline) {
-    return <OfflineFallback />;
-  }
-
-  if (!isAuthReady) {
-    return <PageLoader />;
-  }
+  // ❗ NÃO BLOQUEIA APP COMPLETO
+  if (!isAuthReady) return <PageLoader />;
 
   return (
     <Router>
       <SyncManager />
       <ReloadPrompt />
       <PWAInstallPrompt />
+
+      {/* ✅ MOSTRA AVISO, MAS NÃO BLOQUEIA */}
+      {isOffline && <OfflineFallback />}
+
       <Layout>
         <Suspense fallback={<PageLoader />}>
           <Routes>
@@ -189,8 +170,7 @@ export default function App() {
             <Route path="/login" element={<Login />} />
             <Route path="/register" element={<Register />} />
             <Route path="/forgot-password" element={<ForgotPassword />} />
-            
-            {/* Protected Routes */}
+
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/faturamento" element={<ProtectedRoute><Faturamento /></ProtectedRoute>} />
             <Route path="/cycle-map/:id" element={<ProtectedRoute><CycleMap /></ProtectedRoute>} />
@@ -199,7 +179,7 @@ export default function App() {
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
             <Route path="/heatmap" element={<ProtectedRoute><HeatmapIntelligence /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
-            
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </Suspense>
