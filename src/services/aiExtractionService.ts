@@ -137,14 +137,39 @@ export const extractReportFromImage = async (base64Image: string, platform: stri
     }
   } catch (error: any) {
     if (error.message === "TIMEOUT") {
-      console.error("[Gemini] Timeout atingido (20s)");
-      throw new Error("A análise demorou mais do que o esperado. Tente novamente.");
+      console.error("[Gemini] Timeout atingido (20s) - Retornando resultado parcial");
+      // Return a partial result so the user can edit it manually instead of a dead-end error
+      return {
+        report_type: 'daily',
+        period_start: new Date().toISOString().split('T')[0],
+        period_end: new Date().toISOString().split('T')[0],
+        total_earnings: 0,
+        cash_earnings: 0,
+        app_earnings: 0,
+        platform_fee: 0,
+        promotions: 0,
+        taxes: 0,
+        requests_count: 0,
+        confidence_score: 0,
+        uncertain_fields: ['all']
+      };
     }
-    if (error.message === "EMPTY_RESPONSE") {
-      throw new Error("Falha ao analisar o print. O Gemini não retornou dados.");
-    }
-    if (error.message === "PARSE_ERROR") {
-      throw new Error("Não foi possível interpretar os dados extraídos pelo Gemini.");
+    if (error.message === "EMPTY_RESPONSE" || error.message === "PARSE_ERROR") {
+      console.error(`[Gemini] ${error.message} - Retornando resultado vazio para preenchimento manual`);
+      return {
+        report_type: 'daily',
+        period_start: new Date().toISOString().split('T')[0],
+        period_end: new Date().toISOString().split('T')[0],
+        total_earnings: 0,
+        cash_earnings: 0,
+        app_earnings: 0,
+        platform_fee: 0,
+        promotions: 0,
+        taxes: 0,
+        requests_count: 0,
+        confidence_score: 0,
+        uncertain_fields: ['all']
+      };
     }
     
     console.error("[Gemini] Erro na requisição:", error);

@@ -36,6 +36,17 @@ const MapAutoCenter = ({ points }: { points: { lat: number, lng: number }[] }) =
   return null;
 };
 
+// Component to handle map size recalculation
+const MapResizeHandler = () => {
+  const map = useMap();
+  useEffect(() => {
+    setTimeout(() => {
+      map.invalidateSize();
+    }, 100);
+  }, [map]);
+  return null;
+};
+
 const CycleMap = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -121,49 +132,52 @@ const CycleMap = () => {
       </div>
 
       {/* Map Container */}
-      <div className="flex-1 relative overflow-hidden">
-        {points.length > 0 ? (
-          <MapContainer 
-            center={points.length > 0 ? [points[points.length-1].lat, points[points.length-1].lng] : [-23.5505, -46.6333]} 
-            zoom={13} 
-            style={{ height: '100%', width: '100%' }}
-            zoomControl={false}
-          >
-            <TileLayer
-              attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-              url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
-              className="map-tiles-dark"
-            />
-            
-            <Polyline 
-              positions={polylinePositions} 
-              color="#10b981" 
-              weight={4} 
-              opacity={0.8}
-              lineJoin="round"
-            />
-
-            {/* Start point */}
-            {points.length > 0 && (
-              <Marker position={[points[0].lat, points[0].lng]} icon={startIcon} />
-            )}
-
-            {/* End point or Current position */}
-            {points.length > 1 && (
-              <Marker 
-                position={[points[points.length - 1].lat, points[points.length - 1].lng]} 
-                icon={isLive && metrics.isActive ? createMarkerIcon('#3b82f6') : endIcon} 
+      <div className="flex-1 relative min-h-0">
+        <MapContainer 
+          center={points.length > 0 ? [points[points.length-1].lat, points[points.length-1].lng] : [-23.5505, -46.6333]} 
+          zoom={13} 
+          style={{ height: '100%', width: '100%', position: 'absolute', inset: 0 }}
+          zoomControl={false}
+        >
+          <TileLayer
+            attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
+            className="map-tiles-dark"
+          />
+          
+          {points.length > 0 && (
+            <>
+              <Polyline 
+                positions={polylinePositions} 
+                color="#10b981" 
+                weight={4} 
+                opacity={0.8}
+                lineJoin="round"
               />
-            )}
 
-            <MapAutoCenter points={points} />
-          </MapContainer>
-        ) : (
-          <div className="h-full flex flex-col items-center justify-center p-8 text-center">
-            <MapIcon size={48} className="text-zinc-800 mb-4" />
-            <p className="text-zinc-500 font-medium">Nenhum trajeto registrado ainda</p>
-            <p className="text-zinc-600 text-sm mt-2">
-              Inicie o rastreamento no dashboard para começar a gravar seu percurso.
+              {/* Start point */}
+              <Marker position={[points[0].lat, points[0].lng]} icon={startIcon} />
+
+              {/* End point or Current position */}
+              {points.length > 1 && (
+                <Marker 
+                  position={[points[points.length - 1].lat, points[points.length - 1].lng]} 
+                  icon={isLive && metrics.isActive ? createMarkerIcon('#3b82f6') : endIcon} 
+                />
+              )}
+
+              <MapAutoCenter points={points} />
+            </>
+          )}
+          <MapResizeHandler />
+        </MapContainer>
+
+        {points.length === 0 && (
+          <div className="absolute inset-0 z-[999] pointer-events-none flex flex-col items-center justify-center p-8 text-center bg-black/40 backdrop-blur-[1px]">
+            <MapIcon size={48} className="text-zinc-700 mb-4" />
+            <p className="text-zinc-400 font-black uppercase tracking-widest text-xs">Nenhum trajeto registrado</p>
+            <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-2 max-w-[200px]">
+              Inicie o rastreamento no dashboard para gravar seu percurso.
             </p>
           </div>
         )}

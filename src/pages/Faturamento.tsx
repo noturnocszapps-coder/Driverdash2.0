@@ -42,6 +42,20 @@ export const Faturamento = () => {
     noventanove: 0,
     indriver: 0
   });
+
+  // Consolidate KM data sources before rendering
+  const kmTotalFinal = useMemo(() => {
+    const tracked = (openCycle?.tracked_km || 0) + (tracking.isActive ? tracking.distance : 0);
+    // If we have tracked data, it takes precedence over manual state unless manual state was explicitly changed
+    // For simplicity and following the "ONE final value" rule:
+    return tracked > 0 ? tracked : (kms.total || openCycle?.total_km || 0);
+  }, [openCycle, tracking.isActive, tracking.distance, kms.total]);
+
+  const kmRideFinal = useMemo(() => {
+    const tracked = (openCycle?.productive_km || 0) + (tracking.isActive ? tracking.productiveDistance : 0);
+    return tracked > 0 ? tracked : (kms.ride || openCycle?.ride_km || 0);
+  }, [openCycle, tracking.isActive, tracking.productiveDistance, kms.ride]);
+
   const [showAdvancedKm, setShowAdvancedKm] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
@@ -50,25 +64,30 @@ export const Faturamento = () => {
   useEffect(() => {
     if (openCycle) {
       setAmounts({
-        uber: openCycle.uber_amount,
-        noventanove: openCycle.noventanove_amount,
-        indriver: openCycle.indriver_amount,
-        extra: openCycle.extra_amount
+        uber: openCycle.uber_amount || 0,
+        noventanove: openCycle.noventanove_amount || 0,
+        indriver: openCycle.indriver_amount || 0,
+        extra: openCycle.extra_amount || 0
       });
       setExpenses({
         fuel: openCycle.fuel_expense || 0,
         food: openCycle.food_expense || 0,
         other: openCycle.other_expense || 0
       });
+      
+      // Consolidate KM data: prefer tracked data if available
+      const trackedTotal = (openCycle.tracked_km || 0) + (tracking.isActive ? tracking.distance : 0);
+      const trackedRide = (openCycle.productive_km || 0) + (tracking.isActive ? tracking.productiveDistance : 0);
+      
       setKms({
-        total: openCycle.tracked_km || openCycle.total_km || 0,
-        ride: openCycle.ride_km || 0,
+        total: trackedTotal > 0 ? trackedTotal : (openCycle.total_km || 0),
+        ride: trackedRide > 0 ? trackedRide : (openCycle.ride_km || 0),
         uber: openCycle.uber_km || 0,
         noventanove: openCycle.noventanove_km || 0,
         indriver: openCycle.indriver_km || 0
       });
     }
-  }, [openCycle]);
+  }, [openCycle, tracking.isActive]);
 
   const handleSave = async () => {
     if (isSaving || storeIsSaving) return;
@@ -89,8 +108,8 @@ export const Faturamento = () => {
         fuel_expense: expenses.fuel,
         food_expense: expenses.food,
         other_expense: expenses.other,
-        total_km: kms.total,
-        ride_km: kms.ride,
+        total_km: kmTotalFinal,
+        ride_km: kmRideFinal,
         uber_km: kms.uber,
         noventanove_km: kms.noventanove,
         indriver_km: kms.indriver,
@@ -235,11 +254,11 @@ export const Faturamento = () => {
           <div className="relative">
             <KmInput 
               label="KM Total" 
-              value={kms.total} 
-              onChange={(val) => setKms(prev => ({ ...prev, total: val }))} 
+              value={kmTotalFinal} 
+              onChange={(val: number) => setKms(prev => ({ ...prev, total: val }))} 
             />
-            {openCycle?.tracked_km && (
-              <div className="absolute -top-2 -right-2 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-1">
+            {(openCycle?.tracked_km || tracking.isActive) && (
+              <div className="absolute -top-2 -right-2 bg-emerald-500 text-zinc-950 text-[8px] font-black px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-1 z-10">
                 <Navigation size={8} />
                 TRACKED
               </div>
@@ -247,8 +266,8 @@ export const Faturamento = () => {
           </div>
           <KmInput 
             label="KM em Corrida" 
-            value={kms.ride} 
-            onChange={(val) => setKms(prev => ({ ...prev, ride: val }))} 
+            value={kmRideFinal} 
+            onChange={(val: number) => setKms(prev => ({ ...prev, ride: val }))} 
           />
         </div>
 
@@ -372,26 +391,33 @@ const ExpenseInput = ({ icon: Icon, label, value, onChange }: any) => (
   </Card>
 );
 
-const KmInput = ({ label, value, onChange }: any) => (
-  <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-    <CardContent className="p-4 flex flex-col gap-2">
-      <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-      <div className="relative">
-        <input 
-          type="number"
-          value={value === 0 ? '' : value}
-          onChange={(e) => {
-            const val = e.target.value;
-            onChange(val === '' ? 0 : Number(val));
-          }}
-          placeholder="0"
-          className="w-full bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-xl py-2.5 px-3 text-right font-black text-sm focus:ring-2 focus:ring-emerald-500 transition-all"
-        />
-        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300">KM</span>
-      </div>
-    </CardContent>
-  </Card>
-);
+const KmInput = ({ label, value, onChange }: any) => {
+  const displayValue = value !== undefined && value !== null && !isNaN(value) 
+    ? Number(parseFloat(value.toString()).toFixed(2)) 
+    : 0;
+
+  return (
+    <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
+      <CardContent className="p-4 flex flex-col gap-2">
+        <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
+        <div className="relative">
+          <input 
+            type="number"
+            step="0.01"
+            value={displayValue === 0 ? '' : displayValue}
+            onChange={(e) => {
+              const val = e.target.value;
+              onChange(val === '' ? 0 : Number(val));
+            }}
+            placeholder="0"
+            className="w-full bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-xl py-2.5 pl-10 pr-3 text-right font-black text-sm focus:ring-2 focus:ring-emerald-500 transition-all"
+          />
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-300">KM</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 const PlatformInput = ({ label, value, onChange, color, accent }: any) => {
   const [isEditing, setIsEditing] = useState(false);

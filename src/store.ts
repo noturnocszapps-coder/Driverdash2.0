@@ -41,6 +41,7 @@ export const useDriverStore = create<DriverState>()(
       },
       tracking: {
         isActive: false,
+        isLoading: false,
         distance: 0,
         productiveDistance: 0,
         idleDistance: 0,
@@ -201,11 +202,23 @@ export const useDriverStore = create<DriverState>()(
             cycles: state.cycles.map(c => {
               if (c.id === id) {
                 const updated = { ...c, ...data };
+                
+                // Consolidate tracking data into main KM fields if provided
+                if (data.tracked_km !== undefined) {
+                  updated.total_km = data.tracked_km;
+                }
+                if (data.productive_km !== undefined) {
+                  updated.ride_km = data.productive_km;
+                }
+                if (data.idle_km !== undefined) {
+                  updated.displacement_km = data.idle_km;
+                }
+
                 updated.total_amount = (updated.uber_amount || 0) + (updated.noventanove_amount || 0) + (updated.indriver_amount || 0) + (updated.extra_amount || 0);
                 updated.total_expenses = (updated.fuel_expense || 0) + (updated.food_expense || 0) + (updated.other_expense || 0);
                 
-                // Calculate displacement KM
-                if (updated.total_km !== undefined && updated.ride_km !== undefined) {
+                // Calculate displacement KM if not explicitly provided by tracking
+                if (data.idle_km === undefined && updated.total_km !== undefined && updated.ride_km !== undefined) {
                   updated.displacement_km = Math.max(0, updated.total_km - updated.ride_km);
                 }
                 
@@ -789,10 +802,12 @@ export const useDriverStore = create<DriverState>()(
           return;
         }
 
+        set({ tracking: { ...get().tracking, isLoading: true } });
         const startTime = Date.now();
         set({
           tracking: {
             isActive: true,
+            isLoading: false,
             startTime,
             distance: 0,
             avgSpeed: 0,
@@ -903,33 +918,42 @@ export const useDriverStore = create<DriverState>()(
         if (!tracking.isActive) return;
 
         const openCycle = cycles.find(c => c.status === 'open');
-        if (openCycle) {
-          const efficiency = tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0;
-          
-          // Calculate driver score (0-100)
-          // Factors: efficiency (40%), profit per km (30%), revenue per hour (30%)
-          // Simplified for now based on available tracking data
-          const score = Math.min(100, Math.round(efficiency));
+        
+        // 1. Calculate the values to persist
+        const persistedData = openCycle ? {
+          tracked_km: (openCycle.tracked_km || 0) + tracking.distance,
+          tracked_moving_time: (openCycle.tracked_moving_time || 0) + tracking.movingTime,
+          tracked_stopped_time: (openCycle.tracked_stopped_time || 0) + tracking.stoppedTime,
+          productive_km: (openCycle.productive_km || 0) + tracking.productiveDistance,
+          idle_km: (openCycle.idle_km || 0) + tracking.idleDistance,
+          efficiency_percentage: tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0,
+          driver_score: Math.min(100, Math.round(tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0)),
+          route_points: [...(openCycle.route_points || []), ...tracking.points]
+        } : null;
 
-          updateCycle(openCycle.id, {
-            tracked_km: tracking.distance,
-            tracked_moving_time: tracking.movingTime,
-            tracked_stopped_time: tracking.stoppedTime,
-            productive_km: tracking.productiveDistance,
-            idle_km: tracking.idleDistance,
-            efficiency_percentage: efficiency,
-            driver_score: score,
-            route_points: tracking.points
-          });
-        }
-
+        // 2. Reset tracking state IMMEDIATELY to prevent double counting in UI
         set({
           tracking: {
             ...tracking,
             isActive: false,
+            isLoading: false,
+            distance: 0,
+            avgSpeed: 0,
+            duration: 0,
+            movingTime: 0,
+            stoppedTime: 0,
+            productiveDistance: 0,
+            idleDistance: 0,
+            points: [],
+            lastPoint: undefined,
             endTime: Date.now()
           }
         });
+
+        // 3. Persist the data to the cycle
+        if (openCycle && persistedData) {
+          updateCycle(openCycle.id, persistedData);
+        }
       },
 
       importData: (data) => set((state) => {
@@ -1218,6 +1242,7 @@ export const useDriverStore = create<DriverState>()(
         importedReports: [],
         tracking: {
           isActive: false,
+          isLoading: false,
           distance: 0,
           productiveDistance: 0,
           idleDistance: 0,

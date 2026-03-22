@@ -198,6 +198,7 @@ export interface TrackingPoint {
 
 export interface TrackingSession {
   isActive: boolean;
+  isLoading: boolean;
   startTime?: number;
   endTime?: number;
   distance: number;

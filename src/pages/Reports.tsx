@@ -4,14 +4,14 @@ import { useDriverStore } from '../store';
 import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
-  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon
+  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check
 } from 'lucide-react';
 import { 
   startOfDay, isSameDay, parseISO, format, subDays, startOfWeek, addDays
 } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Reports = () => {
@@ -47,17 +47,18 @@ export const Reports = () => {
       const date = addDays(start, i);
       const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
       
-      // Manual Values
-      const manualUber = dayCycles.reduce((acc, c) => acc + c.uber_amount, 0);
-      const manual99 = dayCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
-      const manualInDriver = dayCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
-      const manualExtra = dayCycles.reduce((acc, c) => acc + c.extra_amount, 0);
-      const manualRevenue = dayCycles.reduce((acc, c) => acc + c.total_amount, 0);
+      // Manual Values (excluding those created from imports to avoid double counting)
+      const manualCycles = dayCycles.filter(c => !c.imported_report_id);
       
-      const totalKm = dayCycles.reduce((acc, c) => acc + (c.tracked_km || c.total_km || 0), 0);
-      const productiveKm = dayCycles.reduce((acc, c) => acc + (c.productive_km || 0), 0);
-      const idleKm = dayCycles.reduce((acc, c) => acc + (c.idle_km || 0), 0);
+      const manualUber = manualCycles.reduce((acc, c) => acc + c.uber_amount, 0);
+      const manual99 = manualCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
+      const manualInDriver = manualCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
+      const manualExtra = manualCycles.reduce((acc, c) => acc + c.extra_amount, 0);
+      const manualRevenue = manualCycles.reduce((acc, c) => acc + c.total_amount, 0);
+      
+      const totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
       const rideKm = dayCycles.reduce((acc, c) => acc + (c.ride_km || 0), 0);
+      const idleKm = dayCycles.reduce((acc, c) => acc + (c.displacement_km || 0), 0);
       const totalDayExpenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
 
       // Imported Reports (Daily)
@@ -99,9 +100,8 @@ export const Reports = () => {
       const grossPerKm = totalKm > 0 ? dayRevenue / totalKm : 0;
       const netPerKm = totalKm > 0 ? profit / totalKm : 0;
       
-      const rideKmConsolidated = rideKm > 0 ? rideKm : (productiveKm > 0 ? productiveKm : 0);
-      const profitPerProductiveKm = rideKmConsolidated > 0 ? profit / rideKmConsolidated : 0;
-      const efficiencyPercentage = totalKm > 0 ? (rideKmConsolidated / totalKm) * 100 : 0;
+      const profitPerProductiveKm = rideKm > 0 ? profit / rideKm : 0;
+      const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
 
       const importedTotal = importedUber + imported99 + importedInDriver;
       const hasMismatch = manualRevenue > 0 && importedTotal > 0 && Math.abs(manualRevenue - importedTotal) > 5;
@@ -113,7 +113,6 @@ export const Reports = () => {
         expenses: totalDayExpenses,
         profit,
         totalKm,
-        productiveKm,
         idleKm,
         rideKm,
         grossPerKm,
@@ -136,9 +135,9 @@ export const Reports = () => {
     const totalExpenses = currentWeek.reduce((acc, d) => acc + d.expenses, 0);
     const totalProfit = total - totalExpenses;
     const totalKm = currentWeek.reduce((acc, d) => acc + d.totalKm, 0);
-    const totalProductiveKm = currentWeek.reduce((acc, d) => acc + d.productiveKm, 0);
+    const totalRideKm = currentWeek.reduce((acc, d) => acc + d.rideKm, 0);
     const totalIdleKm = currentWeek.reduce((acc, d) => acc + d.idleKm, 0);
-    const avgEfficiency = totalKm > 0 ? (totalProductiveKm / totalKm) * 100 : 0;
+    const avgEfficiency = totalKm > 0 ? (totalRideKm / totalKm) * 100 : 0;
     const avg = total / 7;
     const sorted = [...currentWeek].sort((a, b) => b.value - a.value);
     
@@ -184,7 +183,7 @@ export const Reports = () => {
       totalExpenses,
       totalProfit,
       totalKm,
-      totalProductiveKm,
+      totalRideKm,
       totalIdleKm,
       avgEfficiency,
       avg,
@@ -256,7 +255,7 @@ export const Reports = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard label="Faturado" value={formatCurrency(stats.total)} color="text-zinc-900 dark:text-white" />
         <SummaryCard label="Lucro Total" value={formatCurrency(stats.totalProfit)} color="text-emerald-500" />
-        <SummaryCard label="KM Produtivo" value={formatKm(stats.totalProductiveKm)} color="text-emerald-500" />
+        <SummaryCard label="KM Produtivo" value={formatKm(stats.totalRideKm)} color="text-emerald-500" />
         <SummaryCard label="Eficiência" value={`${stats.avgEfficiency.toFixed(0)}%`} color="text-blue-500" />
       </div>
 
@@ -592,6 +591,72 @@ export const Reports = () => {
           </div>
         </div>
       )}
+      {/* Filter Modal */}
+      <AnimatePresence>
+        {showFilterModal && (
+          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4">
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setShowFilterModal(false)}
+              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+            />
+            <motion.div
+              initial={{ y: "100%" }}
+              animate={{ y: 0 }}
+              exit={{ y: "100%" }}
+              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800"
+            >
+              <div className="p-6 space-y-6">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-black tracking-tight uppercase">Filtrar Dados</h3>
+                  <button 
+                    onClick={() => setShowFilterModal(false)}
+                    className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
+                  >
+                    <X className="w-5 h-5" />
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {[
+                    { id: 'all', label: 'Todos os Dados', desc: 'Combina manual e prints' },
+                    { id: 'manual', label: 'Apenas Manual', desc: 'Registros feitos no app' },
+                    { id: 'imported', label: 'Apenas Prints', desc: 'Dados extraídos por IA' }
+                  ].map((option) => (
+                    <button
+                      key={option.id}
+                      onClick={() => {
+                        setFilter(option.id as any);
+                        setShowFilterModal(false);
+                      }}
+                      className={cn(
+                        "w-full p-4 rounded-2xl text-left border-2 transition-all",
+                        filter === option.id 
+                          ? "border-emerald-500 bg-emerald-500/5" 
+                          : "border-zinc-100 dark:border-zinc-800 bg-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
+                      )}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="font-black text-sm uppercase tracking-tight">{option.label}</p>
+                          <p className="text-[10px] text-zinc-500 font-medium">{option.desc}</p>
+                        </div>
+                        {filter === option.id && (
+                          <div className="w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                            <Check className="w-3 h-3 text-white" />
+                          </div>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </motion.div>
   );
 };

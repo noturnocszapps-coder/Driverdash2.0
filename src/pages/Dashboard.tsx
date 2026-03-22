@@ -13,7 +13,7 @@ import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Dashboard = () => {
-  const { cycles, settings, startCycle, checkAndCloseCycles, isSaving, tracking, startTracking, stopTracking, vehicles } = useDriverStore();
+  const { cycles, importedReports, settings, startCycle, checkAndCloseCycles, isSaving, tracking, startTracking, stopTracking, vehicles } = useDriverStore();
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
@@ -64,8 +64,26 @@ export const Dashboard = () => {
 
   const efficiencyStats = useMemo(() => {
     if (!openCycle) return null;
-    return calculateEfficiencyMetrics(openCycle, settings);
-  }, [openCycle, settings]);
+    
+    // Consolidate persisted data with active tracking data for real-time analysis
+    const totalKm = (openCycle.total_km || 0) + (tracking.isActive ? tracking.distance : 0);
+    const rideKm = (openCycle.ride_km || 0) + (tracking.isActive ? tracking.productiveDistance : 0);
+    const displacementKm = (openCycle.displacement_km || 0) + (tracking.isActive ? tracking.idleDistance : 0);
+    
+    const consolidatedCycle = {
+      ...openCycle,
+      total_km: totalKm,
+      ride_km: rideKm,
+      displacement_km: displacementKm
+    };
+    
+    return {
+      ...calculateEfficiencyMetrics(consolidatedCycle, settings),
+      totalKm,
+      rideKm,
+      displacementKm
+    };
+  }, [openCycle, tracking, settings]);
 
   const driverScore = useMemo(() => {
     if (!efficiencyStats) return null;
@@ -110,17 +128,34 @@ export const Dashboard = () => {
     
     const chartData = last7Days.map(date => {
       const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
-      const total = dayCycles.reduce((acc, c) => acc + c.total_amount, 0);
+      const dayImportedReports = importedReports.filter(r => 
+        r.report_type === 'daily' && isSameDay(parseISO(r.period_start), date)
+      );
+
+      // Manual Values (excluding those created from imports to avoid double counting)
+      const manualCycles = dayCycles.filter(c => !c.imported_report_id);
+      
+      const manualUber = manualCycles.reduce((acc, c) => acc + c.uber_amount, 0);
+      const manual99 = manualCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
+      const manualInDriver = manualCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
+      const manualExtra = manualCycles.reduce((acc, c) => acc + c.extra_amount, 0);
+      
+      // Imported Values
+      const importedUber = dayImportedReports.filter(r => r.platform === 'Uber').reduce((acc, r) => acc + r.total_earnings, 0);
+      const imported99 = dayImportedReports.filter(r => r.platform === '99').reduce((acc, r) => acc + r.total_earnings, 0);
+      const importedInDriver = dayImportedReports.filter(r => r.platform === 'inDrive').reduce((acc, r) => acc + r.total_earnings, 0);
+
+      // Consolidate (prefer manual if exists, otherwise imported)
+      const uber = manualUber > 0 ? manualUber : importedUber;
+      const noventanove = manual99 > 0 ? manual99 : imported99;
+      const indriver = manualInDriver > 0 ? manualInDriver : importedInDriver;
+      const extra = manualExtra;
+
+      const total = uber + noventanove + indriver + extra;
       const totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
       const expenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
       const profit = total - expenses;
       const efficiency = totalKm > 0 ? total / totalKm : 0;
-
-      // Platform breakdown for segmented mode
-      const uber = dayCycles.reduce((acc, c) => acc + c.uber_amount, 0);
-      const noventanove = dayCycles.reduce((acc, c) => acc + c.noventanove_amount, 0);
-      const indriver = dayCycles.reduce((acc, c) => acc + c.indriver_amount, 0);
-      const extra = dayCycles.reduce((acc, c) => acc + c.extra_amount, 0);
 
       return {
         name: format(date, 'EEE', { locale: ptBR }),
@@ -235,9 +270,14 @@ export const Dashboard = () => {
       {/* Tracking Section */}
       {openCycle && (
         <Card className={cn(
-          "border-none shadow-xl transition-all duration-500",
+          "relative border-none shadow-xl transition-all duration-500",
           tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-zinc-900 text-white"
         )}>
+          {tracking.isLoading && (
+            <div className="absolute inset-0 bg-black/50 backdrop-blur-[2px] z-50 flex items-center justify-center rounded-2xl">
+              <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
+            </div>
+          )}
           <CardContent className="p-6">
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-3">
@@ -577,18 +617,18 @@ export const Dashboard = () => {
                 </h3>
                 <div className="flex items-center gap-2">
                   <span className="text-[10px] font-black text-zinc-400 uppercase">Total:</span>
-                  <span className="text-xs font-black">{formatKm(openCycle.total_km || 0)}</span>
+                  <span className="text-xs font-black">{formatKm(efficiencyStats?.totalKm || 0)}</span>
                 </div>
               </div>
               
               <div className="grid grid-cols-3 divide-x divide-zinc-50 dark:divide-zinc-800/50">
                 <div className="p-4 space-y-1">
                   <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Em Corrida</p>
-                  <p className="text-sm font-black tracking-tight">{formatKm(openCycle.ride_km || 0)}</p>
+                  <p className="text-sm font-black tracking-tight">{formatKm(efficiencyStats?.rideKm || 0)}</p>
                 </div>
                 <div className="p-4 space-y-1">
                   <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Deslocamento</p>
-                  <p className="text-sm font-black tracking-tight text-zinc-500">{formatKm(openCycle.displacement_km || 0)}</p>
+                  <p className="text-sm font-black tracking-tight text-zinc-500">{formatKm(efficiencyStats?.displacementKm || 0)}</p>
                 </div>
                 <div className="p-4 space-y-1">
                   <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">R$/km Bruto</p>

@@ -46,15 +46,16 @@ export function calculateOperationalCost(cycle: any, settings: any) {
 
 export function calculateEfficiencyMetrics(cycle: any, settings: any) {
   const totalAmount = cycle.total_amount || 0;
-  // Prioritize tracked_km over total_km (manual)
-  const totalKm = cycle.tracked_km || cycle.total_km || 0;
-  const rideKm = cycle.ride_km || cycle.productive_km || 0;
+  // Use consolidated KM fields as single source of truth
+  const totalKm = cycle.total_km || 0;
+  const rideKm = cycle.ride_km || 0;
   const totalCost = calculateOperationalCost(cycle, settings);
   
   const grossPerKm = totalKm > 0 ? totalAmount / totalKm : 0;
   const netAmount = totalAmount - totalCost;
   const netPerKm = totalKm > 0 ? netAmount / totalKm : 0;
-  const profitPerKm = rideKm > 0 ? netAmount / rideKm : 0;
+  // Real profit per km should be based on productive (ride) km, only if total km is non-zero
+  const profitPerKm = (rideKm > 0 && totalKm > 0) ? netAmount / rideKm : 0;
   const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
 
   return {
