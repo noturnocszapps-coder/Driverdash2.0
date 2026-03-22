@@ -27,7 +27,9 @@ export const Dashboard = () => {
   const { dailyData: last7DaysData, totals: last7DaysTotals } = useConsolidatedAnalytics(last7DaysStart, today, filter);
 
   const todayData = useMemo(() => {
-    return last7DaysData.find(d => isSameDay(d.date, today)) || consolidateDailyData(today, cycles, importedReports, settings, tracking, filter);
+    const found = last7DaysData.find(d => isSameDay(d.date, today));
+    if (found) return found;
+    return consolidateDailyData(today, cycles, importedReports, settings, tracking, filter);
   }, [last7DaysData, today, cycles, importedReports, settings, tracking, filter]);
 
   const handleToggleTracking = async () => {
@@ -180,21 +182,21 @@ export const Dashboard = () => {
       });
     }
 
-    // High cost cycles alert
-    const highCostCycles = cycles.filter(c => {
+    // High cost cycles alert - optimized to only check recent cycles once
+    const highCostCyclesCount = cycles.reduce((count, c) => {
       const startTime = new Date(c.start_time).getTime();
       const isRecent = (new Date().getTime() - startTime) < (7 * 24 * 60 * 60 * 1000);
-      if (!isRecent) return false;
+      if (!isRecent) return count;
       const expenses = calculateOperationalCost(c, settings);
-      return expenses > (c.total_amount * 0.6); // Expenses > 60% of revenue
-    });
+      return expenses > (c.total_amount * 0.6) ? count + 1 : count;
+    }, 0);
 
-    if (highCostCycles.length > 0) {
+    if (highCostCyclesCount > 0) {
       alerts.push({
         id: 'high-cost',
         type: 'danger',
         title: 'Ciclos de Alto Custo',
-        message: `Identificamos ${highCostCycles.length} ciclo(s) esta semana com custos acima de 60% do faturamento.`
+        message: `Identificamos ${highCostCyclesCount} ciclo(s) esta semana com custos acima de 60% do faturamento.`
       });
     }
 

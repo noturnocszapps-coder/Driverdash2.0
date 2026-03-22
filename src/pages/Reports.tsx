@@ -40,11 +40,11 @@ export const Reports = () => {
     return calculateDailyFixedCost(fixedCosts);
   }, [currentVehicle, settings.fixedCosts]);
   
-  const today = startOfDay(new Date());
+  const today = useMemo(() => startOfDay(new Date()), []);
   const start = useMemo(() => startOfWeek(today, { weekStartsOn: 1 }), [today]);
   const end = useMemo(() => addDays(start, 6), [start]);
 
-  const { dailyData: weekData, totals: weekTotals } = useConsolidatedAnalytics(start, end, filter);
+  const { dailyData: weekData, totals: weekTotals, platformMix } = useConsolidatedAnalytics(start, end, filter);
 
   const currentWeek = useMemo(() => {
     return weekData.map(day => ({
@@ -71,12 +71,12 @@ export const Reports = () => {
   }, [weekData]);
 
   const stats = useMemo(() => {
-    const total = currentWeek.reduce((acc, d) => acc + d.value, 0);
-    const totalExpenses = currentWeek.reduce((acc, d) => acc + d.expenses, 0);
-    const totalProfit = total - totalExpenses;
-    const totalKm = currentWeek.reduce((acc, d) => acc + d.totalKm, 0);
-    const totalRideKm = currentWeek.reduce((acc, d) => acc + d.rideKm, 0);
-    const totalIdleKm = currentWeek.reduce((acc, d) => acc + d.idleKm, 0);
+    const total = weekTotals.totalRevenue;
+    const totalExpenses = weekTotals.expenses;
+    const totalProfit = weekTotals.profit;
+    const totalKm = weekTotals.totalKm;
+    const totalRideKm = weekTotals.rideKm;
+    const totalIdleKm = weekTotals.idleKm;
     const avgEfficiency = totalKm > 0 ? (totalRideKm / totalKm) * 100 : 0;
     const avg = total / 7;
     const sorted = [...currentWeek].sort((a, b) => b.value - a.value);
@@ -84,12 +84,12 @@ export const Reports = () => {
     const grossPerKm = totalKm > 0 ? total / totalKm : 0;
     const netPerKm = totalKm > 0 ? totalProfit / totalKm : 0;
 
-    const platformTotals = currentWeek.reduce((acc, d) => ({
-      uber: acc.uber + d.uber,
-      noventanove: acc.noventanove + d.noventanove,
-      indriver: acc.indriver + d.indriver,
-      extra: acc.extra + d.extra
-    }), { uber: 0, noventanove: 0, indriver: 0, extra: 0 });
+    const platformTotals = {
+      uber: weekTotals.uber,
+      noventanove: weekTotals.noventanove,
+      indriver: weekTotals.indriver,
+      extra: weekTotals.extra
+    };
 
     // Smart Alerts
     const alerts = [];
@@ -134,16 +134,28 @@ export const Reports = () => {
       alerts,
       mismatches: currentWeek.filter(d => d.hasMismatch)
     };
-  }, [currentWeek]);
+  }, [currentWeek, weekTotals]);
 
   const recentDays = useMemo(() => {
-    const days: any[] = [];
-    const now = startOfDay(new Date());
-    
-    // Get all unique days from cycles and imported reports
+    // Group data by date first for O(1) lookup
+    const cyclesByDate: Record<string, any[]> = {};
+    const reportsByDate: Record<string, any[]> = {};
+
+    cycles.forEach(cycle => {
+      const dateKey = format(parseISO(cycle.start_time), 'yyyy-MM-dd');
+      if (!cyclesByDate[dateKey]) cyclesByDate[dateKey] = [];
+      cyclesByDate[dateKey].push(cycle);
+    });
+
+    importedReports.forEach(report => {
+      const dateKey = format(parseISO(report.period_start), 'yyyy-MM-dd');
+      if (!reportsByDate[dateKey]) reportsByDate[dateKey] = [];
+      reportsByDate[dateKey].push(report);
+    });
+
     const allDates = new Set<string>();
-    cycles.forEach(c => allDates.add(format(parseISO(c.start_time), 'yyyy-MM-dd')));
-    importedReports.forEach(r => allDates.add(format(parseISO(r.period_start), 'yyyy-MM-dd')));
+    Object.keys(cyclesByDate).forEach(d => allDates.add(d));
+    Object.keys(reportsByDate).forEach(d => allDates.add(d));
     
     const sortedDates = Array.from(allDates)
       .map(d => parseISO(d))
@@ -151,13 +163,23 @@ export const Reports = () => {
       .slice(0, 30);
 
     return sortedDates.map(date => {
-      const consolidated = consolidateDailyData(date, cycles, importedReports, settings, undefined, filter);
-      const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
+      const dateKey = format(date, 'yyyy-MM-dd');
+      const dayCycles = cyclesByDate[dateKey] || [];
+      const dayReports = reportsByDate[dateKey] || [];
+      
+      const consolidated = consolidateDailyData(
+        date, 
+        dayCycles, 
+        dayReports, 
+        settings, 
+        undefined, 
+        filter
+      );
       
       return {
         ...consolidated,
         cycles: dayCycles,
-        id: format(date, 'yyyy-MM-dd'),
+        id: dateKey,
       };
     }).filter(d => d.totalRevenue > 0 || d.totalKm > 0);
   }, [cycles, importedReports, settings, filter]);
