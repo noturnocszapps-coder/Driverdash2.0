@@ -216,9 +216,9 @@ export const Dashboard = () => {
         rideKm: safeNumber(todayData?.rideKm),
         displacementKm: safeNumber(todayData?.idleKm),
         efficiencyPercentage: safeNumber(
-          (safeNumber(todayData?.totalKm) > 0
+          safeNumber(todayData?.totalKm) > 0
             ? (safeNumber(todayData?.rideKm) / safeNumber(todayData?.totalKm)) * 100
-            : 0)
+            : 0
         ),
       };
     } catch (error) {
@@ -590,53 +590,51 @@ export const Dashboard = () => {
       </Card>
 
       {openCycle && (
-        <Card
-          className={cn(
-            'relative border-none shadow-xl transition-all duration-500 overflow-hidden',
-            tracking?.isActive ? 'bg-emerald-500 text-zinc-950' : 'bg-zinc-900 text-white'
-          )}
-        >
-          {tracking?.isLoading && (
-            <div className="absolute inset-0 bg-black/40 backdrop-blur-sm z-10 flex items-center justify-center">
-              <div className="w-8 h-8 border-4 border-white/30 border-t-white rounded-full animate-spin" />
-            </div>
-          )}
-
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
           <CardContent className="p-6">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
                 <div
                   className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center shadow-inner',
-                    tracking?.isActive ? 'bg-zinc-950/10 text-zinc-950' : 'bg-white/5 text-emerald-500'
+                    'w-10 h-10 rounded-full flex items-center justify-center shadow-inner shrink-0',
+                    tracking?.isActive
+                      ? 'bg-emerald-500/15 text-emerald-500'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
                   )}
                 >
                   <Navigation size={20} className={tracking?.isActive ? 'animate-pulse' : ''} />
                 </div>
 
-                <div>
-                  <h3 className="text-xs font-black uppercase tracking-widest">Rastreamento de KM</h3>
-                  <p
-                    className={cn(
-                      'text-[10px] font-bold uppercase tracking-wider opacity-60',
-                      tracking?.isActive ? 'text-zinc-950' : 'text-zinc-400'
-                    )}
-                  >
-                    {tracking?.isActive ? 'Rastreamento Ativo' : 'Rastreamento Pausado'}
+                <div className="min-w-0">
+                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-white">
+                    Rastreamento de KM
+                  </h3>
+                  <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                    {tracking?.isActive ? 'Rastreamento ativo' : 'Rastreamento pausado'}
                   </p>
                 </div>
               </div>
 
               <Button
                 onClick={handleToggleTracking}
+                disabled={tracking?.isLoading}
                 className={cn(
-                  'h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg',
+                  'h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shrink-0',
                   tracking?.isActive
-                    ? 'bg-zinc-950 text-white hover:bg-zinc-900 shadow-zinc-950/20 border-none'
-                    : 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400 shadow-emerald-500/20 border-none'
+                    ? 'bg-zinc-950 text-white hover:bg-zinc-900 border-none'
+                    : 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400 border-none'
                 )}
               >
-                {tracking?.isActive ? 'Encerrar' : 'Iniciar'}
+                {tracking?.isLoading ? (
+                  <div className="flex items-center gap-2">
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                    Processando
+                  </div>
+                ) : tracking?.isActive ? (
+                  'Encerrar'
+                ) : (
+                  'Iniciar'
+                )}
               </Button>
             </div>
 
@@ -648,7 +646,7 @@ export const Dashboard = () => {
             )}
 
             {tracking?.isActive && (
-              <div className="space-y-6">
+              <>
                 {smartAlerts.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {smartAlerts.map((alert) => (
@@ -659,10 +657,10 @@ export const Dashboard = () => {
                         className={cn(
                           'p-2 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-wider',
                           alert.type === 'warning'
-                            ? 'bg-amber-500/20 text-amber-900'
+                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
                             : alert.type === 'success'
-                              ? 'bg-emerald-500/20 text-emerald-900'
-                              : 'bg-blue-500/20 text-blue-900'
+                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
+                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
                         )}
                       >
                         <Info size={12} />
@@ -672,24 +670,30 @@ export const Dashboard = () => {
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-6 pt-6 mt-6 border-t border-zinc-950/10">
+                <div className="grid grid-cols-2 gap-6 pt-6 mt-6 border-t border-zinc-200 dark:border-zinc-800">
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">KM Produtivo</p>
-                    <p className="text-3xl font-black tracking-tighter">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                      KM Produtivo
+                    </p>
+                    <p className="text-3xl font-black tracking-tighter text-zinc-900 dark:text-white">
                       {safeNumber(tracking?.productiveDistance).toFixed(2)} km
                     </p>
                   </div>
 
                   <div className="space-y-1 text-right">
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">KM Ocioso</p>
-                    <p className="text-3xl font-black tracking-tighter opacity-60">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                      KM Ocioso
+                    </p>
+                    <p className="text-3xl font-black tracking-tighter text-zinc-500 dark:text-zinc-400">
                       {safeNumber(tracking?.idleDistance).toFixed(2)} km
                     </p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Eficiência Atual</p>
-                    <p className="text-sm font-black">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                      Eficiência Atual
+                    </p>
+                    <p className="text-sm font-black text-zinc-900 dark:text-white">
                       {safeNumber(tracking?.distance) > 0
                         ? ((safeNumber(tracking?.productiveDistance) / safeNumber(tracking?.distance)) * 100).toFixed(0)
                         : 0}
@@ -698,27 +702,31 @@ export const Dashboard = () => {
                   </div>
 
                   <div className="space-y-1 text-right">
-                    <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Velocidade Média</p>
-                    <p className="text-sm font-black">{safeNumber(tracking?.avgSpeed).toFixed(1)} km/h</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">
+                      Velocidade Média
+                    </p>
+                    <p className="text-sm font-black text-zinc-900 dark:text-white">
+                      {safeNumber(tracking?.avgSpeed).toFixed(1)} km/h
+                    </p>
                   </div>
                 </div>
 
                 <Button
                   onClick={() => navigate('/cycle-map/active')}
-                  className="w-full h-12 bg-zinc-950/5 hover:bg-zinc-950/10 text-zinc-950 font-black text-xs uppercase tracking-widest rounded-2xl gap-2 border border-zinc-950/10"
+                  className="w-full h-12 mt-6 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white font-black text-xs uppercase tracking-widest rounded-2xl gap-2 border border-zinc-200 dark:border-zinc-700"
                 >
                   <MapIcon size={16} />
-                  Visualizar Mapa do Trajeto
+                  Visualizar mapa do trajeto
                 </Button>
-              </div>
+              </>
             )}
 
             {!tracking?.isActive && safeNumber(tracking?.distance) > 0 && (
-              <div className="flex justify-between items-center pt-4 mt-4 border-t border-white/5 opacity-60">
-                <p className="text-[10px] font-bold uppercase tracking-wider">
-                  Último Rastreamento: {safeNumber(tracking?.distance).toFixed(2)} km
+              <div className="flex justify-between items-center pt-4 mt-4 border-t border-zinc-200 dark:border-zinc-800">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
+                  Último rastreamento: {safeNumber(tracking?.distance).toFixed(2)} km
                 </p>
-                <p className="text-[10px] font-bold uppercase tracking-wider">
+                <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
                   {formatDuration(safeNumber(tracking?.duration))}
                 </p>
               </div>
