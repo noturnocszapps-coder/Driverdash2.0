@@ -6,12 +6,13 @@ import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
 import { TrendingUp, Clock, Target, Zap, LayoutGrid, Plus, ChevronRight, Navigation, Calendar, AlertCircle, Gauge, Map as MapIcon, Award, Info } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { startOfDay, isSameDay, parseISO, subDays, format, differenceInMinutes, addHours } from 'date-fns';
+import { startOfDay, isSameDay, parseISO, subDays, format, differenceInMinutes, addHours, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { QuickEntryModal } from '../components/QuickEntryModal';
 import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
+import { AIRealTimeAlerts } from '../components/AIRealTimeAlerts';
 
 export const Dashboard = () => {
   const { cycles, importedReports, settings, startCycle, checkAndCloseCycles, isSaving, tracking, startTracking, stopTracking, vehicles } = useDriverStore();
@@ -24,7 +25,7 @@ export const Dashboard = () => {
   const today = useMemo(() => startOfDay(new Date()), []);
   const last7DaysStart = useMemo(() => subDays(today, 6), [today]);
 
-  const { dailyData: last7DaysData, totals: last7DaysTotals } = useConsolidatedAnalytics(last7DaysStart, today, filter);
+  const { dailyData: last7DaysData, totals: last7DaysTotals, averages, aiIntelligence } = useConsolidatedAnalytics(last7DaysStart, today, filter);
 
   const todayData = useMemo(() => {
     const found = last7DaysData.find(d => isSameDay(d.date, today));
@@ -223,6 +224,8 @@ export const Dashboard = () => {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6 pb-24 md:pb-8"
     >
+      <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
+      
       {/* Header Section */}
       <div className="flex justify-between items-end px-1">
         <div>
@@ -273,6 +276,101 @@ export const Dashboard = () => {
           </div>
         </div>
       </div>
+
+      {/* Driver Score Card */}
+      <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
+        <CardContent className="p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
+                <Award size={16} className="text-emerald-500" />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-widest">Driver Score</h3>
+            </div>
+            <div className={cn(
+              "px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border",
+              driverScore.color
+            )}>
+              {driverScore.label}
+            </div>
+          </div>
+
+          <div className="flex items-end gap-4">
+            <div className="text-5xl font-black tracking-tighter text-zinc-900 dark:text-white">
+              {driverScore.score}
+            </div>
+            <div className="pb-1 space-y-1">
+              <div className="flex gap-1">
+                {[...Array(5)].map((_, i) => (
+                  <div 
+                    key={i} 
+                    className={cn(
+                      "w-4 h-1.5 rounded-full",
+                      i < Math.round(driverScore.score / 20) ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                    )} 
+                  />
+                ))}
+              </div>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Pontuação de Eficiência</p>
+            </div>
+          </div>
+
+          <p className="mt-4 text-sm font-medium text-zinc-600 dark:text-zinc-400 leading-relaxed">
+            {driverScore.explanation}
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* AI Intelligence Summary */}
+      <Card className="border-none bg-gradient-to-br from-indigo-600 to-violet-700 text-white shadow-xl overflow-hidden relative">
+        <div className="absolute top-0 right-0 p-6 opacity-10">
+          <Zap size={80} />
+        </div>
+        <CardContent className="p-6 space-y-4 relative z-10">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center">
+                <Zap size={16} className="text-white" />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-widest">Resumo de Inteligência IA</h3>
+            </div>
+            {aiIntelligence.efficiencyTrend !== 0 && (
+              <div className={cn(
+                "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider flex items-center gap-1",
+                aiIntelligence.efficiencyTrend > 0 ? "bg-emerald-500/20 text-emerald-300" : "bg-red-500/20 text-red-300"
+              )}>
+                {aiIntelligence.efficiencyTrend > 0 ? <TrendingUp size={10} /> : <TrendingUp size={10} className="rotate-180" />}
+                {Math.abs(aiIntelligence.efficiencyTrend).toFixed(1)}% Eficiência
+              </div>
+            )}
+          </div>
+
+          <div className="space-y-3">
+            <p className="text-sm font-medium leading-relaxed opacity-90">
+              {todayData.totalRevenue > 0 ? (
+                `Hoje você está com ${todayData.efficiency.toFixed(0)}% de eficiência. ` +
+                (aiIntelligence.bestHourByDay[getDay(today)] ? `Seu melhor horário hoje costuma ser entre ${aiIntelligence.bestHourByDay[getDay(today)]}. ` : '') +
+                (todayData.idleKm > 5 ? `Você rodou ${todayData.idleKm.toFixed(1)}km ocioso, tente se posicionar melhor.` : 'Ótimo controle de KM ocioso hoje!')
+              ) : (
+                "Inicie seu ciclo para receber insights em tempo real sobre sua performance e melhores regiões."
+              )}
+            </p>
+
+            <div className="grid grid-cols-2 gap-3 pt-2">
+              <div className="bg-white/10 rounded-xl p-3 space-y-1">
+                <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Melhor Horário (Hoje)</p>
+                <p className="text-xs font-black">{aiIntelligence.bestHourByDay[getDay(today)] || 'Analisando...'}</p>
+              </div>
+              <div className="bg-white/10 rounded-xl p-3 space-y-1">
+                <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Tendência Semanal</p>
+                <p className="text-xs font-black">
+                  {aiIntelligence.efficiencyTrend > 0 ? 'Melhorando' : aiIntelligence.efficiencyTrend < 0 ? 'Em Queda' : 'Estável'}
+                </p>
+              </div>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Tracking Section */}
       {openCycle && (

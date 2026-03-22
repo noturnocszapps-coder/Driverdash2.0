@@ -23,6 +23,7 @@ const Faturamento = lazy(() => import('./pages/Faturamento').then(m => ({ defaul
 const ImportReport = lazy(() => import('./pages/ImportReport').then(m => ({ default: m.ImportReport })));
 const CycleMap = lazy(() => import('./pages/CycleMap'));
 const CycleDetail = lazy(() => import('./pages/CycleDetail').then(m => ({ default: m.CycleDetail })));
+const HeatmapIntelligence = lazy(() => import('./pages/HeatmapIntelligence'));
 
 const PageLoader = () => (
   <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -196,6 +197,7 @@ export default function App() {
             <Route path="/cycle/:id" element={<ProtectedRoute><CycleDetail /></ProtectedRoute>} />
             <Route path="/import-report" element={<ProtectedRoute><ImportReport /></ProtectedRoute>} />
             <Route path="/reports" element={<ProtectedRoute><Reports /></ProtectedRoute>} />
+            <Route path="/heatmap" element={<ProtectedRoute><HeatmapIntelligence /></ProtectedRoute>} />
             <Route path="/settings" element={<ProtectedRoute><Settings /></ProtectedRoute>} />
             
             <Route path="*" element={<Navigate to="/" replace />} />

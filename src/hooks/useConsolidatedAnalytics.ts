@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useDriverStore } from '../store';
-import { consolidateDailyData, ConsolidatedDayData } from '../utils';
-import { eachDayOfInterval, format, parseISO } from 'date-fns';
+import { consolidateDailyData, ConsolidatedDayData, getBestHourRanges, getEfficiencyTrend, getWaitingZones } from '../utils';
+import { eachDayOfInterval, format, parseISO, getDay } from 'date-fns';
 
 export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter: 'all' | 'manual' | 'imported' = 'all') {
   const { cycles, importedReports, settings, tracking } = useDriverStore();
@@ -113,5 +113,52 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
     };
   }, [totals, dailyData.length]);
 
-  return { dailyData, totals, platformMix, averages };
+  // 6. AI Intelligence Metrics
+  const aiIntelligence = useMemo(() => {
+    // Group cycles by day of week
+    const cyclesByDayOfWeek: Record<number, any[]> = {};
+    cycles.forEach(cycle => {
+      const day = getDay(parseISO(cycle.start_time));
+      if (!cyclesByDayOfWeek[day]) cyclesByDayOfWeek[day] = [];
+      cyclesByDayOfWeek[day].push(cycle);
+    });
+
+    const bestHourByDay: Record<number, string> = {};
+    Object.entries(cyclesByDayOfWeek).forEach(([day, dayCycles]) => {
+      const range = getBestHourRanges(dayCycles);
+      if (range) bestHourByDay[parseInt(day)] = range;
+    });
+
+    // Best and Weakest days
+    const dayPerformance = dailyData.reduce((acc, day) => {
+      const dayOfWeek = getDay(day.date);
+      if (!acc[dayOfWeek]) acc[dayOfWeek] = { revenue: 0, count: 0 };
+      acc[dayOfWeek].revenue += day.totalRevenue;
+      acc[dayOfWeek].count++;
+      return acc;
+    }, {} as Record<number, { revenue: number; count: number }>);
+
+    const sortedDays = Object.entries(dayPerformance)
+      .map(([day, data]: [string, any]) => ({
+        day: parseInt(day),
+        avgRevenue: data.revenue / data.count
+      }))
+      .sort((a, b) => b.avgRevenue - a.avgRevenue);
+
+    const bestDayOfWeek = sortedDays.length > 0 ? sortedDays[0].day : null;
+    const weakestDayOfWeek = sortedDays.length > 0 ? sortedDays[sortedDays.length - 1].day : null;
+
+    return {
+      bestHourByDay,
+      bestDayOfWeek,
+      weakestDayOfWeek,
+      efficiencyTrend: getEfficiencyTrend(dailyData),
+      waitingZones: getWaitingZones(cycles),
+      avgIdleTimeByDay: dailyData.reduce((acc, day) => acc + day.idleKm, 0) / (dailyData.length || 1),
+      avgProfitPerKm: totals.totalKm > 0 ? totals.profit / totals.totalKm : 0,
+      avgProductiveKm: totals.rideKm / (dailyData.length || 1)
+    };
+  }, [cycles, dailyData, totals]);
+
+  return { dailyData, totals, platformMix, averages, aiIntelligence };
 }

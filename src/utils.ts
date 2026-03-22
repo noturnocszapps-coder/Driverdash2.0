@@ -79,19 +79,95 @@ export function calculateDriverScore(metrics: any) {
   
   let label = 'Baixo';
   let color = 'text-red-500 bg-red-500/10 border-red-500/20';
+  let explanation = 'Sua eficiência está baixa. Tente reduzir o KM ocioso entre as corridas.';
   
   if (score >= 85) {
     label = 'Excelente';
     color = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
+    explanation = 'Parabéns! Você está operando com máxima eficiência e ótima margem de lucro.';
   } else if (score >= 70) {
     label = 'Bom';
     color = 'text-blue-500 bg-blue-500/10 border-blue-500/20';
+    explanation = 'Bom desempenho. Continue focando em corridas com melhor valor por KM.';
   } else if (score >= 50) {
     label = 'Médio';
     color = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
+    explanation = 'Desempenho regular. Há espaço para melhorar o posicionamento estratégico.';
   }
   
-  return { score, label, color };
+  return { score, label, color, explanation };
+}
+
+export function getBestHourRanges(cycles: any[]) {
+  const hourCounts: Record<number, { count: number; revenue: number }> = {};
+  
+  cycles.forEach(cycle => {
+    const start = new Date(cycle.start_time);
+    const hour = start.getHours();
+    if (!hourCounts[hour]) hourCounts[hour] = { count: 0, revenue: 0 };
+    hourCounts[hour].count++;
+    hourCounts[hour].revenue += (cycle.total_amount || 0);
+  });
+
+  const sortedHours = Object.entries(hourCounts)
+    .map(([hour, data]) => ({
+      hour: parseInt(hour),
+      avgRevenue: data.revenue / data.count,
+      count: data.count
+    }))
+    .sort((a, b) => b.avgRevenue - a.avgRevenue);
+
+  if (sortedHours.length === 0) return null;
+
+  const best = sortedHours[0].hour;
+  const range = `${best}:00 - ${best + 2}:00`;
+  return range;
+}
+
+export function getEfficiencyTrend(dailyData: any[]) {
+  if (dailyData.length < 2) return 0;
+  
+  const recent = dailyData.slice(-3);
+  const previous = dailyData.slice(-6, -3);
+  
+  const avgRecent = recent.reduce((acc, d) => acc + d.efficiency, 0) / (recent.length || 1);
+  const avgPrevious = previous.reduce((acc, d) => acc + d.efficiency, 0) / (previous.length || 1);
+  
+  if (avgPrevious === 0) return 0;
+  return ((avgRecent - avgPrevious) / avgPrevious) * 100;
+}
+
+export function getWaitingZones(cycles: any[]) {
+  const zones: Record<string, { lat: number; lng: number; time: number; count: number }> = {};
+  
+  cycles.forEach(cycle => {
+    if (!cycle.route_points) return;
+    
+    // Simple logic: find points where the driver stayed for more than 5 minutes
+    // In a real app, we'd use a clustering algorithm, but for now we'll use a grid
+    cycle.route_points.forEach((point: any, idx: number) => {
+      if (idx === 0) return;
+      const prev = cycle.route_points[idx - 1];
+      const timeDiff = point.timestamp - prev.timestamp;
+      
+      // If stopped for more than 2 minutes
+      if (timeDiff > 120000 && timeDiff < 1800000) { // 2min to 30min
+        const gridLat = Math.round(point.lat * 1000) / 1000;
+        const gridLng = Math.round(point.lng * 1000) / 1000;
+        const key = `${gridLat},${gridLng}`;
+        
+        if (!zones[key]) {
+          zones[key] = { lat: gridLat, lng: gridLng, time: 0, count: 0 };
+        }
+        zones[key].time += timeDiff;
+        zones[key].count++;
+      }
+    });
+  });
+
+  return Object.values(zones)
+    .sort((a, b) => b.time - a.time)
+    .slice(0, 3);
 }
 
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -240,4 +316,80 @@ export function consolidateDailyData(
     manualRevenue,
     importedTotal
   };
+}
+
+export interface HeatmapPoint {
+  lat: number;
+  lng: number;
+  intensity: number;
+  type: 'idle' | 'productive';
+  duration: number;
+  count: number;
+}
+
+export function generateHeatmapData(cycles: any[]): HeatmapPoint[] {
+  const grid: Record<string, { 
+    lat: number; 
+    lng: number; 
+    idleTime: number; 
+    productiveTime: number; 
+    count: number;
+    ridesStarted: number;
+  }> = {};
+
+  const PRECISION = 4; // ~11m grid
+
+  cycles.forEach(cycle => {
+    if (!cycle.route_points || cycle.route_points.length < 2) return;
+
+    cycle.route_points.forEach((point: any, idx: number) => {
+      const lat = parseFloat(point.lat.toFixed(PRECISION));
+      const lng = parseFloat(point.lng.toFixed(PRECISION));
+      const key = `${lat}_${lng}`;
+
+      if (!grid[key]) {
+        grid[key] = { lat, lng, idleTime: 0, productiveTime: 0, count: 0, ridesStarted: 0 };
+      }
+
+      grid[key].count++;
+
+      // Time calculation
+      if (idx > 0) {
+        const prev = cycle.route_points[idx - 1];
+        const duration = point.timestamp - prev.timestamp;
+        
+        // If duration is too long (e.g., > 1 hour), skip (likely a gap)
+        if (duration > 0 && duration < 3600000) {
+          if (point.isProductive) {
+            grid[key].productiveTime += duration;
+          } else {
+            grid[key].idleTime += duration;
+          }
+        }
+
+        // Detect ride start (isProductive toggle)
+        if (point.isProductive && !prev.isProductive) {
+          grid[key].ridesStarted++;
+        }
+      }
+    });
+  });
+
+  return Object.values(grid).map(cell => {
+    const isProductive = cell.productiveTime > cell.idleTime || cell.ridesStarted > 0;
+    
+    // Intensity calculation
+    // Base intensity on duration (minutes) and count
+    const durationMinutes = (cell.idleTime + cell.productiveTime) / 60000;
+    let intensity = Math.min(1, (durationMinutes / 30) + (cell.count / 100) + (cell.ridesStarted / 2));
+
+    return {
+      lat: cell.lat,
+      lng: cell.lng,
+      intensity,
+      type: (isProductive ? 'productive' : 'idle') as 'idle' | 'productive',
+      duration: cell.idleTime + cell.productiveTime,
+      count: cell.count
+    };
+  }).filter(p => p.intensity > 0.05);
 }

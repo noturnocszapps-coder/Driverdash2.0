@@ -1,11 +1,11 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics, consolidateDailyData } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics, consolidateDailyData, calculateDriverScore } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
-  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check, AlertCircle
+  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check, AlertCircle, Clock
 } from 'lucide-react';
 import { 
   startOfDay, isSameDay, parseISO, format, subDays, startOfWeek, addDays
@@ -44,7 +44,7 @@ export const Reports = () => {
   const start = useMemo(() => startOfWeek(today, { weekStartsOn: 1 }), [today]);
   const end = useMemo(() => addDays(start, 6), [start]);
 
-  const { dailyData: weekData, totals: weekTotals, platformMix } = useConsolidatedAnalytics(start, end, filter);
+  const { dailyData: weekData, totals: weekTotals, platformMix, aiIntelligence } = useConsolidatedAnalytics(start, end, filter);
 
   const currentWeek = useMemo(() => {
     return weekData.map(day => ({
@@ -184,6 +184,13 @@ export const Reports = () => {
     }).filter(d => d.totalRevenue > 0 || d.totalKm > 0);
   }, [cycles, importedReports, settings, filter]);
 
+  const driverScore = useMemo(() => {
+    return calculateDriverScore({
+      efficiencyPercentage: stats.avgEfficiency,
+      profitPerKm: stats.netPerKm
+    });
+  }, [stats]);
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
@@ -228,6 +235,101 @@ export const Reports = () => {
           <p className="text-sm font-bold">{location.state.successMessage}</p>
         </motion.div>
       )}
+
+      {/* AI Intelligence Section */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="border-none bg-zinc-900 text-white shadow-xl">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
+                  <Award size={16} className="text-emerald-400" />
+                </div>
+                <h3 className="text-xs font-black uppercase tracking-widest">Inteligência de Performance</h3>
+              </div>
+              <div className={cn(
+                "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
+                driverScore.color
+              )}>
+                Score: {driverScore.score} - {driverScore.label}
+              </div>
+            </div>
+
+            <div className="grid grid-cols-2 gap-6">
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Melhor Dia da Semana</p>
+                <p className="text-sm font-black text-emerald-400">
+                  {aiIntelligence.bestDayOfWeek !== null ? format(addDays(start, aiIntelligence.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...'}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Pior Dia da Semana</p>
+                <p className="text-sm font-black text-red-400">
+                  {aiIntelligence.weakestDayOfWeek !== null ? format(addDays(start, aiIntelligence.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...'}
+                </p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Média Lucro/KM</p>
+                <p className="text-sm font-black text-blue-400">{formatCurrency(aiIntelligence.avgProfitPerKm)}/km</p>
+              </div>
+              <div className="space-y-1">
+                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">KM Produtivo Médio</p>
+                <p className="text-sm font-black text-white">{aiIntelligence.avgProductiveKm.toFixed(1)} km/dia</p>
+              </div>
+            </div>
+
+            <div className="pt-4 border-t border-white/5 flex flex-col gap-3">
+              <div className="flex items-center justify-between">
+                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Zonas de Espera Identificadas</p>
+                <button 
+                  onClick={() => navigate('/heatmap')}
+                  className="flex items-center gap-1.5 text-[9px] font-black text-emerald-400 uppercase tracking-widest hover:text-emerald-300 transition-colors"
+                >
+                  <MapIcon size={10} />
+                  Ver Mapa de Calor
+                </button>
+              </div>
+              <div className="space-y-2">
+                {aiIntelligence.waitingZones.length > 0 ? aiIntelligence.waitingZones.map((zone, i) => (
+                  <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                      <p className="text-[10px] font-bold text-zinc-300">Região {i + 1} ({zone.lat.toFixed(3)}, {zone.lng.toFixed(3)})</p>
+                    </div>
+                    <p className="text-[10px] font-black text-zinc-500">{(zone.time / 60000).toFixed(0)} min acumulados</p>
+                  </div>
+                )) : (
+                  <p className="text-[10px] font-bold text-zinc-500 italic">Ainda não há dados de rastreamento suficientes para identificar zonas de espera.</p>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
+                <Clock size={16} className="text-blue-500" />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-widest">Melhores Horários por Dia</h3>
+            </div>
+
+            <div className="space-y-3">
+              {[1, 2, 3, 4, 5, 6, 0].map(day => (
+                <div key={day} className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
+                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
+                    {format(addDays(start, day), 'EEEE', { locale: ptBR })}
+                  </p>
+                  <p className="text-xs font-black text-zinc-900 dark:text-white">
+                    {aiIntelligence.bestHourByDay[day] || 'Sem dados'}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Weekly Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">

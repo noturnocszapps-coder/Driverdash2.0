@@ -824,12 +824,12 @@ export const useDriverStore = create<DriverState>()(
 
         watchId = navigator.geolocation.watchPosition(
           (position) => {
-            const { latitude, longitude, accuracy } = position.coords;
-            const timestamp = position.timestamp || Date.now();
-            const newPoint = { lat: latitude, lng: longitude, accuracy, timestamp };
-            
             const { tracking: currentTracking } = get();
             if (!currentTracking.isActive) return;
+
+            const { latitude, longitude, accuracy } = position.coords;
+            const timestamp = position.timestamp || Date.now();
+            const newPoint = { lat: latitude, lng: longitude, accuracy, timestamp, isProductive: currentTracking.isProductive };
 
             const lastPoint = currentTracking.lastPoint;
             let newDistance = currentTracking.distance;

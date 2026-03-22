@@ -978,9 +978,23 @@ const SettingsItem = ({ icon: Icon, title, description, onClick, color, loading,
 );
 
 const PatchNotes = () => {
-  const [expanded, setExpanded] = useState<string | null>('2.7.0');
+  const [expanded, setExpanded] = useState<string | null>('2.8.0');
 
   const versions = [
+    {
+      id: '2.8.0',
+      date: '22 Mar, 2026',
+      notes: [
+        'Inteligência IA (Fase 1): Novo sistema de análise de performance do motorista.',
+        'Driver Score: Pontuação inteligente baseada em eficiência e lucro por KM.',
+        'Resumo Diário IA: Insights automáticos sobre o seu dia de trabalho no dashboard.',
+        'Melhores Horários: Sugestões de faixas horárias mais lucrativas por dia da semana.',
+        'Identificação de Zonas de Espera: Detecção automática de regiões com maior tempo ocioso.',
+        'Tendência de Eficiência: Acompanhamento semanal da evolução do seu desempenho.',
+        'Correção de bugs na sincronização de dados e persistência de veículos.',
+        'Melhorias na performance dos cálculos de análise consolidada.'
+      ]
+    },
     {
       id: '2.7.0',
       date: '20 Mar, 2026',
