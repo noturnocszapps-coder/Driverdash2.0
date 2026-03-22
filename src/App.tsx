@@ -8,6 +8,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 
 // Lazy pages
 const LandingPage = lazy(() => import('./LandingPage').then(m => ({ default: m.LandingPage })));
+const Dashboard = lazy(() => import('./pages/Dashboard').then(m => ({ default: m.Dashboard })));
 const Login = lazy(() => import('./pages/Login').then(m => ({ default: m.Login })));
 const Register = lazy(() => import('./pages/Register').then(m => ({ default: m.Register })));
 const ForgotPassword = lazy(() => import('./pages/ForgotPassword').then(m => ({ default: m.ForgotPassword })));
@@ -68,9 +69,7 @@ export default function App() {
               path="/dashboard"
               element={
                 <ProtectedRoute>
-                  <div className="min-h-screen bg-black text-white p-10 text-2xl font-bold">
-                    TESTE PROTECTED ROUTE OK ✅
-                  </div>
+                  <Dashboard />
                 </ProtectedRoute>
               }
             />
