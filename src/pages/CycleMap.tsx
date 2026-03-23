@@ -5,7 +5,7 @@ import L from 'leaflet';
 import { useDriverStore } from '../store';
 import { ChevronLeft, Navigation, Clock, Map as MapIcon, Info, AlertCircle } from 'lucide-react';
 import { Button, Card, CardContent } from '../components/UI';
-import { formatDuration } from '../utils';
+import { formatDuration, cn } from '../utils';
 import { motion } from 'motion/react';
 
 // Fix for Leaflet default icon issues in Vite
@@ -51,6 +51,8 @@ const CycleMap = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { cycles, tracking } = useDriverStore();
+  
+  const [showHeatmap, setShowHeatmap] = useState(false);
   
   const isLive = id === 'active';
   
@@ -114,9 +116,17 @@ const CycleMap = () => {
           <div>
             <div className="flex items-center gap-2">
               <h1 className="text-lg font-bold">Mapa do Ciclo</h1>
-              <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-bold uppercase tracking-wider rounded border border-emerald-500/20">
-                Beta
-              </span>
+              <button
+                onClick={() => setShowHeatmap(!showHeatmap)}
+                className={cn(
+                  "px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider rounded border transition-all",
+                  showHeatmap 
+                    ? "bg-amber-500/20 text-amber-500 border-amber-500/30" 
+                    : "bg-zinc-800 text-zinc-400 border-zinc-700"
+                )}
+              >
+                Heatmap {showHeatmap ? 'ON' : 'OFF'}
+              </button>
             </div>
             <p className="text-xs text-zinc-500">Visualização do trajeto</p>
           </div>
@@ -147,13 +157,29 @@ const CycleMap = () => {
           
           {points.length > 0 && (
             <>
-              <Polyline 
-                positions={polylinePositions} 
-                color="#10b981" 
-                weight={4} 
-                opacity={0.8}
-                lineJoin="round"
-              />
+              {!showHeatmap && (
+                <Polyline 
+                  positions={polylinePositions} 
+                  color="#10b981" 
+                  weight={4} 
+                  opacity={0.8}
+                  lineJoin="round"
+                />
+              )}
+
+              {showHeatmap && points.map((p, i) => (
+                <CircleMarker 
+                  key={`heatmap-${i}`}
+                  center={[p.lat, p.lng]}
+                  radius={4}
+                  pathOptions={{ 
+                    color: p.isProductive ? '#10b981' : '#f59e0b',
+                    fillColor: p.isProductive ? '#10b981' : '#f59e0b',
+                    fillOpacity: 0.6,
+                    stroke: false
+                  }}
+                />
+              ))}
 
               {/* Start point */}
               <Marker position={[points[0].lat, points[0].lng]} icon={startIcon} />
@@ -179,6 +205,20 @@ const CycleMap = () => {
             <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-2 max-w-[200px]">
               Inicie o rastreamento no dashboard para gravar seu percurso.
             </p>
+          </div>
+        )}
+
+        {/* Heatmap Legend */}
+        {showHeatmap && (
+          <div className="absolute top-20 right-4 z-[1000] bg-black/80 backdrop-blur-md border border-zinc-800 rounded-lg p-2 flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Produtivo</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2 h-2 rounded-full bg-amber-500" />
+              <span className="text-[9px] font-black uppercase tracking-widest text-zinc-400">Ocioso</span>
+            </div>
           </div>
         )}
 

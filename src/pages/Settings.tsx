@@ -412,18 +412,38 @@ export const Settings = () => {
               <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Veículo Ativo</label>
               <button
                 onClick={() => setShowVehicleSelector(true)}
-                className="w-full h-16 px-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl flex items-center justify-between group hover:bg-zinc-100 dark:hover:bg-zinc-800 transition-all border border-zinc-100 dark:border-zinc-800/50 active:scale-[0.98]"
+                className={cn(
+                  "w-full p-5 rounded-3xl flex items-center justify-between group transition-all border-2 active:scale-[0.98]",
+                  currentVehicle 
+                    ? "bg-emerald-500/5 border-emerald-500/30 shadow-lg shadow-emerald-500/5 hover:border-emerald-500/50" 
+                    : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
+                )}
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <Car size={20} />
+                <div className="flex items-center gap-4">
+                  <div className={cn(
+                    "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500",
+                    currentVehicle 
+                      ? "bg-emerald-500 text-zinc-950 shadow-[0_0_20px_rgba(16,185,129,0.3)]" 
+                      : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+                  )}>
+                    {currentVehicle?.category === 'motorcycle' ? <Zap size={28} /> : <Car size={28} />}
                   </div>
                   <div className="text-left">
-                    <p className="text-sm font-black tracking-tight">
-                      {currentVehicle?.name || 'Selecionar Veículo'}
-                    </p>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                      {currentVehicle ? `${currentVehicle.brand} ${currentVehicle.model}` : 'Nenhum veículo ativo'}
+                    <div className="flex items-center gap-2">
+                      <p className="text-lg font-black tracking-tight leading-none">
+                        {currentVehicle?.name || 'Selecionar Veículo'}
+                      </p>
+                      {currentVehicle && (
+                        <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500 text-zinc-950 text-[9px] font-black uppercase rounded-full tracking-widest animate-pulse">
+                          <div className="w-1 h-1 bg-zinc-950 rounded-full" />
+                          Ativo
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider mt-1">
+                      {currentVehicle 
+                        ? `${currentVehicle.brand} ${currentVehicle.model} • ${currentVehicle.year} • ${currentVehicle.category === 'motorcycle' ? 'Moto' : 'Carro'}` 
+                        : 'Nenhum veículo ativo'}
                     </p>
                   </div>
                 </div>
@@ -713,63 +733,85 @@ export const Settings = () => {
               </div>
 
               <div className="space-y-3">
-                {vehicles.map(v => (
-                  <div
-                    key={v.id}
-                    onClick={() => handleSelectVehicle(v.id)}
-                    role="button"
-                    tabIndex={0}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' || e.key === ' ') {
-                        e.preventDefault();
-                        handleSelectVehicle(v.id);
-                      }
-                    }}
-                    className={cn(
-                      "w-full p-4 rounded-2xl flex items-center justify-between transition-all border-2 cursor-pointer",
-                      settings.currentVehicleProfileId === v.id
-                        ? "bg-emerald-500/10 border-emerald-500"
-                        : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
-                    )}
-                  >
-                    <div className="flex items-center gap-4">
-                      <div className={cn(
-                        "w-12 h-12 rounded-xl flex items-center justify-center",
-                        settings.currentVehicleProfileId === v.id ? "bg-emerald-500 text-zinc-950" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
-                      )}>
-                        <Car size={24} />
+                {vehicles.map(v => {
+                  const isActive = settings.currentVehicleProfileId === v.id;
+                  return (
+                    <div
+                      key={v.id}
+                      onClick={() => handleSelectVehicle(v.id)}
+                      role="button"
+                      tabIndex={0}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          handleSelectVehicle(v.id);
+                        }
+                      }}
+                      className={cn(
+                        "w-full p-5 rounded-[2rem] flex items-center justify-between transition-all border-2 cursor-pointer",
+                        isActive
+                          ? "bg-emerald-500/10 border-emerald-500 shadow-[0_10px_30px_rgba(16,185,129,0.15)]"
+                          : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
+                      )}
+                    >
+                      <div className="flex items-center gap-5">
+                        <div className={cn(
+                          "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500",
+                          isActive 
+                            ? "bg-emerald-500 text-zinc-950 scale-110 shadow-[0_0_20px_rgba(16,185,129,0.4)]" 
+                            : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+                        )}>
+                          {v.category === 'motorcycle' ? <Zap size={28} /> : <Car size={28} />}
+                        </div>
+                        <div className="text-left">
+                          <div className="flex items-center gap-2 mb-0.5">
+                            <p className={cn("font-black tracking-tight leading-none", isActive ? "text-xl" : "text-base")}>
+                              {v.name}
+                            </p>
+                            {isActive && (
+                              <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500 text-zinc-950 text-[9px] font-black uppercase rounded-full tracking-widest">
+                                <div className="w-1 h-1 bg-zinc-950 rounded-full animate-pulse" />
+                                Ativo
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">
+                            {v.brand} {v.model} • {v.year}
+                          </p>
+                          <p className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
+                            <span className={cn("px-1.5 py-0.5 rounded-md", isActive ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-200 dark:bg-zinc-700")}>
+                              {v.category === 'motorcycle' ? 'Motocicleta' : 'Automóvel'}
+                            </span>
+                            <span>•</span>
+                            <span>{v.type === 'rented' ? 'Alugado' : 'Próprio'}</span>
+                          </p>
+                        </div>
                       </div>
-                      <div className="text-left">
-                        <p className="font-black tracking-tight">{v.name}</p>
-                        <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                          {v.brand} {v.model} • {v.year}
-                        </p>
-                      </div>
+                      {isActive ? (
+                        <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-zinc-950 shadow-lg shadow-emerald-500/20">
+                          <CheckCircle2 size={20} />
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2">
+                          {vehicles.length > 1 && (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteVehicle(v.id);
+                              }}
+                              className="h-10 w-10 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl"
+                            >
+                              <Trash2 size={18} />
+                            </Button>
+                          )}
+                          <ChevronRight size={20} className="text-zinc-300" />
+                        </div>
+                      )}
                     </div>
-                    {settings.currentVehicleProfileId === v.id ? (
-                      <div className="w-6 h-6 bg-emerald-500 rounded-full flex items-center justify-center text-zinc-950">
-                        <CheckCircle2 size={16} />
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        {vehicles.length > 1 && (
-                          <Button 
-                            variant="ghost" 
-                            size="sm"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleDeleteVehicle(v.id);
-                            }}
-                            className="h-8 w-8 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-lg"
-                          >
-                            <Trash2 size={16} />
-                          </Button>
-                        )}
-                        <ChevronRight size={18} className="text-zinc-300" />
-                      </div>
-                    )}
-                  </div>
-                ))}
+                  );
+                })}
 
                 {vehicles.length === 0 && (
                   <div className="text-center py-12 space-y-4">

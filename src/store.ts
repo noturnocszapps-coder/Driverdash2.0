@@ -46,11 +46,16 @@ export const useDriverStore = create<DriverState>()(
         productiveDistance: 0,
         idleDistance: 0,
         isProductive: false,
+        isManualOverride: false,
         avgSpeed: 0,
         duration: 0,
         movingTime: 0,
         stoppedTime: 0,
         points: [],
+        segments: [],
+        consecutiveMovingPoints: 0,
+        mode: 'stopped',
+        tripDetectionState: 'idle'
       },
       isSaving: false,
       setUser: (user) => set({ user }),
@@ -786,9 +791,24 @@ export const useDriverStore = create<DriverState>()(
         }
       },
 
-      updateTracking: (newTracking) => set((state) => ({
-        tracking: { ...state.tracking, ...newTracking }
-      })),
+      updateTracking: (newTracking) => set((state) => {
+        const updatedTracking = { ...state.tracking, ...newTracking };
+        
+        // If isProductive is manually changed, set isManualOverride to true
+        if (newTracking.isProductive !== undefined && newTracking.isProductive !== state.tracking.isProductive) {
+          updatedTracking.isManualOverride = true;
+          // If manually starting a trip, reset detection state
+          if (newTracking.isProductive) {
+            updatedTracking.tripDetectionState = 'trip_started';
+            updatedTracking.mode = 'on_trip';
+          } else {
+            updatedTracking.tripDetectionState = 'idle';
+            updatedTracking.mode = 'searching';
+          }
+        }
+        
+        return { tracking: updatedTracking };
+      }),
 
       startTracking: () => {
         const { tracking, cycles } = get();
@@ -817,7 +837,12 @@ export const useDriverStore = create<DriverState>()(
             productiveDistance: 0,
             idleDistance: 0,
             isProductive: false,
+            isManualOverride: false,
             points: [],
+            segments: [],
+            consecutiveMovingPoints: 0,
+            mode: 'stopped',
+            tripDetectionState: 'idle',
             lastPoint: undefined
           }
         });
@@ -829,7 +854,15 @@ export const useDriverStore = create<DriverState>()(
 
             const { latitude, longitude, accuracy } = position.coords;
             const timestamp = position.timestamp || Date.now();
-            const newPoint = { lat: latitude, lng: longitude, accuracy, timestamp, isProductive: currentTracking.isProductive };
+            
+            const newPoint = { 
+              lat: latitude, 
+              lng: longitude, 
+              accuracy, 
+              timestamp, 
+              speed: position.coords.speed || 0,
+              isProductive: currentTracking.isProductive 
+            };
 
             const lastPoint = currentTracking.lastPoint;
             let newDistance = currentTracking.distance;
@@ -838,62 +871,156 @@ export const useDriverStore = create<DriverState>()(
             let newProductiveDistance = currentTracking.productiveDistance;
             let newIdleDistance = currentTracking.idleDistance;
             let newIsProductive = currentTracking.isProductive;
+            let newIsManualOverride = currentTracking.isManualOverride;
             let newLastStopTimestamp = currentTracking.lastStopTimestamp;
+            let newMode = currentTracking.mode;
+            let newTripDetectionState = currentTracking.tripDetectionState;
+            let newConsecutiveMovingPoints = currentTracking.consecutiveMovingPoints;
+            let newSegments = [...(currentTracking.segments || [])];
 
             if (lastPoint) {
               const dist = calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng);
               const timeDiff = timestamp - lastPoint.timestamp;
 
-              // Noise filter
+              // Noise filter: ignore points with low accuracy
               if (accuracy && accuracy > 50) return;
               
               const speedKmh = timeDiff > 0 ? (dist / (timeDiff / 3600000)) : 0;
+              newPoint.speed = speedKmh;
 
+              // Filter out GPS drift and impossible jumps
               if (dist > 0.005 && speedKmh < 160) { // 5 meters and realistic speed
                 newDistance += dist;
                 newMovingTime += timeDiff;
+                newLastStopTimestamp = undefined;
+                
+                if (speedKmh > 5) {
+                  newConsecutiveMovingPoints++;
+                } else {
+                  newConsecutiveMovingPoints = 0;
+                }
+
+                // --- Semi-Automatic Heuristics ---
+                if (!newIsManualOverride) {
+                  // 1. Pickup Candidate Detection: Moving consistently > 10km/h
+                  if (newMode !== 'on_trip' && speedKmh > 10 && newConsecutiveMovingPoints >= 3) {
+                    if (newTripDetectionState === 'idle') {
+                      newTripDetectionState = 'pickup_candidate';
+                    }
+                  }
+
+                  // 2. Trip Started Detection: If we were a candidate and keep moving
+                  if (newTripDetectionState === 'pickup_candidate' && speedKmh > 10 && newConsecutiveMovingPoints >= 5) {
+                    newIsProductive = true;
+                    newMode = 'on_trip';
+                    newTripDetectionState = 'trip_started';
+                  }
+                }
 
                 // Classification Logic
-                if (speedKmh > 5) {
-                  // If we were stopped for > 60s, assume a state change (pickup/dropoff)
-                  if (newLastStopTimestamp && (timestamp - newLastStopTimestamp) > 60000) {
-                    newIsProductive = !newIsProductive;
-                    newLastStopTimestamp = undefined;
-                  } else {
-                    newLastStopTimestamp = undefined;
-                  }
-
-                  if (newIsProductive) {
-                    newProductiveDistance += dist;
-                  } else {
-                    newIdleDistance += dist;
-                  }
+                if (newIsProductive) {
+                  newProductiveDistance += dist;
+                  newMode = 'on_trip';
+                } else {
+                  newIdleDistance += dist;
+                  newMode = speedKmh > 5 ? 'searching' : 'stopped';
                 }
               } else {
                 newStoppedTime += timeDiff;
+                newConsecutiveMovingPoints = 0;
                 if (!newLastStopTimestamp) {
                   newLastStopTimestamp = timestamp;
+                }
+                
+                // Heuristics for stopping
+                if (!newIsManualOverride) {
+                  // If stopped for > 45s while on_trip, it might be a dropoff candidate
+                  if (newMode === 'on_trip' && (timestamp - newLastStopTimestamp) > 45000) {
+                     newTripDetectionState = 'dropoff_candidate';
+                     // After 90s total stop, confirm dropoff
+                     if ((timestamp - newLastStopTimestamp) > 90000) {
+                       newIsProductive = false;
+                       newMode = 'searching';
+                       newTripDetectionState = 'idle';
+                     }
+                  }
                 }
               }
             }
 
+            // --- Segment Management ---
+            if (newMode !== currentTracking.mode || newSegments.length === 0) {
+              // Close current segment if exists
+              if (newSegments.length > 0) {
+                const lastIdx = newSegments.length - 1;
+                newSegments[lastIdx] = {
+                  ...newSegments[lastIdx],
+                  endTime: timestamp,
+                  endLat: latitude,
+                  endLng: longitude,
+                  endLocation: { lat: latitude, lng: longitude }
+                };
+              }
+              
+              // Start new segment
+              newSegments.push({
+                id: Math.random().toString(36).substr(2, 9),
+                startTime: timestamp,
+                startLat: latitude,
+                startLng: longitude,
+                startLocation: { lat: latitude, lng: longitude },
+                mode: newMode,
+                distance: 0,
+                duration: 0,
+                avgSpeed: 0
+              });
+            } else {
+              // Update current segment
+              const lastIdx = newSegments.length - 1;
+              const dist = lastPoint ? calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng) : 0;
+              const currentSeg = newSegments[lastIdx];
+              
+              newSegments[lastIdx] = {
+                ...currentSeg,
+                distance: currentSeg.distance + (dist > 0.005 ? dist : 0),
+                duration: timestamp - currentSeg.startTime,
+                avgSpeed: (timestamp - currentSeg.startTime) > 0 
+                  ? (currentSeg.distance + (dist > 0.005 ? dist : 0)) / ((timestamp - currentSeg.startTime) / 3600000) 
+                  : 0,
+                endLat: latitude,
+                endLng: longitude,
+                endLocation: { lat: latitude, lng: longitude }
+              };
+            }
+
             const totalDuration = timestamp - (currentTracking.startTime || timestamp);
             const avgSpeed = totalDuration > 0 ? (newDistance / (totalDuration / 3600000)) : 0;
+            
+            // Update point with the classified state
+            newPoint.isProductive = newIsProductive;
 
             set({
               tracking: {
                 ...currentTracking,
+                isLoading: false,
+                lastPoint: newPoint,
+                lastLocation: { lat: latitude, lng: longitude },
+                lastTimestamp: timestamp,
                 distance: newDistance,
-                movingTime: newMovingTime,
-                stoppedTime: newStoppedTime,
                 productiveDistance: newProductiveDistance,
                 idleDistance: newIdleDistance,
+                movingTime: newMovingTime,
+                stoppedTime: newStoppedTime,
                 isProductive: newIsProductive,
+                isManualOverride: newIsManualOverride,
                 lastStopTimestamp: newLastStopTimestamp,
-                duration: totalDuration,
-                avgSpeed,
+                mode: newMode,
+                tripDetectionState: newTripDetectionState,
+                consecutiveMovingPoints: newConsecutiveMovingPoints,
+                segments: newSegments,
                 points: [...currentTracking.points, newPoint],
-                lastPoint: newPoint
+                duration: totalDuration,
+                avgSpeed
               }
             });
           },
@@ -928,13 +1055,13 @@ export const useDriverStore = create<DriverState>()(
           idle_km: (openCycle.idle_km || 0) + tracking.idleDistance,
           efficiency_percentage: tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0,
           driver_score: Math.min(100, Math.round(tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0)),
-          route_points: [...(openCycle.route_points || []), ...tracking.points]
+          route_points: [...(openCycle.route_points || []), ...tracking.points],
+          segments: [...(openCycle.segments || []), ...tracking.segments]
         } : null;
 
         // 2. Reset tracking state IMMEDIATELY to prevent double counting in UI
         set({
           tracking: {
-            ...tracking,
             isActive: false,
             isLoading: false,
             distance: 0,
@@ -944,7 +1071,13 @@ export const useDriverStore = create<DriverState>()(
             stoppedTime: 0,
             productiveDistance: 0,
             idleDistance: 0,
+            isProductive: false,
+            isManualOverride: false,
+            mode: 'stopped',
+            tripDetectionState: 'idle',
             points: [],
+            segments: [],
+            consecutiveMovingPoints: 0,
             lastPoint: undefined,
             endTime: Date.now()
           }
@@ -1247,11 +1380,16 @@ export const useDriverStore = create<DriverState>()(
           productiveDistance: 0,
           idleDistance: 0,
           isProductive: false,
+          isManualOverride: false,
+          mode: 'stopped',
+          tripDetectionState: 'idle',
           avgSpeed: 0,
           duration: 0,
           movingTime: 0,
           stoppedTime: 0,
           points: [],
+          segments: [],
+          consecutiveMovingPoints: 0
         },
       }),
       clearCloudData: async () => {

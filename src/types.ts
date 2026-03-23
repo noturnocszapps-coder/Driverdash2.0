@@ -76,6 +76,7 @@ export interface Cycle {
   efficiency_percentage?: number;
   driver_score?: number;
   route_points?: TrackingPoint[];
+  segments?: TrackingSegment[];
 }
 
 export interface WorkLog {
@@ -194,6 +195,28 @@ export interface TrackingPoint {
   lng: number;
   timestamp: number;
   accuracy?: number;
+  speed?: number;
+  isProductive?: boolean;
+}
+
+export type TripDetectionState = 'idle' | 'pickup_candidate' | 'trip_started' | 'dropoff_candidate';
+
+export type TrackingMode = 'stopped' | 'searching' | 'on_trip';
+
+export interface TrackingSegment {
+  id: string;
+  startTime: number;
+  endTime?: number;
+  startLat: number;
+  startLng: number;
+  endLat?: number;
+  endLng?: number;
+  startLocation?: { lat: number; lng: number };
+  endLocation?: { lat: number; lng: number };
+  mode: TrackingMode;
+  distance: number;
+  duration: number;
+  avgSpeed: number;
 }
 
 export interface TrackingSession {
@@ -209,9 +232,16 @@ export interface TrackingSession {
   productiveDistance: number;
   idleDistance: number;
   isProductive: boolean;
+  isManualOverride: boolean;
+  mode: TrackingMode;
+  tripDetectionState: TripDetectionState;
   lastStopTimestamp?: number;
   points: TrackingPoint[];
   lastPoint?: TrackingPoint;
+  segments: TrackingSegment[];
+  consecutiveMovingPoints: number;
+  lastLocation?: { lat: number; lng: number };
+  lastTimestamp?: number;
 }
 
 export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced';
