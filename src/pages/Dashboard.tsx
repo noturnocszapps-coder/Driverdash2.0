@@ -147,8 +147,10 @@ export const Dashboard = () => {
   }, [last7DaysData, today, cycles, importedReports, settings, tracking, filter]);
 
   const handleToggleTracking = async () => {
+    console.log('[Dashboard] handleToggleTracking clicked', { isActive: tracking?.isActive });
     if (tracking?.isActive) {
-      stopTracking?.();
+      console.log('[Dashboard] Calling stopTracking');
+      await stopTracking?.();
       return;
     }
 

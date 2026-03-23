@@ -90,13 +90,19 @@ export const Faturamento = () => {
   }, [openCycle, tracking.isActive]);
 
   const handleSave = async () => {
-    if (isSaving || storeIsSaving) return;
+    console.log('[Faturamento] handleSave clicked', { isSaving, storeIsSaving, isActive: tracking.isActive });
+    if (isSaving || storeIsSaving) {
+      console.log('[Faturamento] handleSave: already saving, returning');
+      return;
+    }
     
     if (tracking.isActive) {
-      stopTracking();
+      console.log('[Faturamento] handleSave: stopping tracking first');
+      await stopTracking();
     }
 
     setIsSaving(true);
+    console.log('[Faturamento] handleSave: starting save process');
     setSaveStatus('idle');
 
     try {

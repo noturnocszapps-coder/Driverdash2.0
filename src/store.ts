@@ -210,49 +210,53 @@ export const useDriverStore = create<DriverState>()(
 
       updateCycle: async (id, data) => {
         const { user, isSaving } = get();
+        
+        // Always update local state first for responsiveness
+        set((state) => ({
+          cycles: state.cycles.map(c => {
+            if (c.id === id) {
+              const updated = { ...c, ...data };
+              
+              // Consolidate tracking data into main KM fields if provided
+              if (data.tracked_km !== undefined) {
+                updated.tracked_km = safeNumber(data.tracked_km);
+              }
+              if (data.productive_km !== undefined) {
+                updated.ride_km = safeNumber(data.productive_km);
+              }
+              if (data.idle_km !== undefined) {
+                updated.displacement_km = safeNumber(data.idle_km);
+              }
+
+              updated.uber_amount = safeNumber(updated.uber_amount);
+              updated.noventanove_amount = safeNumber(updated.noventanove_amount);
+              updated.indriver_amount = safeNumber(updated.indriver_amount);
+              updated.extra_amount = safeNumber(updated.extra_amount);
+              
+              updated.total_amount = updated.uber_amount + updated.noventanove_amount + updated.indriver_amount + updated.extra_amount;
+              
+              updated.fuel_expense = safeNumber(updated.fuel_expense);
+              updated.food_expense = safeNumber(updated.food_expense);
+              updated.other_expense = safeNumber(updated.other_expense);
+              
+              updated.total_expenses = updated.fuel_expense + updated.food_expense + updated.other_expense;
+              
+              // Ensure total_km is strictly the sum of ride and displacement
+              updated.total_km = safeNumber(updated.ride_km) + safeNumber(updated.displacement_km);
+              
+              return updated;
+            }
+            return c;
+          })
+        }));
+
+        // If a sync is already in progress, don't start another one
+        // but the local state is already updated above.
         if (isSaving) return;
 
-        set({ isSaving: true });
-        try {
-          set((state) => ({
-            cycles: state.cycles.map(c => {
-              if (c.id === id) {
-                const updated = { ...c, ...data };
-                
-                // Consolidate tracking data into main KM fields if provided
-                if (data.tracked_km !== undefined) {
-                  updated.tracked_km = safeNumber(data.tracked_km);
-                }
-                if (data.productive_km !== undefined) {
-                  updated.ride_km = safeNumber(data.productive_km);
-                }
-                if (data.idle_km !== undefined) {
-                  updated.displacement_km = safeNumber(data.idle_km);
-                }
-
-                updated.uber_amount = safeNumber(updated.uber_amount);
-                updated.noventanove_amount = safeNumber(updated.noventanove_amount);
-                updated.indriver_amount = safeNumber(updated.indriver_amount);
-                updated.extra_amount = safeNumber(updated.extra_amount);
-                
-                updated.total_amount = updated.uber_amount + updated.noventanove_amount + updated.indriver_amount + updated.extra_amount;
-                
-                updated.fuel_expense = safeNumber(updated.fuel_expense);
-                updated.food_expense = safeNumber(updated.food_expense);
-                updated.other_expense = safeNumber(updated.other_expense);
-                
-                updated.total_expenses = updated.fuel_expense + updated.food_expense + updated.other_expense;
-                
-                // Ensure total_km is strictly the sum of ride and displacement
-                updated.total_km = safeNumber(updated.ride_km) + safeNumber(updated.displacement_km);
-                
-                return updated;
-              }
-              return c;
-            })
-          }));
-
-          if (user && isSupabaseConfigured) {
+        if (user && isSupabaseConfigured) {
+          set({ isSaving: true });
+          try {
             const cycle = get().cycles.find(c => c.id === id);
             if (!cycle) return;
             
@@ -276,9 +280,9 @@ export const useDriverStore = create<DriverState>()(
                 noventanove_km: cycle.noventanove_km,
                 indriver_km: cycle.indriver_km,
                 tracked_km: cycle.tracked_km,
-              tracked_moving_time: cycle.tracked_moving_time,
-              tracked_stopped_time: cycle.tracked_stopped_time,
-              vehicle_id: cycle.vehicle_id,
+                tracked_moving_time: cycle.tracked_moving_time,
+                tracked_stopped_time: cycle.tracked_stopped_time,
+                vehicle_id: cycle.vehicle_id,
                 vehicle_name: cycle.vehicle_name,
                 vehicle_snapshot: cycle.vehicle_snapshot,
                 end_time: cycle.end_time,
@@ -294,9 +298,9 @@ export const useDriverStore = create<DriverState>()(
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
+          } finally {
+            set({ isSaving: false });
           }
-        } finally {
-          set({ isSaving: false });
         }
       },
 
@@ -1079,14 +1083,18 @@ export const useDriverStore = create<DriverState>()(
         );
       },
 
-      stopTracking: () => {
+      stopTracking: async () => {
+        console.log('[Store] stopTracking called');
         if (watchId !== null) {
           navigator.geolocation.clearWatch(watchId);
           watchId = null;
         }
 
         const { tracking, cycles, updateCycle } = get();
-        if (!tracking.isActive) return;
+        if (!tracking.isActive) {
+          console.log('[Store] stopTracking: tracking is not active, returning');
+          return;
+        }
 
         const openCycle = cycles.find(c => c.status === 'open');
         
@@ -1129,8 +1137,10 @@ export const useDriverStore = create<DriverState>()(
 
         // 3. Persist the data to the cycle
         if (openCycle && persistedData) {
-          updateCycle(openCycle.id, persistedData);
+          console.log('[Store] stopTracking: updating cycle', openCycle.id);
+          await updateCycle(openCycle.id, persistedData);
         }
+        console.log('[Store] stopTracking completed');
       },
 
       importData: (data) => set((state) => {
