@@ -10,6 +10,7 @@ import {
   formatDuration,
   calculateDriverScore,
   consolidateDailyData,
+  safeNumber,
 } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
@@ -37,11 +38,6 @@ import { QuickEntryModal } from '../components/QuickEntryModal';
 import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 import { AIRealTimeAlerts } from '../components/AIRealTimeAlerts';
-
-const safeNumber = (value: any, fallback = 0): number => {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : fallback;
-};
 
 const safeString = (value: any, fallback = ''): string => {
   return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
@@ -252,6 +248,7 @@ export const Dashboard = () => {
         rideKm: 0,
         displacementKm: 0,
         efficiencyPercentage: 0,
+        lostRevenue: 0,
       };
     }
   }, [openCycle, todayData, settings]);
@@ -300,6 +297,15 @@ export const Dashboard = () => {
       });
     }
 
+    // AJUSTE 5: Alerta de Zona Ruim
+    if (idleDistance > 3 && (Date.now() - (tracking?.startTime || 0)) < 600000) {
+      alerts.push({
+        id: 'bad-zone',
+        message: 'Você está perdendo dinheiro nesta região. Tente se deslocar.',
+        type: 'warning',
+      });
+    }
+
     return alerts;
   }, [tracking]);
 
@@ -336,8 +342,11 @@ export const Dashboard = () => {
     const total7Days = safeNumber(last7DaysTotals?.totalRevenue);
     const totalProfit7Days = safeNumber(last7DaysTotals?.profit);
     const totalKm7Days = safeNumber(last7DaysTotals?.totalKm);
-    const avg = total7Days / 7;
-    const avgEfficiency = totalKm7Days > 0 ? total7Days / totalKm7Days : 0;
+    
+    // Use the averages from the hook which now correctly filter active days
+    const avg = safeNumber(averages.revenue);
+    const avgEfficiency = safeNumber(averages.efficiency);
+    const avgKm = safeNumber(averages.km);
 
     const sortedByValue = [...chartData].sort((a, b) => b.value - a.value);
     const sortedByEfficiency = [...chartData]
@@ -507,7 +516,7 @@ export const Dashboard = () => {
 
             <div
               className={cn(
-                'px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border',
+                'px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-colors duration-300',
                 driverScore?.color || 'border-zinc-700 text-zinc-400'
               )}
             >
@@ -517,7 +526,7 @@ export const Dashboard = () => {
 
           <div className="flex items-end gap-4">
             <div className="text-5xl font-black tracking-tighter text-zinc-900 dark:text-white">
-              {safeNumber(driverScore?.score)}
+              {driverScore?.label === 'Em formação' ? '--' : safeNumber(driverScore?.score)}
             </div>
             <div className="pb-1 space-y-1">
               <div className="flex gap-1">
@@ -525,10 +534,12 @@ export const Dashboard = () => {
                   <div
                     key={i}
                     className={cn(
-                      'w-4 h-1.5 rounded-full',
-                      i < Math.round(safeNumber(driverScore?.score) / 20)
-                        ? 'bg-emerald-500'
-                        : 'bg-zinc-200 dark:bg-zinc-800'
+                      'w-4 h-1.5 rounded-full transition-all duration-500',
+                      driverScore?.label === 'Em formação'
+                        ? 'bg-zinc-100 dark:bg-zinc-800'
+                        : i < Math.round(safeNumber(driverScore?.score) / 20)
+                          ? 'bg-emerald-500'
+                          : 'bg-zinc-200 dark:bg-zinc-800'
                     )}
                   />
                 ))}
@@ -538,7 +549,9 @@ export const Dashboard = () => {
           </div>
 
           <p className="mt-4 text-sm font-medium text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            {safeString(driverScore?.explanation, 'Continue usando o app para receber mais insights de performance.')}
+            {driverScore?.label === 'Em formação' 
+              ? 'Dirija pelo menos 10km para começar a calcular seu score de performance.'
+              : safeString(driverScore?.explanation, 'Continue usando o app para receber mais insights de performance.')}
           </p>
         </CardContent>
       </Card>
@@ -586,7 +599,9 @@ export const Dashboard = () => {
                       ? `Você rodou ${safeNumber(todayData?.idleKm).toFixed(1)}km ocioso, tente se posicionar melhor.`
                       : 'Ótimo controle de KM ocioso hoje!'
                   }`
-                : 'Inicie seu ciclo para receber insights em tempo real sobre sua performance e melhores regiões.'}
+                : safeNumber(todayData?.totalKm) > 0
+                  ? `Ciclo em andamento. Você já rodou ${safeNumber(todayData?.totalKm).toFixed(1)}km. Lance seus ganhos para receber insights completos.`
+                  : 'Inicie seu ciclo para receber insights em tempo real sobre sua performance e melhores regiões.'}
             </p>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
@@ -886,9 +901,11 @@ export const Dashboard = () => {
         <CardContent className="p-8 space-y-8 relative z-10">
           <div className="flex justify-between items-start gap-4">
             <div className="space-y-1 min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Faturamento do Ciclo</p>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                {safeNumber(openCycle?.total_amount) > 0 ? 'Faturamento do Ciclo' : 'Ciclo iniciado, aguardando lançamentos'}
+              </p>
               <h2 className="text-5xl font-black tracking-tighter break-words">
-                {formatCurrency(safeNumber(openCycle?.total_amount))}
+                {safeNumber(openCycle?.total_amount) > 0 ? formatCurrency(safeNumber(openCycle?.total_amount)) : 'R$ 0,00'}
               </h2>
             </div>
 
@@ -910,9 +927,15 @@ export const Dashboard = () => {
                   {formatCurrency(safeNumber(profitStats.expenses) + safeNumber(profitStats.dailyFixed))}
                 </p>
               </div>
-              <div className="col-span-2 text-right space-y-0.5">
+              <div className="space-y-0.5">
+                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">R$ Perdido</p>
+                <p className="text-sm font-black text-amber-400">
+                  {formatCurrency(safeNumber(efficiencyStats?.lostRevenue))}
+                </p>
+              </div>
+              <div className="text-right space-y-0.5">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Lucro Estimado</p>
-                <p className="text-2xl font-black text-emerald-400">
+                <p className="text-xl font-black text-emerald-400 leading-none">
                   {formatCurrency(safeNumber(profitStats.profit))}
                 </p>
               </div>

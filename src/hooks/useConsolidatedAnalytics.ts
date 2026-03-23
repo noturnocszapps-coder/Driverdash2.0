@@ -104,14 +104,15 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
 
   // 5. Performance Averages
   const averages = useMemo(() => {
-    const count = dailyData.length || 1;
+    const activeDays = dailyData.filter(day => day.totalRevenue > 0 || day.totalKm > 0);
+    const count = activeDays.length || 1;
     return {
       revenue: totals.totalRevenue / count,
       profit: totals.profit / count,
       km: totals.totalKm / count,
       efficiency: totals.totalKm > 0 ? (totals.rideKm / totals.totalKm) * 100 : 0,
     };
-  }, [totals, dailyData.length]);
+  }, [totals, dailyData]);
 
   // 6. AI Intelligence Metrics
   const aiIntelligence = useMemo(() => {
@@ -148,15 +149,19 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
     const bestDayOfWeek = sortedDays.length > 0 ? sortedDays[0].day : null;
     const weakestDayOfWeek = sortedDays.length > 0 ? sortedDays[sortedDays.length - 1].day : null;
 
+    const activeDaysCount = dailyData.filter(d => d.totalRevenue > 0 || d.totalKm > 0).length || 1;
+    const daysWithIdleKm = dailyData.filter(d => d.idleKm > 0).length || 1;
+    const daysWithRideKm = dailyData.filter(d => d.rideKm > 0).length || 1;
+
     return {
       bestHourByDay,
       bestDayOfWeek,
       weakestDayOfWeek,
       efficiencyTrend: getEfficiencyTrend(dailyData),
       waitingZones: getWaitingZones(cycles),
-      avgIdleTimeByDay: dailyData.reduce((acc, day) => acc + day.idleKm, 0) / (dailyData.length || 1),
+      avgIdleTimeByDay: dailyData.reduce((acc, day) => acc + day.idleKm, 0) / daysWithIdleKm,
       avgProfitPerKm: totals.totalKm > 0 ? totals.profit / totals.totalKm : 0,
-      avgProductiveKm: totals.rideKm / (dailyData.length || 1)
+      avgProductiveKm: totals.rideKm / daysWithRideKm
     };
   }, [cycles, dailyData, totals]);
 

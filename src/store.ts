@@ -2,9 +2,20 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { calculateDistance } from './utils';
+import { calculateDistance, safeNumber } from './utils';
 
 let watchId: number | null = null;
+
+const TRACKING_CONFIG = {
+  MIN_POINTS_SEARCHING: 4,
+  MIN_POINTS_TRIP: 6,
+  MIN_SPEED_VALID: 5, // km/h
+  STOP_BUFFER_MS: 120000, // 120 seconds for traffic lights/short stops
+  MIN_DIST_PRECISION: 0.02, // 20 meters
+  MAX_SPEED_NOISE: 160, // km/h
+  DRIFT_SPEED_THRESHOLD: 3, // km/h
+  WARMUP_POINTS_REQUIRED: 5,
+};
 
 export const useDriverStore = create<DriverState>()(
   persist(
@@ -210,22 +221,30 @@ export const useDriverStore = create<DriverState>()(
                 
                 // Consolidate tracking data into main KM fields if provided
                 if (data.tracked_km !== undefined) {
-                  updated.total_km = data.tracked_km;
+                  updated.tracked_km = safeNumber(data.tracked_km);
                 }
                 if (data.productive_km !== undefined) {
-                  updated.ride_km = data.productive_km;
+                  updated.ride_km = safeNumber(data.productive_km);
                 }
                 if (data.idle_km !== undefined) {
-                  updated.displacement_km = data.idle_km;
+                  updated.displacement_km = safeNumber(data.idle_km);
                 }
 
-                updated.total_amount = (updated.uber_amount || 0) + (updated.noventanove_amount || 0) + (updated.indriver_amount || 0) + (updated.extra_amount || 0);
-                updated.total_expenses = (updated.fuel_expense || 0) + (updated.food_expense || 0) + (updated.other_expense || 0);
+                updated.uber_amount = safeNumber(updated.uber_amount);
+                updated.noventanove_amount = safeNumber(updated.noventanove_amount);
+                updated.indriver_amount = safeNumber(updated.indriver_amount);
+                updated.extra_amount = safeNumber(updated.extra_amount);
                 
-                // Calculate displacement KM if not explicitly provided by tracking
-                if (data.idle_km === undefined && updated.total_km !== undefined && updated.ride_km !== undefined) {
-                  updated.displacement_km = Math.max(0, updated.total_km - updated.ride_km);
-                }
+                updated.total_amount = updated.uber_amount + updated.noventanove_amount + updated.indriver_amount + updated.extra_amount;
+                
+                updated.fuel_expense = safeNumber(updated.fuel_expense);
+                updated.food_expense = safeNumber(updated.food_expense);
+                updated.other_expense = safeNumber(updated.other_expense);
+                
+                updated.total_expenses = updated.fuel_expense + updated.food_expense + updated.other_expense;
+                
+                // Ensure total_km is strictly the sum of ride and displacement
+                updated.total_km = safeNumber(updated.ride_km) + safeNumber(updated.displacement_km);
                 
                 return updated;
               }
@@ -838,6 +857,7 @@ export const useDriverStore = create<DriverState>()(
             idleDistance: 0,
             isProductive: false,
             isManualOverride: false,
+            isWarmingUp: true,
             points: [],
             segments: [],
             consecutiveMovingPoints: 0,
@@ -877,6 +897,7 @@ export const useDriverStore = create<DriverState>()(
             let newTripDetectionState = currentTracking.tripDetectionState;
             let newConsecutiveMovingPoints = currentTracking.consecutiveMovingPoints;
             let newSegments = [...(currentTracking.segments || [])];
+            let newIsWarmingUp = currentTracking.isWarmingUp;
 
             if (lastPoint) {
               const dist = calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng);
@@ -888,29 +909,26 @@ export const useDriverStore = create<DriverState>()(
               const speedKmh = timeDiff > 0 ? (dist / (timeDiff / 3600000)) : 0;
               newPoint.speed = speedKmh;
 
-              // Filter out GPS drift and impossible jumps
-              if (dist > 0.005 && speedKmh < 160) { // 5 meters and realistic speed
-                newDistance += dist;
+              // PATCH 1: Precision Rules
+              // 1. Ignore micro variations (< 20m)
+              // 2. Ignore drift when stationary (< 3km/h)
+              // 3. Ignore noise/impossible jumps (> 160km/h)
+              if (dist >= TRACKING_CONFIG.MIN_DIST_PRECISION && speedKmh >= TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD && speedKmh <= TRACKING_CONFIG.MAX_SPEED_NOISE) {
                 newMovingTime += timeDiff;
                 newLastStopTimestamp = undefined;
-                
-                if (speedKmh > 5) {
-                  newConsecutiveMovingPoints++;
-                } else {
-                  newConsecutiveMovingPoints = 0;
-                }
+                newConsecutiveMovingPoints++;
 
                 // --- Semi-Automatic Heuristics ---
                 if (!newIsManualOverride) {
-                  // 1. Pickup Candidate Detection: Moving consistently > 10km/h
-                  if (newMode !== 'on_trip' && speedKmh > 10 && newConsecutiveMovingPoints >= 3) {
+                  // 1. Pickup Candidate Detection: Moving consistently > MIN_SPEED_VALID
+                  if (newMode !== 'on_trip' && speedKmh > TRACKING_CONFIG.MIN_SPEED_VALID && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
                     if (newTripDetectionState === 'idle') {
                       newTripDetectionState = 'pickup_candidate';
                     }
                   }
 
                   // 2. Trip Started Detection: If we were a candidate and keep moving
-                  if (newTripDetectionState === 'pickup_candidate' && speedKmh > 10 && newConsecutiveMovingPoints >= 5) {
+                  if (newTripDetectionState === 'pickup_candidate' && speedKmh > TRACKING_CONFIG.MIN_SPEED_VALID && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP) {
                     newIsProductive = true;
                     newMode = 'on_trip';
                     newTripDetectionState = 'trip_started';
@@ -923,28 +941,50 @@ export const useDriverStore = create<DriverState>()(
                   newMode = 'on_trip';
                 } else {
                   newIdleDistance += dist;
-                  newMode = speedKmh > 5 ? 'searching' : 'stopped';
+                  newMode = 'searching';
                 }
+                
+                // Total distance is strictly the sum of productive and idle
+                newDistance = newProductiveDistance + newIdleDistance;
               } else {
+                // Stationary or noise
                 newStoppedTime += timeDiff;
                 newConsecutiveMovingPoints = 0;
-                if (!newLastStopTimestamp) {
-                  newLastStopTimestamp = timestamp;
+                
+                if (speedKmh < TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD) {
+                  // If we were on a trip, we don't immediately switch to 'stopped' mode
+                  // unless it's a long stop. This keeps the context.
+                  if (newMode !== 'on_trip' || (newLastStopTimestamp && (timestamp - newLastStopTimestamp) > 30000)) {
+                    newMode = 'stopped';
+                  }
+                  
+                  if (!newLastStopTimestamp) {
+                    newLastStopTimestamp = timestamp;
+                  }
                 }
                 
                 // Heuristics for stopping
                 if (!newIsManualOverride) {
                   // If stopped for > 45s while on_trip, it might be a dropoff candidate
-                  if (newMode === 'on_trip' && (timestamp - newLastStopTimestamp) > 45000) {
+                  if (newMode === 'on_trip' && (timestamp - (newLastStopTimestamp || timestamp)) > 45000) {
                      newTripDetectionState = 'dropoff_candidate';
-                     // After 90s total stop, confirm dropoff
-                     if ((timestamp - newLastStopTimestamp) > 90000) {
+                     // After STOP_BUFFER_MS total stop, confirm dropoff
+                     if ((timestamp - (newLastStopTimestamp || timestamp)) > TRACKING_CONFIG.STOP_BUFFER_MS) {
                        newIsProductive = false;
-                       newMode = 'searching';
+                       newMode = 'stopped';
                        newTripDetectionState = 'idle';
                      }
                   }
                 }
+              }
+            }
+
+            // Warm-up logic: check if we have enough points and some movement
+            const points = [...currentTracking.points, newPoint];
+            if (newIsWarmingUp && points.length >= TRACKING_CONFIG.WARMUP_POINTS_REQUIRED) {
+              const movingPoints = points.filter(p => (p.speed || 0) > TRACKING_CONFIG.MIN_SPEED_VALID);
+              if (movingPoints.length >= 2) {
+                newIsWarmingUp = false;
               }
             }
 
@@ -980,12 +1020,15 @@ export const useDriverStore = create<DriverState>()(
               const dist = lastPoint ? calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng) : 0;
               const currentSeg = newSegments[lastIdx];
               
+              // Only add distance if it meets the precision threshold (0.02km)
+              const validDist = dist >= 0.02 ? dist : 0;
+              
               newSegments[lastIdx] = {
                 ...currentSeg,
-                distance: currentSeg.distance + (dist > 0.005 ? dist : 0),
+                distance: currentSeg.distance + validDist,
                 duration: timestamp - currentSeg.startTime,
                 avgSpeed: (timestamp - currentSeg.startTime) > 0 
-                  ? (currentSeg.distance + (dist > 0.005 ? dist : 0)) / ((timestamp - currentSeg.startTime) / 3600000) 
+                  ? (currentSeg.distance + validDist) / ((timestamp - currentSeg.startTime) / 3600000) 
                   : 0,
                 endLat: latitude,
                 endLng: longitude,
@@ -1013,12 +1056,13 @@ export const useDriverStore = create<DriverState>()(
                 stoppedTime: newStoppedTime,
                 isProductive: newIsProductive,
                 isManualOverride: newIsManualOverride,
+                isWarmingUp: newIsWarmingUp,
                 lastStopTimestamp: newLastStopTimestamp,
                 mode: newMode,
                 tripDetectionState: newTripDetectionState,
                 consecutiveMovingPoints: newConsecutiveMovingPoints,
                 segments: newSegments,
-                points: [...currentTracking.points, newPoint],
+                points,
                 duration: totalDuration,
                 avgSpeed
               }

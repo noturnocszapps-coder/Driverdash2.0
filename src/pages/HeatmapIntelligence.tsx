@@ -44,6 +44,13 @@ const HeatmapIntelligence = () => {
     return { idleCount, productiveCount };
   }, [heatmapData]);
 
+  const aiTip = useMemo(() => {
+    if (heatmapData.length === 0) return 'Continue rodando para que a IA identifique suas melhores zonas de faturamento.';
+    if (stats.productiveCount > stats.idleCount) return 'Ótimo posicionamento! Você está passando mais tempo em zonas de alta demanda.';
+    if (stats.idleCount > stats.productiveCount) return 'Atenção: Você está perdendo muito tempo em zonas de baixa conversão. Tente se deslocar para as áreas verdes.';
+    return 'As zonas verdes mostram onde você mais fatura. Tente se posicionar próximo a elas quando estiver sem chamadas.';
+  }, [heatmapData, stats]);
+
   return (
     <div className="min-h-screen bg-[#0B0B0B] text-white flex flex-col">
       {/* Header */}
@@ -158,7 +165,7 @@ const HeatmapIntelligence = () => {
               <div>
                 <p className="text-[10px] font-black text-emerald-400 uppercase tracking-widest mb-1">Dica de IA</p>
                 <p className="text-[11px] font-bold text-zinc-300 leading-relaxed">
-                  As zonas verdes mostram onde você mais fatura. Tente se posicionar próximo a elas quando estiver sem chamadas.
+                  {aiTip}
                 </p>
               </div>
             </CardContent>

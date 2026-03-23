@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics, consolidateDailyData, calculateDriverScore } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics, consolidateDailyData, calculateDriverScore, safeNumber } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
@@ -44,41 +44,44 @@ export const Reports = () => {
   const start = useMemo(() => startOfWeek(today, { weekStartsOn: 1 }), [today]);
   const end = useMemo(() => addDays(start, 6), [start]);
 
-  const { dailyData: weekData, totals: weekTotals, platformMix, aiIntelligence } = useConsolidatedAnalytics(start, end, filter);
+  const { dailyData: weekData, totals: weekTotals, platformMix, averages, aiIntelligence } = useConsolidatedAnalytics(start, end, filter);
 
   const currentWeek = useMemo(() => {
     return weekData.map(day => ({
       name: format(day.date, 'EEE', { locale: ptBR }),
       fullName: format(day.date, "dd 'de' MMM", { locale: ptBR }),
-      value: day.totalRevenue,
-      expenses: day.expenses,
-      profit: day.profit,
-      totalKm: day.totalKm,
-      idleKm: day.idleKm,
-      rideKm: day.rideKm,
-      grossPerKm: day.totalKm > 0 ? day.totalRevenue / day.totalKm : 0,
-      netPerKm: day.totalKm > 0 ? day.profit / day.totalKm : 0,
-      profitPerProductiveKm: day.rideKm > 0 ? day.profit / day.rideKm : 0,
-      efficiencyPercentage: day.efficiency,
+      value: safeNumber(day.totalRevenue),
+      expenses: safeNumber(day.expenses),
+      profit: safeNumber(day.profit),
+      totalKm: safeNumber(day.totalKm),
+      idleKm: safeNumber(day.idleKm),
+      rideKm: safeNumber(day.rideKm),
+      grossPerKm: safeNumber(day.totalKm) > 0 ? safeNumber(day.totalRevenue) / safeNumber(day.totalKm) : 0,
+      netPerKm: safeNumber(day.totalKm) > 0 ? safeNumber(day.profit) / safeNumber(day.totalKm) : 0,
+      profitPerProductiveKm: safeNumber(day.rideKm) > 0 ? safeNumber(day.profit) / safeNumber(day.rideKm) : 0,
+      efficiencyPercentage: safeNumber(day.efficiency),
       hasMismatch: day.hasMismatch,
-      importedTotal: day.importedTotal,
-      uber: day.uber,
-      noventanove: day.noventanove,
-      indriver: day.indriver,
-      extra: day.extra,
+      importedTotal: safeNumber(day.importedTotal),
+      uber: safeNumber(day.uber),
+      noventanove: safeNumber(day.noventanove),
+      indriver: safeNumber(day.indriver),
+      extra: safeNumber(day.extra),
       date: day.date
     }));
   }, [weekData]);
 
   const stats = useMemo(() => {
-    const total = weekTotals.totalRevenue;
-    const totalExpenses = weekTotals.expenses;
-    const totalProfit = weekTotals.profit;
-    const totalKm = weekTotals.totalKm;
-    const totalRideKm = weekTotals.rideKm;
-    const totalIdleKm = weekTotals.idleKm;
-    const avgEfficiency = totalKm > 0 ? (totalRideKm / totalKm) * 100 : 0;
-    const avg = total / 7;
+    const total = safeNumber(weekTotals.totalRevenue);
+    const totalExpenses = safeNumber(weekTotals.expenses);
+    const totalProfit = safeNumber(weekTotals.profit);
+    const totalKm = safeNumber(weekTotals.totalKm);
+    const totalRideKm = safeNumber(weekTotals.rideKm);
+    const totalIdleKm = safeNumber(weekTotals.idleKm);
+    
+    // Use averages from the hook
+    const avgEfficiency = safeNumber(averages.efficiency);
+    const avg = safeNumber(averages.revenue);
+    
     const sorted = [...currentWeek].sort((a, b) => b.value - a.value);
     
     const grossPerKm = totalKm > 0 ? total / totalKm : 0;
@@ -118,6 +121,20 @@ export const Reports = () => {
       });
     }
 
+    const totalLostRevenue = currentWeek.reduce((acc, d) => {
+      const metrics = calculateEfficiencyMetrics({
+        total_amount: d.value,
+        ride_km: d.rideKm,
+        displacement_km: d.idleKm,
+        total_expenses: d.expenses,
+        vehicle_snapshot: currentVehicle
+      }, settings);
+      return acc + safeNumber(metrics.lostRevenue);
+    }, 0);
+
+    // AJUSTE 6: Estados de Maturidade de Dados
+    const dataMaturity = totalKm === 0 ? 'inicial' : totalKm < 50 ? 'em coleta' : 'consolidado';
+
     return {
       total,
       totalExpenses,
@@ -125,6 +142,7 @@ export const Reports = () => {
       totalKm,
       totalRideKm,
       totalIdleKm,
+      totalLostRevenue,
       avgEfficiency,
       avg,
       grossPerKm,
@@ -132,9 +150,10 @@ export const Reports = () => {
       best: sorted[0],
       platformTotals,
       alerts,
+      dataMaturity,
       mismatches: currentWeek.filter(d => d.hasMismatch)
     };
-  }, [currentWeek, weekTotals]);
+  }, [currentWeek, weekTotals, settings, currentVehicle]);
 
   const recentDays = useMemo(() => {
     // Group data by date first for O(1) lookup
@@ -333,17 +352,46 @@ export const Reports = () => {
 
       {/* Weekly Summary Cards */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SummaryCard label="Faturado" value={formatCurrency(stats.total)} color="text-zinc-900 dark:text-white" />
-        <SummaryCard label="Lucro Total" value={formatCurrency(stats.totalProfit)} color="text-emerald-500" />
-        <SummaryCard label="KM Produtivo" value={formatKm(stats.totalRideKm)} color="text-emerald-500" />
-        <SummaryCard label="Eficiência" value={`${stats.avgEfficiency.toFixed(0)}%`} color="text-blue-500" />
+        <SummaryCard 
+          label="Faturado" 
+          value={stats.dataMaturity === 'inicial' ? 'R$ 0,00' : formatCurrency(stats.total)} 
+          color="text-zinc-900 dark:text-white" 
+        />
+        <SummaryCard 
+          label="Lucro Total" 
+          value={stats.dataMaturity === 'inicial' ? 'R$ 0,00' : formatCurrency(stats.totalProfit)} 
+          color="text-emerald-500" 
+        />
+        <SummaryCard 
+          label="KM Produtivo" 
+          value={formatKm(stats.totalRideKm)} 
+          color="text-emerald-500" 
+        />
+        <SummaryCard 
+          label="Eficiência" 
+          value={stats.dataMaturity === 'inicial' ? '--' : `${stats.avgEfficiency.toFixed(0)}%`} 
+          color="text-blue-500" 
+        />
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
         <SummaryCard label="KM Total" value={formatKm(stats.totalKm)} color="text-zinc-500" />
         <SummaryCard label="KM Ocioso" value={formatKm(stats.totalIdleKm)} color="text-zinc-400" />
-        <SummaryCard label="R$/KM Bruto" value={formatCurrency(stats.grossPerKm)} color="text-zinc-500" />
-        <SummaryCard label="R$/KM Líquido" value={formatCurrency(stats.netPerKm)} color="text-zinc-500" />
+        <SummaryCard 
+          label="R$ Perdido" 
+          value={stats.dataMaturity === 'inicial' ? 'R$ 0,00' : formatCurrency(stats.totalLostRevenue)} 
+          color="text-amber-500" 
+        />
+        <SummaryCard 
+          label="R$/KM Bruto" 
+          value={stats.dataMaturity === 'inicial' ? '--' : formatCurrency(stats.grossPerKm)} 
+          color="text-zinc-500" 
+        />
+        <SummaryCard 
+          label="R$/KM Líquido" 
+          value={stats.dataMaturity === 'inicial' ? '--' : formatCurrency(stats.netPerKm)} 
+          color="text-zinc-500" 
+        />
       </div>
 
       {/* Smart Alerts */}

@@ -236,6 +236,7 @@ export interface TrackingSession {
   mode: TrackingMode;
   tripDetectionState: TripDetectionState;
   lastStopTimestamp?: number;
+  isWarmingUp?: boolean;
   points: TrackingPoint[];
   lastPoint?: TrackingPoint;
   segments: TrackingSegment[];

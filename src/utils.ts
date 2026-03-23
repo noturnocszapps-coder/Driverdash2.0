@@ -6,6 +6,13 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
+export function safeNumber(value: any, fallback = 0): number {
+  if (value === null || value === undefined || isNaN(Number(value)) || !isFinite(Number(value))) {
+    return fallback;
+  }
+  return Number(value);
+}
+
 export function formatCurrency(value: number) {
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
@@ -20,36 +27,38 @@ export function formatKm(value: number) {
 export function calculateMonthlyFixedCost(fixedCosts?: any) {
   if (!fixedCosts) return 0;
   if (fixedCosts.vehicleType === 'owned') {
-    return (fixedCosts.insurance || 0) +
-           (fixedCosts.ipva || 0) +
-           (fixedCosts.oilChange || 0) +
-           (fixedCosts.tires || 0) +
-           (fixedCosts.maintenance || 0) +
-           (fixedCosts.financing || 0);
+    return safeNumber(fixedCosts.insurance) +
+           safeNumber(fixedCosts.ipva) +
+           safeNumber(fixedCosts.oilChange) +
+           safeNumber(fixedCosts.tires) +
+           safeNumber(fixedCosts.maintenance) +
+           safeNumber(fixedCosts.financing);
   } else {
-    const value = fixedCosts.rentalValue || 0;
+    const value = safeNumber(fixedCosts.rentalValue);
     return fixedCosts.rentalPeriod === 'weekly' ? value * 4.33 : value;
   }
 }
 
 export function calculateDailyFixedCost(fixedCosts?: any) {
-  return calculateMonthlyFixedCost(fixedCosts) / 30;
+  return safeNumber(calculateMonthlyFixedCost(fixedCosts) / 30);
 }
 
 export function calculateOperationalCost(cycle: any, settings: any) {
   const fixedCosts = cycle.vehicle_snapshot?.fixedCosts || settings.fixedCosts;
   const dailyFixed = calculateDailyFixedCost(fixedCosts);
-  const cycleExpenses = cycle.total_expenses || 0;
+  const cycleExpenses = safeNumber(cycle.total_expenses);
   
   // Total cost = Daily fixed + specific cycle expenses (fuel, food, etc.)
   return dailyFixed + cycleExpenses;
 }
 
 export function calculateEfficiencyMetrics(cycle: any, settings: any) {
-  const totalAmount = cycle.total_amount || 0;
+  const totalAmount = safeNumber(cycle.total_amount);
   // Use consolidated KM fields as single source of truth
-  const totalKm = cycle.total_km || 0;
-  const rideKm = cycle.ride_km || 0;
+  const rideKm = safeNumber(cycle.ride_km);
+  const idleKm = safeNumber(cycle.displacement_km);
+  const totalKm = rideKm + idleKm;
+  
   const totalCost = calculateOperationalCost(cycle, settings);
   
   const grossPerKm = totalKm > 0 ? totalAmount / totalKm : 0;
@@ -59,13 +68,19 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
   const profitPerKm = (rideKm > 0 && totalKm > 0) ? netAmount / rideKm : 0;
   const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
 
+  // AJUSTE 4: Dinheiro Perdido
+  // Se ganho R$ X por KM produtivo, cada KM ocioso é R$ X que deixei de ganhar
+  const avgRevenuePerProductiveKm = rideKm > 0 ? totalAmount / rideKm : 0;
+  const lostRevenue = idleKm * avgRevenuePerProductiveKm;
+
   return {
     totalCost,
     grossPerKm,
     netAmount,
     netPerKm,
     profitPerKm,
-    efficiencyPercentage
+    efficiencyPercentage,
+    lostRevenue: safeNumber(lostRevenue)
   };
 }
 
@@ -81,6 +96,18 @@ export function calculateDriverScore(metrics: any) {
   let color = 'text-red-500 bg-red-500/10 border-red-500/20';
   let explanation = 'Sua eficiência está baixa. Tente reduzir o KM ocioso entre as corridas.';
   
+  // AJUSTE 5: Se não tem dados suficientes, score é neutro/em formação
+  const isInitial = !metrics.totalKm || metrics.totalKm < 10;
+
+  if (isInitial) {
+    return { 
+      score: 0, 
+      label: 'Em formação', 
+      color: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
+      explanation: 'Dirija pelo menos 10km para começar a calcular seu score de performance.'
+    };
+  }
+
   if (score >= 85) {
     label = 'Excelente';
     color = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
@@ -138,13 +165,11 @@ export function getEfficiencyTrend(dailyData: any[]) {
 }
 
 export function getWaitingZones(cycles: any[]) {
-  const zones: Record<string, { lat: number; lng: number; time: number; count: number }> = {};
+  const zones: Record<string, { lat: number; lng: number; time: number; count: number; type: 'idle' | 'productive' }> = {};
   
   cycles.forEach(cycle => {
     if (!cycle.route_points) return;
     
-    // Simple logic: find points where the driver stayed for more than 5 minutes
-    // In a real app, we'd use a clustering algorithm, but for now we'll use a grid
     cycle.route_points.forEach((point: any, idx: number) => {
       if (idx === 0) return;
       const prev = cycle.route_points[idx - 1];
@@ -157,17 +182,19 @@ export function getWaitingZones(cycles: any[]) {
         const key = `${gridLat},${gridLng}`;
         
         if (!zones[key]) {
-          zones[key] = { lat: gridLat, lng: gridLng, time: 0, count: 0 };
+          zones[key] = { lat: gridLat, lng: gridLng, time: 0, count: 0, type: point.isProductive ? 'productive' : 'idle' };
         }
         zones[key].time += timeDiff;
         zones[key].count++;
+        // If it was productive at least once, mark as productive zone (potential pickup)
+        if (point.isProductive) zones[key].type = 'productive';
       }
     });
   });
 
   return Object.values(zones)
     .sort((a, b) => b.time - a.time)
-    .slice(0, 3);
+    .slice(0, 5); // Return top 5
 }
 
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
@@ -243,16 +270,16 @@ export function consolidateDailyData(
   // Manual Values (excluding those created from imports to avoid double counting)
   const manualCycles = dayCycles.filter(c => !c.imported_report_id);
   
-  const manualUber = manualCycles.reduce((acc, c) => acc + (c.uber_amount || 0), 0);
-  const manual99 = manualCycles.reduce((acc, c) => acc + (c.noventanove_amount || 0), 0);
-  const manualInDriver = manualCycles.reduce((acc, c) => acc + (c.indriver_amount || 0), 0);
-  const manualExtra = manualCycles.reduce((acc, c) => acc + (c.extra_amount || 0), 0);
-  const manualRevenue = manualCycles.reduce((acc, c) => acc + (c.total_amount || 0), 0);
+  const manualUber = manualCycles.reduce((acc, c) => acc + safeNumber(c.uber_amount), 0);
+  const manual99 = manualCycles.reduce((acc, c) => acc + safeNumber(c.noventanove_amount), 0);
+  const manualInDriver = manualCycles.reduce((acc, c) => acc + safeNumber(c.indriver_amount), 0);
+  const manualExtra = manualCycles.reduce((acc, c) => acc + safeNumber(c.extra_amount), 0);
+  const manualRevenue = manualCycles.reduce((acc, c) => acc + safeNumber(c.total_amount), 0);
   
   // Imported Values
-  const importedUber = dayImportedReports.filter(r => r.platform === 'Uber').reduce((acc, r) => acc + r.total_earnings, 0);
-  const imported99 = dayImportedReports.filter(r => r.platform === '99').reduce((acc, r) => acc + r.total_earnings, 0);
-  const importedInDriver = dayImportedReports.filter(r => r.platform === 'inDrive').reduce((acc, r) => acc + r.total_earnings, 0);
+  const importedUber = dayImportedReports.filter(r => r.platform === 'Uber').reduce((acc, r) => acc + safeNumber(r.total_earnings), 0);
+  const imported99 = dayImportedReports.filter(r => r.platform === '99').reduce((acc, r) => acc + safeNumber(r.total_earnings), 0);
+  const importedInDriver = dayImportedReports.filter(r => r.platform === 'inDrive').reduce((acc, r) => acc + safeNumber(r.total_earnings), 0);
   const importedTotal = importedUber + imported99 + importedInDriver;
 
   // Consolidation logic based on filter
@@ -281,16 +308,16 @@ export function consolidateDailyData(
   const totalRevenue = uber + noventanove + indriver + extra;
 
   // Distances (Sum from all cycles + live tracking if applicable)
-  let totalKm = dayCycles.reduce((acc, c) => acc + (c.total_km || 0), 0);
-  let rideKm = dayCycles.reduce((acc, c) => acc + (c.ride_km || 0), 0);
-  let idleKm = dayCycles.reduce((acc, c) => acc + (c.displacement_km || 0), 0);
+  let rideKm = dayCycles.reduce((acc, c) => acc + safeNumber(c.ride_km), 0);
+  let idleKm = dayCycles.reduce((acc, c) => acc + safeNumber(c.displacement_km), 0);
 
   const isTrackingActive = tracking?.isActive && isSameDay(new Date(), date);
   if (isTrackingActive) {
-    totalKm += tracking.distance;
-    rideKm += tracking.productiveDistance;
-    idleKm += tracking.idleDistance;
+    rideKm += safeNumber(tracking.productiveDistance);
+    idleKm += safeNumber(tracking.idleDistance);
   }
+
+  const totalKm = rideKm + idleKm;
 
   // Expenses
   const expenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);

@@ -201,9 +201,13 @@ const CycleMap = () => {
         {points.length === 0 && (
           <div className="absolute inset-0 z-[999] pointer-events-none flex flex-col items-center justify-center p-8 text-center bg-black/40 backdrop-blur-[1px]">
             <MapIcon size={48} className="text-zinc-700 mb-4" />
-            <p className="text-zinc-400 font-black uppercase tracking-widest text-xs">Nenhum trajeto registrado</p>
+            <p className="text-zinc-400 font-black uppercase tracking-widest text-xs">
+              {tracking.isActive ? 'Iniciando rastreamento...' : 'Nenhum trajeto registrado'}
+            </p>
             <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-2 max-w-[200px]">
-              Inicie o rastreamento no dashboard para gravar seu percurso.
+              {tracking.isActive 
+                ? 'Aguardando primeiro deslocamento válido para atualizar o mapa.' 
+                : 'Inicie o rastreamento no dashboard para gravar seu percurso.'}
             </p>
           </div>
         )}
