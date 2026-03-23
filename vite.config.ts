@@ -12,10 +12,10 @@ export default defineConfig(({ mode }) => {
       tailwindcss(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg', 'manifest.json'],
+        includeAssets: ['favicon-v2.svg', 'icon-192-v2.svg', 'icon-512-v2.svg', 'icon-maskable-v2.svg', 'manifest.json'],
         manifest: {
-          name: 'DriverDash',
-          short_name: 'DriverDash',
+          name: 'DriverDash Beta',
+          short_name: 'DriverDash Beta',
           description: 'Controle total dos seus ganhos como motorista',
           theme_color: '#00C853',
           background_color: '#0B0B0B',
@@ -24,19 +24,19 @@ export default defineConfig(({ mode }) => {
           start_url: '/',
           icons: [
             {
-              src: 'https://cdn-icons-png.flaticon.com/192/1995/1995470.png',
+              src: 'icon-192-v2.svg',
               sizes: '192x192',
-              type: 'image/png'
+              type: 'image/svg+xml'
             },
             {
-              src: 'https://cdn-icons-png.flaticon.com/512/1995/1995470.png',
+              src: 'icon-512-v2.svg',
               sizes: '512x512',
-              type: 'image/png'
+              type: 'image/svg+xml'
             },
             {
-              src: 'https://cdn-icons-png.flaticon.com/512/1995/1995470.png',
+              src: 'icon-maskable-v2.svg',
               sizes: '512x512',
-              type: 'image/png',
+              type: 'image/svg+xml',
               purpose: 'any maskable'
             }
           ]

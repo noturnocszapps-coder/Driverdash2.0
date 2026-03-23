@@ -156,7 +156,7 @@ export const Settings = () => {
 
   const exportBackup = () => {
     const data = { cycles, settings };
-    downloadFile(JSON.stringify(data, null, 2), `driverdash-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
+    downloadFile(JSON.stringify(data, null, 2), `driverdash-beta-backup-${new Date().toISOString().split('T')[0]}.json`, 'application/json');
   };
 
   const handleImportBackup = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -323,7 +323,7 @@ export const Settings = () => {
             </div>
             <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
               <p className="text-[10px] text-zinc-500 font-bold leading-relaxed uppercase tracking-wider">
-                O DriverDash foca em Uber, 99 e inDrive para garantir a melhor experiência de fechamento financeiro.
+                O DriverDash Beta foca em Uber, 99 e inDrive para garantir a melhor experiência de fechamento financeiro.
               </p>
             </div>
           </CardContent>

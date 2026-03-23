@@ -62,10 +62,10 @@ export const Sidebar = () => {
     <aside className="hidden md:flex flex-col w-72 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 h-screen sticky top-0">
       <div className="p-8 flex flex-col gap-6">
         <h1 className="text-2xl font-black text-zinc-900 dark:text-white flex items-center gap-3 tracking-tighter">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-zinc-950 shadow-lg shadow-emerald-500/20">
-            <NavIcon size={24} className="rotate-45" />
+          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-zinc-950 shadow-lg shadow-emerald-500/20 font-black text-xl">
+            D
           </div>
-          DriverDash
+          DriverDash Beta
         </h1>
         <SyncIndicator />
       </div>

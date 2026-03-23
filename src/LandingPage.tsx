@@ -47,10 +47,10 @@ export const LandingPage = () => {
       <header className="fixed top-0 left-0 right-0 bg-black/50 backdrop-blur-xl border-b border-white/5 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <div className="flex items-center gap-2.5 group cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform">
-              <Car size={18} className="text-black" />
+            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform font-black text-black">
+              D
             </div>
-            <span className="text-xl font-bold tracking-tighter">DriverDash</span>
+            <span className="text-xl font-bold tracking-tighter">DriverDash Beta</span>
           </div>
           
           <nav className="hidden md:flex items-center gap-8">
@@ -324,10 +324,10 @@ export const LandingPage = () => {
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-12">
             <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 bg-white rounded flex items-center justify-center">
-                <Car size={14} className="text-black" />
+              <div className="w-6 h-6 bg-white rounded flex items-center justify-center font-black text-[10px] text-black">
+                D
               </div>
-              <span className="text-lg font-bold tracking-tighter text-white">DriverDash</span>
+              <span className="text-lg font-bold tracking-tighter text-white">DriverDash Beta</span>
             </div>
             
             <div className="flex flex-wrap justify-center gap-8">

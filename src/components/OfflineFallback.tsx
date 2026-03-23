@@ -25,7 +25,7 @@ export const OfflineFallback = () => {
         <div className="space-y-4">
           <h1 className="text-3xl font-black text-white tracking-tighter">Você está offline</h1>
           <p className="text-sm font-bold text-zinc-500 max-w-xs mx-auto leading-relaxed">
-            Parece que você perdeu a conexão com a internet. Verifique seu sinal para continuar usando o DriverDash.
+            Parece que você perdeu a conexão com a internet. Verifique seu sinal para continuar usando o DriverDash Beta.
           </p>
         </div>
 

@@ -42,7 +42,7 @@ export const ReloadPrompt = () => {
                   {offlineReady ? 'App pronto para uso offline' : 'Nova versão disponível'}
                 </p>
                 <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                  {offlineReady ? 'DriverDash está pronto' : 'Clique para atualizar agora'}
+                  {offlineReady ? 'DriverDash Beta está pronto' : 'Clique para atualizar agora'}
                 </p>
               </div>
             </div>

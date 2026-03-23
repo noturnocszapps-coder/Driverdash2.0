@@ -63,11 +63,11 @@ export const PWAInstallPrompt = () => {
             </button>
             
             <div className="flex items-start gap-5">
-              <div className="w-14 h-14 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500 shrink-0 border border-emerald-500/20">
-                <Download size={28} />
+              <div className="w-14 h-14 rounded-2xl bg-emerald-500 flex items-center justify-center text-zinc-950 shrink-0 border border-emerald-500/20 font-black text-2xl">
+                D
               </div>
               <div className="space-y-1 pr-8">
-                <h3 className="text-lg font-black text-white tracking-tight">Instalar DriverDash</h3>
+                <h3 className="text-lg font-black text-white tracking-tight">Instalar DriverDash Beta</h3>
                 <p className="text-sm font-bold text-zinc-500 leading-relaxed">
                   Use como aplicativo no seu celular para uma experiência mais rápida e offline.
                 </p>

@@ -66,12 +66,12 @@ export const Login = () => {
           </Link>
           
           <div className="flex justify-center mb-4">
-            <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/20 rotate-3">
-              <ShieldCheck size={32} className="text-zinc-950" />
+            <div className="w-16 h-16 bg-emerald-500 rounded-2xl flex items-center justify-center shadow-2xl shadow-emerald-500/20 rotate-3 font-black text-3xl text-zinc-950">
+              D
             </div>
           </div>
           
-          <h1 className="text-4xl font-black text-white tracking-tighter mb-2">DriverDash</h1>
+          <h1 className="text-4xl font-black text-white tracking-tighter mb-2">DriverDash Beta</h1>
           <p className="text-zinc-400 font-medium">Sua conta segura para controle financeiro</p>
         </div>
 
