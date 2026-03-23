@@ -714,11 +714,19 @@ export const Settings = () => {
 
               <div className="space-y-3">
                 {vehicles.map(v => (
-                  <button
+                  <div
                     key={v.id}
                     onClick={() => handleSelectVehicle(v.id)}
+                    role="button"
+                    tabIndex={0}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        handleSelectVehicle(v.id);
+                      }
+                    }}
                     className={cn(
-                      "w-full p-4 rounded-2xl flex items-center justify-between transition-all border-2",
+                      "w-full p-4 rounded-2xl flex items-center justify-between transition-all border-2 cursor-pointer",
                       settings.currentVehicleProfileId === v.id
                         ? "bg-emerald-500/10 border-emerald-500"
                         : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
@@ -760,7 +768,7 @@ export const Settings = () => {
                         <ChevronRight size={18} className="text-zinc-300" />
                       </div>
                     )}
-                  </button>
+                  </div>
                 ))}
 
                 {vehicles.length === 0 && (

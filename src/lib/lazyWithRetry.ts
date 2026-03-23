@@ -1,32 +1,31 @@
-import React from 'react';
+import { lazy, ComponentType } from 'react';
 
-export function lazyWithRetry<T extends React.ComponentType<any>>(
-  importer: () => Promise<{ default: T }>,
-  name = 'chunk'
-) {
-  return React.lazy(async () => {
+/**
+ * A wrapper around React.lazy that attempts to reload the page once if a chunk fails to load.
+ * This is useful for PWA/SPA updates where old chunks might be deleted from the server.
+ */
+export const lazyWithRetry = (
+  componentImport: () => Promise<{ default: ComponentType<any> }>,
+  name: string
+) => {
+  return lazy(async () => {
+    const storageKey = `page-has-been-force-refreshed-${name}`;
+    const pageHasAlreadyBeenForceRefreshed = JSON.parse(
+      window.localStorage.getItem(storageKey) || 'false'
+    );
+
     try {
-      return await importer();
-    } catch (error: any) {
-      const message = String(error?.message || '');
-
-      const isChunkError =
-        message.includes('Failed to fetch dynamically imported module') ||
-        message.includes('Importing a module script failed') ||
-        message.includes('Loading chunk') ||
-        message.includes('ChunkLoadError');
-
-      if (isChunkError) {
-        const alreadyRetried = sessionStorage.getItem(`lazy-retry-${name}`);
-
-        if (!alreadyRetried) {
-          sessionStorage.setItem(`lazy-retry-${name}`, 'true');
-          window.location.reload();
-          return new Promise(() => {});
-        }
+      const component = await componentImport();
+      window.localStorage.setItem(storageKey, 'false');
+      return component;
+    } catch (error) {
+      if (!pageHasAlreadyBeenForceRefreshed) {
+        window.localStorage.setItem(storageKey, 'true');
+        window.location.reload();
+        // Return a promise that never resolves to prevent rendering while reloading
+        return new Promise(() => {});
       }
-
       throw error;
     }
   });
-}
+};

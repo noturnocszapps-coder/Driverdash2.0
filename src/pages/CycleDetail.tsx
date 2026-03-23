@@ -253,7 +253,7 @@ export const CycleDetail = () => {
           </Button>
         )}
         
-        {cycle.source === 'Importado via print' && (
+        {cycle.source === 'screenshot' && (
           <div className="p-4 rounded-2xl bg-blue-500/5 border border-blue-500/20 flex items-start gap-3 text-blue-600 dark:text-blue-400">
             <Camera size={20} className="shrink-0 mt-0.5" />
             <div>

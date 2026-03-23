@@ -61,11 +61,18 @@ const PageLoader = () => (
   </div>
 );
 
-class RouteErrorBoundary extends React.Component<
-  { children: React.ReactNode; routeName: string },
-  { hasError: boolean; errorMessage: string }
-> {
-  constructor(props: { children: React.ReactNode; routeName: string }) {
+interface RouteErrorBoundaryProps {
+  children: React.ReactNode;
+  routeName: string;
+}
+
+interface RouteErrorBoundaryState {
+  hasError: boolean;
+  errorMessage: string;
+}
+
+class RouteErrorBoundary extends React.Component<RouteErrorBoundaryProps, RouteErrorBoundaryState> {
+  constructor(props: RouteErrorBoundaryProps) {
     super(props);
     this.state = { hasError: false, errorMessage: '' };
   }

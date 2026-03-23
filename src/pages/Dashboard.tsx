@@ -48,28 +48,43 @@ const safeString = (value: any, fallback = ''): string => {
 };
 
 export const Dashboard = () => {
-  const store = useDriverStore();
-
-  const cycles = store?.cycles || [];
-  const importedReports = store?.importedReports || [];
-  const settings = store?.settings || {};
-  const startCycle = store?.startCycle;
-  const checkAndCloseCycles = store?.checkAndCloseCycles;
-  const isSaving = !!store?.isSaving;
-  const tracking = store?.tracking || {
-    isActive: false,
-    isLoading: false,
-    distance: 0,
-    productiveDistance: 0,
-    idleDistance: 0,
-    avgSpeed: 0,
-    duration: 0,
-    stoppedTime: 0,
-    isProductive: false,
-  };
-  const startTracking = store?.startTracking;
-  const stopTracking = store?.stopTracking;
-  const vehicles = store?.vehicles || [];
+  const {
+    cycles = [],
+    importedReports = [],
+    settings = {
+      dailyGoal: 250,
+      name: 'Motorista',
+      vehicle: 'Veículo Padrão',
+      avgRideValue: 15,
+      avgRideKm: 5,
+      kmPerLiter: 10,
+      fuelPrice: 5.80,
+      activePlatforms: ['uber_car'],
+      transportMode: 'car' as const,
+      dashboardMode: 'merged' as const,
+      theme: 'dark' as const,
+      fixedCosts: {
+        vehicleType: 'owned' as const,
+      },
+    },
+    startCycle,
+    checkAndCloseCycles,
+    isSaving = false,
+    tracking = {
+      isActive: false,
+      isLoading: false,
+      distance: 0,
+      productiveDistance: 0,
+      idleDistance: 0,
+      avgSpeed: 0,
+      duration: 0,
+      stoppedTime: 0,
+      isProductive: false,
+    },
+    startTracking,
+    stopTracking,
+    vehicles = [],
+  } = useDriverStore();
 
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
@@ -80,18 +95,24 @@ export const Dashboard = () => {
   const today = useMemo(() => startOfDay(new Date()), []);
   const last7DaysStart = useMemo(() => subDays(today, 6), [today]);
 
-  const consolidated = useConsolidatedAnalytics(last7DaysStart, today, filter) || {};
-  const last7DaysData = consolidated.dailyData || [];
-  const last7DaysTotals = consolidated.totals || {
-    totalRevenue: 0,
-    profit: 0,
-    totalKm: 0,
-  };
-  const averages = consolidated.averages || {};
-  const aiIntelligence = consolidated.aiIntelligence || {
-    efficiencyTrend: 0,
-    bestHourByDay: {},
-  };
+  const {
+    dailyData: last7DaysData = [],
+    totals: last7DaysTotals = {
+      totalRevenue: 0,
+      profit: 0,
+      totalKm: 0,
+    },
+    averages = {
+      revenue: 0,
+      profit: 0,
+      km: 0,
+      efficiency: 0,
+    },
+    aiIntelligence = {
+      efficiencyTrend: 0,
+      bestHourByDay: {},
+    },
+  } = useConsolidatedAnalytics(last7DaysStart, today, filter);
 
   const todayData = useMemo(() => {
     const found = last7DaysData.find((d: any) => d?.date && isSameDay(d.date, today));
