@@ -1,5 +1,6 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useDriverStore } from '../store';
 import {
   formatCurrency,
@@ -146,11 +147,30 @@ export const Dashboard = () => {
     }
   }, [last7DaysData, today, cycles, importedReports, settings, tracking, filter]);
 
+  const [isProcessing, setIsProcessing] = useState(false);
+
   const handleToggleTracking = async () => {
-    console.log('[Dashboard] handleToggleTracking clicked', { isActive: tracking?.isActive });
+    if (isProcessing) return;
+
     if (tracking?.isActive) {
-      console.log('[Dashboard] Calling stopTracking');
-      await stopTracking?.();
+      setIsProcessing(true);
+      if (process.env.NODE_ENV === 'development') {
+        console.log("[Tracking] Encerrando...");
+      }
+
+      try {
+        await stopTracking?.();
+        
+        // Pequeno delay visual para UX
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        toast.success("Rastreamento finalizado com sucesso");
+      } catch (error) {
+        console.error("[Tracking] Erro ao encerrar:", error);
+        toast.error("Erro ao salvar. Tente novamente.");
+      } finally {
+        setIsProcessing(false);
+      }
       return;
     }
 
@@ -656,6 +676,7 @@ export const Dashboard = () => {
               <Button
                 onClick={handleToggleTracking}
                 disabled={tracking?.isLoading}
+                loading={tracking?.isLoading || isProcessing}
                 className={cn(
                   'h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shrink-0',
                   tracking?.isActive
@@ -663,11 +684,8 @@ export const Dashboard = () => {
                     : 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400 border-none'
                 )}
               >
-                {tracking?.isLoading ? (
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                    Processando
-                  </div>
+                {tracking?.isLoading || isProcessing ? (
+                  tracking?.isActive ? 'Encerrando...' : 'Processando'
                 ) : tracking?.isActive ? (
                   'Encerrar'
                 ) : (

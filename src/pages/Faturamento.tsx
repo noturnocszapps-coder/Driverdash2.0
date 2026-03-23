@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { toast } from 'sonner';
 import { useDriverStore } from '../store';
 import { formatCurrency, cn, calculateDailyFixedCost } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
@@ -89,23 +90,23 @@ export const Faturamento = () => {
     }
   }, [openCycle, tracking.isActive]);
 
-  const handleSave = async () => {
-    console.log('[Faturamento] handleSave clicked', { isSaving, storeIsSaving, isActive: tracking.isActive });
-    if (isSaving || storeIsSaving) {
-      console.log('[Faturamento] handleSave: already saving, returning');
-      return;
-    }
-    
-    if (tracking.isActive) {
-      console.log('[Faturamento] handleSave: stopping tracking first');
-      await stopTracking();
-    }
+  const [isProcessing, setIsProcessing] = useState(false);
 
-    setIsSaving(true);
-    console.log('[Faturamento] handleSave: starting save process');
+  const handleSave = async () => {
+    if (isProcessing || isSaving || storeIsSaving) return;
+    
+    setIsProcessing(true);
+    if (process.env.NODE_ENV === 'development') {
+      console.log("[Fechamento] Salvando ciclo...");
+    }
     setSaveStatus('idle');
 
     try {
+      // Garantir que o rastreamento parou antes de fechar o ciclo
+      if (tracking.isActive) {
+        await stopTracking();
+      }
+
       const cycleData = {
         uber_amount: amounts.uber,
         noventanove_amount: amounts.noventanove,
@@ -132,15 +133,21 @@ export const Faturamento = () => {
         await updateCycle(openCycle.id, cycleData);
       }
       
+      // Pequeno delay visual para UX
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      toast.success("Ciclo fechado com sucesso");
       setSaveStatus('success');
       
-      // Brief delay to show success state before redirecting
       setTimeout(() => {
         navigate('/dashboard');
       }, 1500);
     } catch (error) {
-      console.error('[Faturamento] Error saving cycle:', error);
+      console.error("[Fechamento] Erro ao salvar:", error);
+      toast.error("Erro ao salvar. Tente novamente.");
       setSaveStatus('error');
+    } finally {
+      setIsProcessing(false);
       setIsSaving(false);
     }
   };
@@ -320,18 +327,15 @@ export const Faturamento = () => {
           
           <Button 
             onClick={handleSave}
-            disabled={isSaving}
+            disabled={isProcessing}
+            loading={isProcessing}
             className={cn(
               "w-full h-16 font-black text-lg rounded-2xl shadow-xl gap-3 transition-all",
-              saveStatus === 'success' ? "bg-emerald-600 shadow-emerald-500/40" : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20",
-              isSaving && "opacity-80"
+              saveStatus === 'success' ? "bg-emerald-600 shadow-emerald-500/40" : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20"
             )}
           >
-            {isSaving ? (
-              <>
-                <div className="w-5 h-5 border-2 border-zinc-950/20 border-t-zinc-950 rounded-full animate-spin" />
-                {saveStatus === 'success' ? 'Salvo!' : 'Salvando...'}
-              </>
+            {isProcessing ? (
+              'Salvando...'
             ) : (
               <>
                 <Save size={20} />

@@ -293,6 +293,8 @@ function AppRoutes() {
   );
 }
 
+import { Toaster } from 'sonner';
+
 export default function App() {
   const { setUser, setSyncStatus } = useDriverStore();
   const [isAuthReady, setIsAuthReady] = React.useState(false);
@@ -354,6 +356,7 @@ export default function App() {
 
   return (
     <Router>
+      <Toaster position="top-center" richColors />
       <SyncManager />
       <AppRoutes />
     </Router>
