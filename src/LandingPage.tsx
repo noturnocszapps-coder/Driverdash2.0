@@ -18,7 +18,17 @@ import {
   Activity,
   LayoutDashboard,
   Receipt,
-  FileText
+  FileText,
+  Navigation,
+  Square,
+  Cpu,
+  Split,
+  Brain,
+  Map,
+  ShieldCheck,
+  RefreshCw,
+  Gauge,
+  Target
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from './components/UI';
@@ -107,10 +117,26 @@ export const LandingPage = () => {
               <span className="text-emerald-500">Lucro real.</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-zinc-400 mb-14 max-w-2xl mx-auto leading-relaxed font-medium">
-              A ferramenta definitiva para motoristas de Uber e 99. 
-              Gerencie seus ganhos brutos, deduza despesas e saiba seu lucro líquido real por ciclo de 24h.
+            <p className="text-lg md:text-xl text-zinc-400 mb-8 max-w-2xl mx-auto leading-relaxed font-medium">
+              Saiba exatamente quanto você ganha por km, onde lucrar mais e como melhorar sua performance como motorista de app.
             </p>
+
+            <div className="flex flex-col items-center gap-4 mb-14">
+              <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                  <CheckCircle2 size={14} />
+                  Rastreamento automático de KM
+                </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                  <CheckCircle2 size={14} />
+                  Cálculo real de lucro por ciclo
+                </div>
+                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
+                  <CheckCircle2 size={14} />
+                  Inteligência de performance
+                </div>
+              </div>
+            </div>
             
             <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
               <Link to="/register" className="w-full sm:w-auto">
@@ -119,42 +145,287 @@ export const LandingPage = () => {
                   <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
                 </Button>
               </Link>
-              <Button 
-                variant="outline" 
-                className="h-14 px-12 text-sm font-black uppercase tracking-[0.2em] w-full sm:w-auto border-white/10 hover:bg-white/5 text-white rounded-full"
-                onClick={handleAccessPanel}
-              >
-                Acessar Painel
-              </Button>
+              <a href="#how-it-works" className="w-full sm:w-auto">
+                <Button 
+                  variant="outline" 
+                  className="h-14 px-12 text-sm font-black uppercase tracking-[0.2em] w-full border-white/10 hover:bg-white/5 text-white rounded-full"
+                >
+                  Ver como funciona
+                </Button>
+              </a>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* Features Grid */}
-      <section id="features" className="py-32 relative border-y border-white/5 bg-zinc-950/50">
+      {/* Value Proof Section */}
+      <section className="py-24 relative border-t border-white/5 bg-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="text-center mb-16">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Prova de Valor</h2>
+            <p className="text-3xl md:text-5xl font-black tracking-tighter text-white">Feito para motoristas que querem lucrar de verdade.</p>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
+            <ValueCard 
+              icon={Gauge}
+              title="KM Real"
+              subtitle="Sem chute ou estimativa"
+              description="Rastreamento preciso via GPS que separa o que é trabalho do que é deslocamento."
+            />
+            <ValueCard 
+              icon={DollarSign}
+              title="Lucro Líquido"
+              subtitle="Automático e real"
+              description="Dedução automática de combustível, taxas e custos fixos em cada turno."
+            />
+            <ValueCard 
+              icon={RefreshCw}
+              title="Ciclos 24h"
+              subtitle="Controle total do dia"
+              description="Abra e feche seu dia de trabalho e veja exatamente quanto sobrou no bolso."
+            />
+            <ValueCard 
+              icon={ShieldCheck}
+              title="Dados Confiáveis"
+              subtitle="Sem estimativa fake"
+              description="Informações baseadas no seu trajeto real, não em médias genéricas do mercado."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* How it Works Section */}
+      <section id="how-it-works" className="py-32 relative bg-zinc-950">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-24">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Funcionalidades</h2>
-            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white">Simplicidade em cada detalhe.</p>
+            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Simplicidade</h2>
+            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white">Como o DriverDash funciona.</p>
+          </div>
+
+          <div className="grid md:grid-cols-4 gap-12 relative">
+            {/* Connecting Line (Desktop) */}
+            <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-white/5 -translate-y-1/2 z-0"></div>
+            
+            <StepCard 
+              number="01"
+              icon={Navigation}
+              title="Ative o rastreamento"
+              description="Inicie seu ciclo de 24h com um toque antes de começar a rodar."
+            />
+            <StepCard 
+              number="02"
+              icon={Car}
+              title="Rode normalmente"
+              description="Trabalhe na Uber ou 99 enquanto o app monitora seu trajeto em segundo plano."
+            />
+            <StepCard 
+              number="03"
+              icon={Square}
+              title="Feche o ciclo"
+              description="No fim do dia, encerre o turno e lance seus ganhos das plataformas."
+            />
+            <StepCard 
+              number="04"
+              icon={BarChart3}
+              title="Veja seu lucro"
+              description="Receba uma análise completa do seu lucro real e performance do dia."
+            />
+          </div>
+        </div>
+      </section>
+
+      {/* Differential Section */}
+      <section className="py-32 relative border-y border-white/5 bg-black">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6">
+          <div className="flex flex-col lg:flex-row gap-20 items-center">
+            <div className="flex-1 space-y-8">
+              <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500">Diferencial</h2>
+              <p className="text-4xl md:text-6xl font-black tracking-tighter text-white leading-[0.9]">Diferente de tudo que você já usou.</p>
+              <p className="text-xl text-zinc-400 leading-relaxed">
+                Esqueça planilhas complicadas ou estimativas genéricas. O DriverDash foi construído com tecnologia de rastreamento proprietária para o dia a dia real das ruas.
+              </p>
+              
+              <div className="grid sm:grid-cols-2 gap-8 pt-4">
+                <div className="space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                    <Cpu size={20} />
+                  </div>
+                  <h4 className="font-black text-white uppercase tracking-tight">Rastreamento Próprio</h4>
+                  <p className="text-sm text-zinc-500">Não depende dos dados limitados dos apps de corrida.</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                    <Split size={20} />
+                  </div>
+                  <h4 className="font-black text-white uppercase tracking-tight">Separação de KM</h4>
+                  <p className="text-sm text-zinc-500">Saiba exatamente quanto rodou com passageiro e quanto rodou vazio.</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                    <TrendingUp size={20} />
+                  </div>
+                  <h4 className="font-black text-white uppercase tracking-tight">Lucro Real</h4>
+                  <p className="text-sm text-zinc-500">Focamos no que sobra no seu bolso, não apenas no faturamento bruto.</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                    <Brain size={20} />
+                  </div>
+                  <h4 className="font-black text-white uppercase tracking-tight">IA de Performance</h4>
+                  <p className="text-sm text-zinc-500">Inteligência que aprende com seu comportamento para sugerir melhorias.</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex-1 w-full">
+              <div className="relative aspect-square max-w-md mx-auto">
+                <div className="absolute inset-0 bg-emerald-500/20 blur-[100px] rounded-full animate-pulse"></div>
+                <div className="relative z-10 w-full h-full bg-zinc-900 rounded-[3rem] border border-white/10 p-8 flex flex-col justify-between shadow-2xl">
+                  <div className="space-y-6">
+                    <div className="flex justify-between items-center">
+                      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Eficiência Hoje</div>
+                      <div className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest">Excelente</div>
+                    </div>
+                    <div className="text-6xl font-black text-white">84%</div>
+                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
+                      <div className="h-full bg-emerald-500 w-[84%]"></div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
+                        <TrendingUp size={20} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Lucro p/ KM</div>
+                        <div className="text-lg font-black text-white">R$ 2,45</div>
+                      </div>
+                    </div>
+                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
+                      <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500">
+                        <Map size={20} />
+                      </div>
+                      <div>
+                        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">KM Ocioso</div>
+                        <div className="text-lg font-black text-white">12.4 km</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Intelligence Section */}
+      <section className="py-32 relative bg-zinc-950 overflow-hidden">
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
+          <div className="absolute top-0 left-0 w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full"></div>
+          <div className="absolute bottom-0 right-0 w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full"></div>
+        </div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
+          <div className="max-w-3xl mx-auto text-center mb-20">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Inteligência</h2>
+            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white mb-8">Entenda onde você ganha mais.</p>
+            <p className="text-xl text-zinc-400 leading-relaxed">
+              O DriverDash analisa seus dados reais para mostrar melhores horários, regiões e eficiência — sem achismo.
+            </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <FeatureCard 
-              icon={LayoutDashboard}
-              title="Ciclos de 24h"
-              description="Controle sua jornada por ciclos. Inicie e feche turnos para ver seu desempenho exato."
-            />
-            <FeatureCard 
-              icon={Receipt}
-              title="Gestão de Custos"
-              description="Diferencie custos fixos (aluguel/seguro) de despesas variáveis (combustível/comida)."
-            />
-            <FeatureCard 
-              icon={Car}
-              title="Perfil do Veículo"
-              description="Cadastre seu carro e vincule todos os custos automaticamente ao seu faturamento."
-            />
+            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                <Clock size={24} />
+              </div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Melhores Horários</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">Identificamos em quais janelas de tempo sua rentabilidade por KM é maior, ajudando você a planejar seu descanso.</p>
+            </div>
+            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6">
+              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
+                <Map size={24} />
+              </div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Zonas de Lucro</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">Mapeamos onde você inicia as melhores corridas e onde costuma perder tempo parado esperando chamadas.</p>
+            </div>
+            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6">
+              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500">
+                <Target size={24} />
+              </div>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Metas Inteligentes</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">Projeções baseadas no seu histórico real para que você saiba exatamente quanto falta para atingir seu objetivo mensal.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* App Previews / Mocks */}
+      <section className="py-32 px-4 relative border-t border-white/5">
+        <div className="max-w-7xl mx-auto">
+          <div className="text-center mb-24">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Interface</h2>
+            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white">Tudo o que você precisa.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-12">
+            <div className="space-y-6">
+              <div className="aspect-[9/16] bg-zinc-900 rounded-[2.5rem] border border-white/10 overflow-hidden relative group">
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
+                <div className="absolute bottom-8 left-8 right-8 z-20">
+                  <h4 className="text-lg font-black text-white uppercase tracking-tight mb-2">Dashboard</h4>
+                  <p className="text-xs text-zinc-400">Visão geral em tempo real do seu turno.</p>
+                </div>
+                {/* Mock UI */}
+                <div className="p-6 space-y-6 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <div className="h-20 bg-emerald-500/20 rounded-2xl border border-emerald-500/30"></div>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="h-24 bg-white/5 rounded-2xl border border-white/10"></div>
+                    <div className="h-24 bg-white/5 rounded-2xl border border-white/10"></div>
+                  </div>
+                  <div className="h-40 bg-white/5 rounded-2xl border border-white/10"></div>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-6 md:translate-y-12">
+              <div className="aspect-[9/16] bg-zinc-900 rounded-[2.5rem] border border-white/10 overflow-hidden relative group">
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
+                <div className="absolute bottom-8 left-8 right-8 z-20">
+                  <h4 className="text-lg font-black text-white uppercase tracking-tight mb-2">Relatórios</h4>
+                  <p className="text-xs text-zinc-400">Análise profunda de ganhos e gastos.</p>
+                </div>
+                {/* Mock UI */}
+                <div className="p-6 space-y-6 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <div className="h-32 bg-blue-500/20 rounded-2xl border border-blue-500/30"></div>
+                  <div className="space-y-3">
+                    <div className="h-12 bg-white/5 rounded-xl border border-white/10"></div>
+                    <div className="h-12 bg-white/5 rounded-xl border border-white/10"></div>
+                    <div className="h-12 bg-white/5 rounded-xl border border-white/10"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="aspect-[9/16] bg-zinc-900 rounded-[2.5rem] border border-white/10 overflow-hidden relative group">
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
+                <div className="absolute bottom-8 left-8 right-8 z-20">
+                  <h4 className="text-lg font-black text-white uppercase tracking-tight mb-2">Heatmap</h4>
+                  <p className="text-xs text-zinc-400">Inteligência geográfica de lucro.</p>
+                </div>
+                {/* Mock UI */}
+                <div className="p-6 space-y-6 opacity-50 group-hover:opacity-100 transition-opacity">
+                  <div className="absolute inset-0 bg-emerald-500/5 flex items-center justify-center">
+                    <Map size={100} className="text-emerald-500/20" />
+                  </div>
+                  <div className="relative z-10 space-y-4">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/40 blur-xl absolute top-20 left-20"></div>
+                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 blur-2xl absolute top-40 left-40"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -290,8 +561,10 @@ export const LandingPage = () => {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-40 px-4">
-        <div className="max-w-4xl mx-auto text-center">
+      <section className="py-40 px-4 relative overflow-hidden">
+        <div className="absolute inset-0 bg-emerald-500/5 blur-[150px] rounded-full -translate-y-1/2"></div>
+        
+        <div className="max-w-4xl mx-auto text-center relative z-10">
           <motion.div
             initial={{ opacity: 0, scale: 0.95 }}
             whileInView={{ opacity: 1, scale: 1 }}
@@ -299,16 +572,21 @@ export const LandingPage = () => {
             className="space-y-12"
           >
             <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white leading-[0.85]">
-              Pronto para <br />
-              <span className="text-zinc-500">começar?</span>
+              Comece agora a <br />
+              <span className="text-emerald-500">controlar seu lucro.</span>
             </h2>
             <p className="text-xl text-zinc-400 max-w-xl mx-auto font-medium">
               Junte-se a milhares de motoristas que transformaram sua gestão financeira com o DriverDash.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link to="/register" className="w-full sm:w-auto">
-                <Button className="h-16 px-14 text-sm font-black uppercase tracking-[0.2em] w-full bg-white text-black hover:bg-zinc-200 rounded-full">
+                <Button className="h-16 px-14 text-sm font-black uppercase tracking-[0.2em] w-full bg-white text-black hover:bg-zinc-200 rounded-full shadow-2xl shadow-white/10">
                   Criar Conta Grátis
+                </Button>
+              </Link>
+              <Link to="/login" className="w-full sm:w-auto">
+                <Button variant="outline" className="h-16 px-14 text-sm font-black uppercase tracking-[0.2em] w-full border-white/10 hover:bg-white/5 text-white rounded-full">
+                  Entrar
                 </Button>
               </Link>
             </div>
@@ -351,7 +629,7 @@ const FeatureCard = ({ icon: Icon, title, description }: any) => {
       whileHover={{ y: -5 }}
       className="p-10 bg-white/[0.02] rounded-[2.5rem] border border-white/5 hover:border-white/10 transition-all group"
     >
-      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-8 text-white group-hover:bg-white group-hover:text-black transition-all duration-500">
+      <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center mb-8 text-white group-hover:bg-emerald-500 group-hover:text-black transition-all duration-500">
         <Icon size={24} />
       </div>
       <h3 className="text-xl font-black mb-4 text-white uppercase tracking-tight">{title}</h3>
@@ -359,6 +637,34 @@ const FeatureCard = ({ icon: Icon, title, description }: any) => {
     </motion.div>
   );
 };
+
+const ValueCard = ({ icon: Icon, title, subtitle, description }: any) => (
+  <div className="p-8 rounded-[2rem] bg-zinc-900/50 border border-white/5 hover:border-emerald-500/20 transition-all group">
+    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center mb-6 text-zinc-400 group-hover:text-emerald-500 transition-colors">
+      <Icon size={20} />
+    </div>
+    <h4 className="text-xs font-black text-emerald-500 uppercase tracking-[0.2em] mb-1">{subtitle}</h4>
+    <h3 className="text-lg font-black text-white uppercase tracking-tight mb-3">{title}</h3>
+    <p className="text-xs text-zinc-500 leading-relaxed font-medium">{description}</p>
+  </div>
+);
+
+const StepCard = ({ number, icon: Icon, title, description }: any) => (
+  <div className="relative z-10 flex flex-col items-center text-center space-y-6 group">
+    <div className="relative">
+      <div className="w-20 h-20 rounded-3xl bg-zinc-900 border border-white/10 flex items-center justify-center text-white group-hover:border-emerald-500/50 transition-all duration-500">
+        <Icon size={32} />
+      </div>
+      <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-black font-black text-[10px]">
+        {number}
+      </div>
+    </div>
+    <div className="space-y-2">
+      <h4 className="text-lg font-black text-white uppercase tracking-tight">{title}</h4>
+      <p className="text-sm text-zinc-500 leading-relaxed font-medium max-w-[200px] mx-auto">{description}</p>
+    </div>
+  </div>
+);
 
 const BenefitItem = ({ icon: Icon, title, description }: any) => (
   <div className="flex flex-col items-center text-center space-y-6">
