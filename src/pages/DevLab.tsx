@@ -166,7 +166,7 @@ const DevLab = () => {
         </section>
 
         <div className="pt-8 text-center">
-          <p className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">DriverDash Beta • v2.1.0-dev</p>
+          <p className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">DriverDash • Developer Lab</p>
         </div>
       </div>
     </div>

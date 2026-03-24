@@ -327,7 +327,6 @@ export const LandingPage = () => {
               <div className="w-6 h-6 bg-white rounded flex items-center justify-center font-black text-[10px] text-black">
                 D
               </div>
-              <span className="text-lg font-bold tracking-tighter text-white">DriverDash Beta</span>
             </div>
             
             <div className="flex flex-wrap justify-center gap-8">

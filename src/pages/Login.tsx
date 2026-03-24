@@ -71,7 +71,7 @@ export const Login = () => {
             </div>
           </div>
           
-          <h1 className="text-4xl font-black text-white tracking-tighter mb-2">DriverDash Beta</h1>
+          <h1 className="text-4xl font-black text-white tracking-tighter mb-2">DriverDash</h1>
           <p className="text-zinc-400 font-medium">Sua conta segura para controle financeiro</p>
         </div>
 
@@ -149,7 +149,7 @@ export const Login = () => {
         </Card>
         
         <p className="text-center mt-8 text-zinc-600 text-[10px] font-black uppercase tracking-[0.3em]">
-          DriverDash Secure Access • Beta v2.1
+          DriverDash Secure Access
         </p>
       </motion.div>
     </div>
