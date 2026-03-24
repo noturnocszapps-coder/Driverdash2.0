@@ -282,6 +282,12 @@ export const useDriverStore = create<DriverState>()(
                 tracked_km: cycle.tracked_km,
                 tracked_moving_time: cycle.tracked_moving_time,
                 tracked_stopped_time: cycle.tracked_stopped_time,
+                productive_km: cycle.productive_km,
+                idle_km: cycle.idle_km,
+                efficiency_percentage: cycle.efficiency_percentage,
+                driver_score: cycle.driver_score,
+                route_points: cycle.route_points,
+                segments: cycle.segments,
                 vehicle_id: cycle.vehicle_id,
                 vehicle_name: cycle.vehicle_name,
                 vehicle_snapshot: cycle.vehicle_snapshot,
@@ -1239,6 +1245,7 @@ export const useDriverStore = create<DriverState>()(
                 efficiency_percentage: c.efficiency_percentage,
                 driver_score: c.driver_score,
                 route_points: c.route_points,
+                segments: c.segments,
                 vehicle_id: c.vehicle_id,
                 vehicle_name: c.vehicle_name,
                 status: c.status
@@ -1396,6 +1403,7 @@ export const useDriverStore = create<DriverState>()(
               efficiency_percentage: Number(c.efficiency_percentage || 0),
               driver_score: Number(c.driver_score || 0),
               route_points: c.route_points || [],
+              segments: c.segments || [],
               vehicle_id: c.vehicle_id,
               vehicle_name: c.vehicle_name,
               status: c.status

@@ -54,6 +54,10 @@ const HeatmapIntelligence = lazyWithRetry(
   () => import('./pages/HeatmapIntelligence'),
   'HeatmapIntelligence'
 );
+const DevLab = lazyWithRetry(
+  () => import('./pages/DevLab'),
+  'DevLab'
+);
 
 const PageLoader = () => (
   <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -281,6 +285,17 @@ function AppRoutes() {
               <ProtectedRoute>
                 <SafeRoute routeName="Settings">
                   <Settings />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/dev-lab"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="DevLab">
+                  <DevLab />
                 </SafeRoute>
               </ProtectedRoute>
             }

@@ -3,7 +3,7 @@ import { useDriverStore } from '../store';
 import { Card, CardContent, Button, Input, Select } from '../components/UI';
 import { 
   User, Car, Target, Trash2, LogOut, Download, Database, 
-  Upload, RefreshCw, AlertCircle, 
+  Upload, RefreshCw, AlertCircle, FlaskConical,
   Zap, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
   DollarSign, Plus, CheckCircle2
 } from 'lucide-react';
@@ -639,6 +639,14 @@ export const Settings = () => {
               onClick={() => syncData()}
               color="text-zinc-400"
               loading={syncStatus === 'syncing'}
+            />
+            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+            <SettingsItem 
+              icon={FlaskConical} 
+              title="Developer Lab" 
+              description="Área de testes e depuração avançada"
+              onClick={() => navigate('/dev-lab')}
+              color="text-emerald-500"
             />
           </CardContent>
         </Card>

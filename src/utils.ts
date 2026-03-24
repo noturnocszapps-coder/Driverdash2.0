@@ -307,12 +307,17 @@ export function consolidateDailyData(
 
   const totalRevenue = uber + noventanove + indriver + extra;
 
-  // Distances (Sum from all cycles + live tracking if applicable)
-  let rideKm = dayCycles.reduce((acc, c) => acc + safeNumber(c.ride_km), 0);
-  let idleKm = dayCycles.reduce((acc, c) => acc + safeNumber(c.displacement_km), 0);
+  // Distances (Sum from filtered cycles + live tracking if applicable)
+  const filteredCycles = filter === 'manual' 
+    ? manualCycles 
+    : (filter === 'imported' ? dayCycles.filter(c => !!c.imported_report_id) : dayCycles);
+
+  let rideKm = filteredCycles.reduce((acc, c) => acc + safeNumber(c.ride_km), 0);
+  let idleKm = filteredCycles.reduce((acc, c) => acc + safeNumber(c.displacement_km), 0);
 
   const isTrackingActive = tracking?.isActive && isSameDay(new Date(), date);
-  if (isTrackingActive) {
+  // Only add live tracking if filter is 'all' or 'manual'
+  if (isTrackingActive && (filter === 'all' || filter === 'manual')) {
     rideKm += safeNumber(tracking.productiveDistance);
     idleKm += safeNumber(tracking.idleDistance);
   }
