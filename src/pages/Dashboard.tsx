@@ -80,6 +80,8 @@ export const Dashboard = () => {
     },
     startTracking,
     stopTracking,
+    startTrip,
+    endTrip,
     vehicles = [],
   } = useDriverStore();
 
@@ -728,7 +730,7 @@ export const Dashboard = () => {
 
                 <div className="flex gap-2 mt-4">
                   <Button
-                    onClick={() => useDriverStore.getState().updateTracking({ isProductive: !tracking.isProductive })}
+                    onClick={() => tracking.isProductive ? endTrip?.() : startTrip?.()}
                     className={cn(
                       "flex-1 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm",
                       tracking.isProductive

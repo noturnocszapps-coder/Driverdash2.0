@@ -839,6 +839,21 @@ export const useDriverStore = create<DriverState>()(
         return { tracking: updatedTracking };
       }),
 
+      startTrip: () => {
+        const { tracking, updateTracking } = get();
+        if (!tracking.isActive) {
+          get().startTracking();
+        }
+        updateTracking({ isProductive: true, mode: 'on_trip', tripDetectionState: 'trip_started', isManualOverride: true });
+        console.log('[TRACKING] Trip iniciada (manual)');
+      },
+
+      endTrip: () => {
+        const { updateTracking } = get();
+        updateTracking({ isProductive: false, mode: 'searching', tripDetectionState: 'idle', isManualOverride: true });
+        console.log('[TRACKING] Trip encerrada (manual)');
+      },
+
       startTracking: () => {
         const { tracking, cycles } = get();
         if (tracking.isActive) return;
@@ -853,6 +868,7 @@ export const useDriverStore = create<DriverState>()(
 
         set({ tracking: { ...get().tracking, isLoading: true } });
         const startTime = Date.now();
+        console.log('[TRACKING] iniciado');
         set({
           tracking: {
             isActive: true,
@@ -884,17 +900,32 @@ export const useDriverStore = create<DriverState>()(
 
             const { latitude, longitude, accuracy } = position.coords;
             const timestamp = position.timestamp || Date.now();
+            const lastPoint = currentTracking.lastPoint;
+
+            let speedKmh = 0;
+            if (position.coords.speed !== null && position.coords.speed !== undefined) {
+              speedKmh = position.coords.speed * 3.6;
+            } else if (lastPoint) {
+              const dist = calculateDistance(lastPoint.lat, lastPoint.lng, latitude, longitude);
+              const timeDiff = Math.max(1, (timestamp - lastPoint.timestamp) / 1000);
+              speedKmh = (dist / timeDiff) * 3600;
+            }
+
+            if (!Number.isFinite(speedKmh) || speedKmh > 160) {
+              speedKmh = 0;
+            }
             
+            console.log(`[TRACKING] ponto recebido: lat=${latitude}, lng=${longitude}, speed=${speedKmh.toFixed(1)}km/h, accuracy=${accuracy?.toFixed(1)}m`);
+
             const newPoint = { 
               lat: latitude, 
               lng: longitude, 
               accuracy, 
               timestamp, 
-              speed: position.coords.speed || 0,
+              speed: speedKmh,
               isProductive: currentTracking.isProductive 
             };
 
-            const lastPoint = currentTracking.lastPoint;
             let newDistance = currentTracking.distance;
             let newMovingTime = currentTracking.movingTime;
             let newStoppedTime = currentTracking.stoppedTime;
@@ -914,11 +945,11 @@ export const useDriverStore = create<DriverState>()(
               const timeDiff = timestamp - lastPoint.timestamp;
 
               // Noise filter: ignore points with low accuracy
-              if (accuracy && accuracy > 50) return;
+              if (accuracy && accuracy > 50) {
+                console.log('[TRACKING] ponto ignorado: baixa precisão');
+                return;
+              }
               
-              const speedKmh = timeDiff > 0 ? (dist / (timeDiff / 3600000)) : 0;
-              newPoint.speed = speedKmh;
-
               // PATCH 1: Precision Rules
               // 1. Ignore micro variations (< 20m)
               // 2. Ignore drift when stationary (< 3km/h)
@@ -956,6 +987,7 @@ export const useDriverStore = create<DriverState>()(
                 
                 // Total distance is strictly the sum of productive and idle
                 newDistance = newProductiveDistance + newIdleDistance;
+                console.log(`[TRACKING] km atualizado: total=${newDistance.toFixed(2)}km, prod=${newProductiveDistance.toFixed(2)}km, idle=${newIdleDistance.toFixed(2)}km`);
               } else {
                 // Stationary or noise
                 newStoppedTime += timeDiff;
@@ -1090,7 +1122,7 @@ export const useDriverStore = create<DriverState>()(
       },
 
       stopTracking: async () => {
-        console.log('[Store] stopTracking called');
+        console.log('[TRACKING] encerrado');
         if (watchId !== null) {
           navigator.geolocation.clearWatch(watchId);
           watchId = null;

@@ -342,6 +342,8 @@ export interface DriverState {
   updateTracking: (tracking: Partial<TrackingSession>) => void;
   startTracking: () => void;
   stopTracking: () => Promise<void>;
+  startTrip: () => void;
+  endTrip: () => void;
   importData: (data: { cycles?: Cycle[], expenses?: Expense[], fuelings?: Fueling[], maintenances?: Maintenance[], settings?: Partial<UserSettings>, importedReports?: ImportedReport[], vehicles?: VehicleProfile[] }) => void;
   syncData: () => Promise<void>;
   clearData: () => void;
