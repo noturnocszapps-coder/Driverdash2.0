@@ -182,6 +182,22 @@ export const Faturamento = () => {
         <SyncIndicator />
       </header>
 
+      {!activeVehicleId && (
+        <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-3">
+          <AlertCircle className="text-amber-500 shrink-0" size={20} />
+          <div className="flex-1">
+            <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Veículo não selecionado</p>
+            <p className="text-[10px] font-bold text-amber-600/80 dark:text-amber-400/80 uppercase tracking-wider">Você precisa selecionar um veículo para salvar faturamentos.</p>
+          </div>
+          <Button 
+            onClick={() => navigate('/settings')}
+            className="bg-amber-500 text-zinc-950 hover:bg-amber-400 h-8 px-3 text-[10px] font-black uppercase tracking-widest"
+          >
+            Configurar
+          </Button>
+        </Card>
+      )}
+
       {!openCycle && (
         <Card className="bg-blue-50 dark:bg-blue-500/5 border-blue-100 dark:border-blue-500/10">
           <CardContent className="p-5 flex items-start gap-3">
@@ -327,11 +343,15 @@ export const Faturamento = () => {
           
           <Button 
             onClick={handleSave}
-            disabled={isProcessing}
+            disabled={isProcessing || !activeVehicleId}
             loading={isProcessing}
             className={cn(
               "w-full h-16 font-black text-lg rounded-2xl shadow-xl gap-3 transition-all",
-              saveStatus === 'success' ? "bg-emerald-600 shadow-emerald-500/40" : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20"
+              !activeVehicleId
+                ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed border-none"
+                : saveStatus === 'success' 
+                  ? "bg-emerald-600 shadow-emerald-500/40 border-none" 
+                  : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20 border-none"
             )}
           >
             {isProcessing ? (

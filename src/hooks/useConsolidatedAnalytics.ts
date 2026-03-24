@@ -1,10 +1,10 @@
 import { useMemo } from 'react';
 import { useDriverStore } from '../store';
-import { consolidateDailyData, ConsolidatedDayData, getBestHourRanges, getEfficiencyTrend, getWaitingZones } from '../utils';
+import { consolidateDailyData, ConsolidatedDayData, getBestHourRanges, getEfficiencyTrend, getWaitingZones, isDataMature } from '../utils';
 import { eachDayOfInterval, format, parseISO, getDay } from 'date-fns';
 
 export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter: 'all' | 'manual' | 'imported' = 'all') {
-  const { cycles, importedReports, settings, tracking } = useDriverStore();
+  const { cycles, importedReports, settings, tracking, activeVehicleId } = useDriverStore();
 
   // 1. Group data by date for O(1) lookup during daily iteration
   // This prevents O(Days * Records) complexity and moves to O(Records + Days)
@@ -12,7 +12,16 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
     const cyclesByDate: Record<string, any[]> = {};
     const reportsByDate: Record<string, any[]> = {};
 
-    cycles.forEach(cycle => {
+    // Filter by active vehicle if selected
+    const filteredCycles = activeVehicleId 
+      ? cycles.filter(c => c.vehicle_id === activeVehicleId)
+      : [];
+      
+    const filteredReports = activeVehicleId
+      ? importedReports.filter(r => r.vehicle_id === activeVehicleId)
+      : [];
+
+    filteredCycles.forEach(cycle => {
       try {
         const dateKey = format(parseISO(cycle.start_time), 'yyyy-MM-dd');
         if (!cyclesByDate[dateKey]) cyclesByDate[dateKey] = [];
@@ -22,7 +31,7 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
       }
     });
 
-    importedReports.forEach(report => {
+    filteredReports.forEach(report => {
       try {
         const dateKey = format(parseISO(report.period_start), 'yyyy-MM-dd');
         if (!reportsByDate[dateKey]) reportsByDate[dateKey] = [];
@@ -33,7 +42,7 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
     });
 
     return { cyclesByDate, reportsByDate };
-  }, [cycles, importedReports]);
+  }, [cycles, importedReports, activeVehicleId]);
 
   // 2. Daily Aggregation
   // Memoized daily data points
@@ -153,6 +162,8 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
     const daysWithIdleKm = dailyData.filter(d => d.idleKm > 0).length || 1;
     const daysWithRideKm = dailyData.filter(d => d.rideKm > 0).length || 1;
 
+    const maturity = isDataMature(cycles, dailyData);
+
     return {
       bestHourByDay,
       bestDayOfWeek,
@@ -161,7 +172,8 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
       waitingZones: getWaitingZones(cycles),
       avgIdleTimeByDay: dailyData.reduce((acc, day) => acc + day.idleKm, 0) / daysWithIdleKm,
       avgProfitPerKm: totals.totalKm > 0 ? totals.profit / totals.totalKm : 0,
-      avgProductiveKm: totals.rideKm / daysWithRideKm
+      avgProductiveKm: totals.rideKm / daysWithRideKm,
+      maturity
     };
   }, [cycles, dailyData, totals]);
 

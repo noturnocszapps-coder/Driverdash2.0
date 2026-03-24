@@ -226,6 +226,8 @@ export interface TrackingSession {
   endTime?: number;
   distance: number;
   avgSpeed: number;
+  currentSmoothedSpeed: number;
+  speedBuffer: number[];
   duration: number;
   movingTime: number;
   stoppedTime: number;
@@ -241,6 +243,7 @@ export interface TrackingSession {
   lastPoint?: TrackingPoint;
   segments: TrackingSegment[];
   consecutiveMovingPoints: number;
+  consecutiveStoppedPoints: number;
   lastLocation?: { lat: number; lng: number };
   lastTimestamp?: number;
 }

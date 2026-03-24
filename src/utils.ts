@@ -86,6 +86,21 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
 
 export function calculateDriverScore(metrics: any) {
   // Score 0-100
+  // 4. THRESHOLDS MAIS MATUROS: 15km para score consistente
+  const totalKm = safeNumber(metrics.totalKm);
+  const isInitial = totalKm < 15;
+
+  if (isInitial) {
+    return { 
+      score: 0, 
+      label: 'Em formação', 
+      color: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
+      explanation: totalKm < 5 
+        ? 'Coletando dados iniciais. Continue dirigindo para ver sua performance.' 
+        : 'Dados em formação. Dirija pelo menos 15km para um score preciso.'
+    };
+  }
+
   // efficiency (60%), profit per km (40%)
   const efficiencyScore = Math.min(100, (metrics.efficiencyPercentage || 0));
   const profitScore = Math.min(100, (metrics.profitPerKm || 0) * 20); // R$ 5/km = 100 points
@@ -96,18 +111,6 @@ export function calculateDriverScore(metrics: any) {
   let color = 'text-red-500 bg-red-500/10 border-red-500/20';
   let explanation = 'Sua eficiência está baixa. Tente reduzir o KM ocioso entre as corridas.';
   
-  // AJUSTE 5: Se não tem dados suficientes, score é neutro/em formação
-  const isInitial = !metrics.totalKm || metrics.totalKm < 10;
-
-  if (isInitial) {
-    return { 
-      score: 0, 
-      label: 'Em formação', 
-      color: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
-      explanation: 'Dirija pelo menos 10km para começar a calcular seu score de performance.'
-    };
-  }
-
   if (score >= 85) {
     label = 'Excelente';
     color = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
@@ -214,6 +217,38 @@ function deg2rad(deg: number): number {
   return deg * (Math.PI / 180);
 }
 
+export function getHumanLocation(lat: number, lng: number): string {
+  // Fallback humanized names for coordinates
+  // In a real app, this would use a geocoding service
+  const latStr = lat.toFixed(3);
+  const lngStr = lng.toFixed(3);
+  
+  // Simple deterministic region naming based on coordinates
+  const regionId = Math.abs(Math.floor(lat * 100 + lng * 100)) % 5 + 1;
+  
+  if (lat > -23.5 && lat < -23.4 && lng > -46.7 && lng < -46.6) return "Centro";
+  
+  return `Região ${regionId} — Área aproximada`;
+}
+
+export function isDataMature(cycles: any[], dailyData: any[]) {
+  const activeDays = dailyData.filter(d => d.totalRevenue > 0 || d.totalKm > 0).length;
+  const totalKm = dailyData.reduce((acc, d) => acc + d.totalKm, 0);
+  
+  // 4. THRESHOLDS MAIS MATUROS (15km e 2 ciclos para score)
+  const isMature = activeDays >= 3 && totalKm >= 15;
+  
+  return {
+    isMature,
+    activeDays,
+    totalKm,
+    status: totalKm < 5 ? 'coletando' : (totalKm < 15 ? 'em_formacao' : 'maturo'),
+    message: totalKm < 5 
+      ? "Coletando dados iniciais..." 
+      : (totalKm < 15 ? "Dados em formação (mínimo 15km)" : "Dados consolidados")
+  };
+}
+
 export function formatDuration(ms: number): string {
   const seconds = Math.floor((ms / 1000) % 60);
   const minutes = Math.floor((ms / (1000 * 60)) % 60);
@@ -267,6 +302,8 @@ export function consolidateDailyData(
     r.report_type === 'daily' && isSameDay(parseISO(r.period_start), date)
   );
 
+  // 5. CONSOLIDAÇÃO DIÁRIA MAIS PRECISA (Prioridade: Tracking > Manual > Imported)
+  
   // Manual Values (excluding those created from imports to avoid double counting)
   const manualCycles = dayCycles.filter(c => !c.imported_report_id);
   
@@ -289,6 +326,7 @@ export function consolidateDailyData(
   let extra = 0;
 
   if (filter === 'all') {
+    // Prioridade para faturamento manual se existir, senão importado
     uber = manualUber > 0 ? manualUber : importedUber;
     noventanove = manual99 > 0 ? manual99 : imported99;
     indriver = manualInDriver > 0 ? manualInDriver : importedInDriver;
@@ -308,14 +346,30 @@ export function consolidateDailyData(
   const totalRevenue = uber + noventanove + indriver + extra;
 
   // Distances (Sum from filtered cycles + live tracking if applicable)
+  const isTrackingActive = tracking?.isActive && isSameDay(new Date(), date);
+  
+  // 5. PRIORIDADE TRACKING PARA KM
+  // Se temos tracking (ciclos com tracked_km), usamos eles.
+  // Senão, usamos os campos ride_km/displacement_km que podem ser manuais.
+  
   const filteredCycles = filter === 'manual' 
     ? manualCycles 
     : (filter === 'imported' ? dayCycles.filter(c => !!c.imported_report_id) : dayCycles);
 
-  let rideKm = filteredCycles.reduce((acc, c) => acc + safeNumber(c.ride_km), 0);
-  let idleKm = filteredCycles.reduce((acc, c) => acc + safeNumber(c.displacement_km), 0);
+  let rideKm = 0;
+  let idleKm = 0;
 
-  const isTrackingActive = tracking?.isActive && isSameDay(new Date(), date);
+  filteredCycles.forEach(c => {
+    // Se o ciclo tem dados de tracking precisos, usa eles
+    if (c.productive_km !== undefined || c.idle_km !== undefined) {
+      rideKm += safeNumber(c.productive_km || c.ride_km);
+      idleKm += safeNumber(c.idle_km || c.displacement_km);
+    } else {
+      rideKm += safeNumber(c.ride_km);
+      idleKm += safeNumber(c.displacement_km);
+    }
+  });
+
   // Only add live tracking if filter is 'all' or 'manual'
   if (isTrackingActive && (filter === 'all' || filter === 'manual')) {
     rideKm += safeNumber(tracking.productiveDistance);
@@ -367,12 +421,17 @@ export function generateHeatmapData(cycles: any[]): HeatmapPoint[] {
     productiveTime: number; 
     count: number;
     ridesStarted: number;
+    revenue: number;
   }> = {};
 
   const PRECISION = 4; // ~11m grid
 
   cycles.forEach(cycle => {
     if (!cycle.route_points || cycle.route_points.length < 2) return;
+    
+    const cycleRevenue = safeNumber(cycle.total_amount);
+    const cycleProductiveKm = safeNumber(cycle.productive_km || cycle.ride_km);
+    const revenuePerPoint = cycleProductiveKm > 0 ? cycleRevenue / (cycle.route_points.length * (cycleProductiveKm / (cycle.tracked_km || cycleProductiveKm || 1))) : 0;
 
     cycle.route_points.forEach((point: any, idx: number) => {
       const lat = parseFloat(point.lat.toFixed(PRECISION));
@@ -380,26 +439,26 @@ export function generateHeatmapData(cycles: any[]): HeatmapPoint[] {
       const key = `${lat}_${lng}`;
 
       if (!grid[key]) {
-        grid[key] = { lat, lng, idleTime: 0, productiveTime: 0, count: 0, ridesStarted: 0 };
+        grid[key] = { lat, lng, idleTime: 0, productiveTime: 0, count: 0, ridesStarted: 0, revenue: 0 };
       }
 
       grid[key].count++;
 
-      // Time calculation
+      // 7. HEATMAP INTELIGENTE (Tempo, Distância, Conversão e Faturamento)
       if (idx > 0) {
         const prev = cycle.route_points[idx - 1];
         const duration = point.timestamp - prev.timestamp;
         
-        // If duration is too long (e.g., > 1 hour), skip (likely a gap)
         if (duration > 0 && duration < 3600000) {
           if (point.isProductive) {
             grid[key].productiveTime += duration;
+            grid[key].revenue += revenuePerPoint;
           } else {
             grid[key].idleTime += duration;
           }
         }
 
-        // Detect ride start (isProductive toggle)
+        // Detectar início de corrida
         if (point.isProductive && !prev.isProductive) {
           grid[key].ridesStarted++;
         }
@@ -410,10 +469,9 @@ export function generateHeatmapData(cycles: any[]): HeatmapPoint[] {
   return Object.values(grid).map(cell => {
     const isProductive = cell.productiveTime > cell.idleTime || cell.ridesStarted > 0;
     
-    // Intensity calculation
-    // Base intensity on duration (minutes) and count
-    const durationMinutes = (cell.idleTime + cell.productiveTime) / 60000;
-    let intensity = Math.min(1, (durationMinutes / 30) + (cell.count / 100) + (cell.ridesStarted / 2));
+    // 7. HEATMAP INTELIGENTE: Intensidade baseada em tempo ocioso vs inícios de corrida
+    const idleMinutes = cell.idleTime / 60000;
+    const intensity = Math.min(1, (idleMinutes / 20) + (cell.ridesStarted * 3) + (cell.count / 200));
 
     return {
       lat: cell.lat,

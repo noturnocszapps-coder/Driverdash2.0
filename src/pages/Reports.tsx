@@ -132,15 +132,15 @@ export const Reports = () => {
       return acc + safeNumber(metrics.lostRevenue);
     }, 0);
 
-    // AJUSTE 6: Estados de Maturidade de Dados
-    const dataMaturity = totalKm === 0 ? 'inicial' : totalKm < 50 ? 'em coleta' : 'consolidado';
+    // 8. ESTADOS HONESTOS DE MATURIDADE DE DADOS
+    const maturity = aiIntelligence.maturity;
 
     // Contextual AI Tip
     let aiTip = '';
-    if (dataMaturity === 'inicial') {
-      aiTip = "Comece a registrar suas corridas ou importe seus ganhos para que a IA possa analisar seu desempenho.";
-    } else if (dataMaturity === 'em coleta') {
-      aiTip = "Continue usando o app! Com mais alguns dias de dados, poderei identificar seus melhores horários e zonas de lucro.";
+    if (maturity.status === 'coletando') {
+      aiTip = "Coletando dados iniciais. Continue registrando suas corridas para que a IA possa analisar seu desempenho.";
+    } else if (maturity.status === 'em_formacao') {
+      aiTip = `Dados em formação (${maturity.totalKm.toFixed(1)}km). ${maturity.message}. Continue usando para identificar seus melhores horários.`;
     } else {
       if (avgEfficiency < 40) {
         aiTip = "Sua eficiência está abaixo da média. Tente reduzir o deslocamento ocioso entre as corridas para aumentar seu lucro líquido.";
@@ -168,7 +168,7 @@ export const Reports = () => {
       best: sorted[0],
       platformTotals,
       alerts,
-      dataMaturity,
+      maturity,
       aiTip,
       mismatches: currentWeek.filter(d => d.hasMismatch)
     };
@@ -274,6 +274,22 @@ export const Reports = () => {
         </motion.div>
       )}
 
+      {!activeVehicleId && (
+        <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-3">
+          <AlertCircle className="text-amber-500 shrink-0" size={20} />
+          <div className="flex-1">
+            <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Veículo não selecionado</p>
+            <p className="text-[10px] font-bold text-amber-600/80 dark:text-amber-400/80 uppercase tracking-wider">Selecione um veículo para ver os relatórios consolidados.</p>
+          </div>
+          <Button 
+            onClick={() => navigate('/settings')}
+            className="bg-amber-500 text-zinc-950 hover:bg-amber-400 h-8 px-3 text-[10px] font-black uppercase tracking-widest"
+          >
+            Configurar
+          </Button>
+        </Card>
+      )}
+
       {/* AI Intelligence Section */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <Card className="border-none bg-zinc-900 text-white shadow-xl">
@@ -287,9 +303,9 @@ export const Reports = () => {
               </div>
               <div className={cn(
                 "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
-                driverScore.color
+                !aiIntelligence?.maturity?.isMature ? "border-zinc-700 text-zinc-500" : driverScore.color
               )}>
-                Score: {driverScore.score} - {driverScore.label}
+                Score: {!aiIntelligence?.maturity?.isMature ? 'Em formação' : `${driverScore.score} - ${driverScore.label}`}
               </div>
             </div>
 
@@ -297,22 +313,26 @@ export const Reports = () => {
               <div className="space-y-1">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Melhor Dia da Semana</p>
                 <p className="text-sm font-black text-emerald-400">
-                  {aiIntelligence.bestDayOfWeek !== null ? format(addDays(start, aiIntelligence.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...'}
+                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : (aiIntelligence.bestDayOfWeek !== null ? format(addDays(start, aiIntelligence.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...')}
                 </p>
               </div>
               <div className="space-y-1">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Pior Dia da Semana</p>
                 <p className="text-sm font-black text-red-400">
-                  {aiIntelligence.weakestDayOfWeek !== null ? format(addDays(start, aiIntelligence.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...'}
+                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : (aiIntelligence.weakestDayOfWeek !== null ? format(addDays(start, aiIntelligence.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...')}
                 </p>
               </div>
               <div className="space-y-1">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Média Lucro/KM</p>
-                <p className="text-sm font-black text-blue-400">{formatCurrency(aiIntelligence.avgProfitPerKm)}/km</p>
+                <p className="text-sm font-black text-blue-400">
+                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : `${formatCurrency(aiIntelligence.avgProfitPerKm)}/km`}
+                </p>
               </div>
               <div className="space-y-1">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">KM Produtivo Médio</p>
-                <p className="text-sm font-black text-white">{aiIntelligence.avgProductiveKm.toFixed(1)} km/dia</p>
+                <p className="text-sm font-black text-white">
+                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : `${aiIntelligence.avgProductiveKm.toFixed(1)} km/dia`}
+                </p>
               </div>
             </div>
 
@@ -321,7 +341,9 @@ export const Reports = () => {
                 <div className="flex gap-2 items-start">
                   <Zap size={14} className="text-emerald-400 shrink-0 mt-0.5" />
                   <p className="text-[11px] font-bold text-emerald-100 leading-relaxed">
-                    {stats.aiTip}
+                    {!aiIntelligence?.maturity?.isMature 
+                      ? `Inteligência em fase de aprendizado. ${aiIntelligence?.maturity?.message}.`
+                      : stats.aiTip}
                   </p>
                 </div>
               </div>
@@ -348,7 +370,7 @@ export const Reports = () => {
                     </div>
                   )) : (
                     <p className="text-[10px] font-bold text-zinc-500 italic">
-                      {stats.dataMaturity === 'consolidado' 
+                      {stats.maturity.status === 'maturo' 
                         ? 'Nenhuma zona de espera crítica identificada.' 
                         : 'Ainda não há dados de rastreamento suficientes para identificar zonas de espera.'}
                     </p>
@@ -388,12 +410,12 @@ export const Reports = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard 
           label="Faturado" 
-          value={stats.dataMaturity === 'inicial' ? 'R$ 0,00' : formatCurrency(stats.total)} 
+          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.total)} 
           color="text-zinc-900 dark:text-white" 
         />
         <SummaryCard 
           label="Lucro Total" 
-          value={stats.dataMaturity === 'inicial' ? 'R$ 0,00' : formatCurrency(stats.totalProfit)} 
+          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.totalProfit)} 
           color="text-emerald-500" 
         />
         <SummaryCard 
@@ -403,7 +425,7 @@ export const Reports = () => {
         />
         <SummaryCard 
           label="Eficiência" 
-          value={stats.dataMaturity === 'inicial' ? '--' : `${stats.avgEfficiency.toFixed(0)}%`} 
+          value={stats.maturity.status === 'coletando' ? '--' : `${stats.avgEfficiency.toFixed(0)}%`} 
           color="text-blue-500" 
         />
       </div>
@@ -413,17 +435,17 @@ export const Reports = () => {
         <SummaryCard label="KM Ocioso" value={formatKm(stats.totalIdleKm)} color="text-zinc-400" />
         <SummaryCard 
           label="R$ Perdido" 
-          value={stats.dataMaturity === 'inicial' ? 'R$ 0,00' : formatCurrency(stats.totalLostRevenue)} 
+          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.totalLostRevenue)} 
           color="text-amber-500" 
         />
         <SummaryCard 
           label="R$/KM Bruto" 
-          value={stats.dataMaturity === 'inicial' ? '--' : formatCurrency(stats.grossPerKm)} 
+          value={stats.maturity.status === 'coletando' ? '--' : formatCurrency(stats.grossPerKm)} 
           color="text-zinc-500" 
         />
         <SummaryCard 
           label="R$/KM Líquido" 
-          value={stats.dataMaturity === 'inicial' ? '--' : formatCurrency(stats.netPerKm)} 
+          value={stats.maturity.status === 'coletando' ? '--' : formatCurrency(stats.netPerKm)} 
           color="text-zinc-500" 
         />
       </div>

@@ -7,14 +7,16 @@ import { calculateDistance, safeNumber } from './utils';
 let watchId: number | null = null;
 
 const TRACKING_CONFIG = {
-  MIN_POINTS_SEARCHING: 4,
-  MIN_POINTS_TRIP: 6,
-  MIN_SPEED_VALID: 5, // km/h
-  STOP_BUFFER_MS: 120000, // 120 seconds for traffic lights/short stops
-  MIN_DIST_PRECISION: 0.02, // 20 meters
-  MAX_SPEED_NOISE: 160, // km/h
-  DRIFT_SPEED_THRESHOLD: 3, // km/h
+  MIN_POINTS_SEARCHING: 5, // Buffer: 5 pontos consistentes para mudar estado
+  MIN_POINTS_TRIP: 8, // Buffer: 8 pontos consistentes para confirmar trip
+  MIN_SPEED_VALID: 4, // km/h
+  STOP_BUFFER_MS: 90000, // 90 segundos
+  MIN_DIST_PRECISION: 0.008, // 8 metros (conforme solicitado)
+  MAX_SPEED_NOISE: 130, // km/h (conforme solicitado)
+  DRIFT_SPEED_THRESHOLD: 2, // km/h (conforme solicitado)
   WARMUP_POINTS_REQUIRED: 5,
+  MAX_ACCURACY: 35, // metros (conforme solicitado)
+  SPEED_BUFFER_SIZE: 5, // Média móvel de 5 pontos
 };
 
 const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
@@ -62,12 +64,15 @@ export const useDriverStore = create<DriverState>()(
         isProductive: false,
         isManualOverride: false,
         avgSpeed: 0,
+        currentSmoothedSpeed: 0,
+        speedBuffer: [],
         duration: 0,
         movingTime: 0,
         stoppedTime: 0,
         points: [],
         segments: [],
         consecutiveMovingPoints: 0,
+        consecutiveStoppedPoints: 0,
         mode: 'stopped',
         tripDetectionState: 'idle'
       },
@@ -76,19 +81,23 @@ export const useDriverStore = create<DriverState>()(
       setSyncStatus: (syncStatus) => set({ syncStatus }),
       
       startCycle: async () => {
-        const { user, cycles, settings, isSaving } = get();
+        const { user, cycles, settings, isSaving, activeVehicleId } = get();
         if (isSaving) return cycles.find(c => c.status === 'open')?.id || '';
         
         const openCycle = cycles.find(c => c.status === 'open');
         if (openCycle) return openCycle.id;
 
+        if (!activeVehicleId) {
+          throw new Error('Selecione um veículo ativo antes de iniciar um ciclo.');
+        }
+
         set({ isSaving: true });
         try {
           const { vehicles } = get();
-          const currentVehicle = vehicles.find(v => v.id === settings.currentVehicleProfileId);
+          const currentVehicle = vehicles.find(v => v.id === activeVehicleId);
           
           const vehicleSnapshot = {
-            id: settings.currentVehicleProfileId || 'default',
+            id: activeVehicleId,
             name: currentVehicle?.name || settings.vehicle,
             fixedCosts: currentVehicle?.fixedCosts || settings.fixedCosts || { vehicleType: 'owned' },
             kmPerLiter: settings.kmPerLiter,
@@ -112,7 +121,7 @@ export const useDriverStore = create<DriverState>()(
             noventanove_km: 0,
             indriver_km: 0,
             status: 'open' as const,
-            vehicle_id: settings.currentVehicleProfileId,
+            vehicle_id: activeVehicleId,
             vehicle_name: currentVehicle?.name || settings.vehicle,
             vehicle_snapshot: vehicleSnapshot
           };
@@ -140,8 +149,12 @@ export const useDriverStore = create<DriverState>()(
       },
 
       addCycle: async (cycle) => {
-        const { user, isSaving } = get();
+        const { user, isSaving, activeVehicleId } = get();
         if (isSaving) return '';
+
+        if (!activeVehicleId && !cycle.vehicle_id) {
+          throw new Error('Selecione um veículo ativo antes de adicionar um ciclo.');
+        }
 
         set({ isSaving: true });
         try {
@@ -150,6 +163,7 @@ export const useDriverStore = create<DriverState>()(
             ...cycle,
             id,
             user_id: user?.id || '',
+            vehicle_id: cycle.vehicle_id || activeVehicleId,
             total_amount: (cycle.uber_amount || 0) + (cycle.noventanove_amount || 0) + (cycle.indriver_amount || 0) + (cycle.extra_amount || 0),
             total_expenses: (cycle.fuel_expense || 0) + (cycle.food_expense || 0) + (cycle.other_expense || 0)
           };
@@ -430,8 +444,12 @@ export const useDriverStore = create<DriverState>()(
       },
 
       addImportedReport: async (report) => {
-        const { user, settings, isSaving, addCycle } = get();
+        const { user, settings, isSaving, addCycle, activeVehicleId } = get();
         if (isSaving) return;
+
+        if (!activeVehicleId) {
+          throw new Error('Selecione um veículo ativo antes de importar relatórios.');
+        }
 
         set({ isSaving: true });
         try {
@@ -442,7 +460,7 @@ export const useDriverStore = create<DriverState>()(
             id, 
             user_id: user?.id || '', 
             imported_at: now,
-            vehicle_id: settings.currentVehicleProfileId,
+            vehicle_id: activeVehicleId,
           } as any;
           
           set((state) => ({ importedReports: [...state.importedReports, newReport] }));
@@ -481,7 +499,7 @@ export const useDriverStore = create<DriverState>()(
               [platformKey]: report.total_earnings,
               source: 'Importado via print',
               imported_report_id: id,
-              vehicle_id: settings.currentVehicleProfileId,
+              vehicle_id: activeVehicleId,
               vehicle_name: settings.vehicle
             } as any);
           }
@@ -945,8 +963,12 @@ export const useDriverStore = create<DriverState>()(
       },
 
       startTracking: () => {
-        const { tracking, cycles } = get();
+        const { tracking, cycles, activeVehicleId } = get();
         if (tracking.isActive) return;
+
+        if (!activeVehicleId) {
+          throw new Error('Selecione um veículo ativo antes de iniciar o rastreamento.');
+        }
         
         const openCycle = cycles.find(c => c.status === 'open');
         if (!openCycle) return;
@@ -966,6 +988,8 @@ export const useDriverStore = create<DriverState>()(
             startTime,
             distance: 0,
             avgSpeed: 0,
+            currentSmoothedSpeed: 0,
+            speedBuffer: [],
             duration: 0,
             movingTime: 0,
             stoppedTime: 0,
@@ -977,6 +1001,7 @@ export const useDriverStore = create<DriverState>()(
             points: [],
             segments: [],
             consecutiveMovingPoints: 0,
+            consecutiveStoppedPoints: 0,
             mode: 'stopped',
             tripDetectionState: 'idle',
             lastPoint: undefined
@@ -992,6 +1017,12 @@ export const useDriverStore = create<DriverState>()(
             const timestamp = position.timestamp || Date.now();
             const lastPoint = currentTracking.lastPoint;
 
+            // 1. FILTRO DE PONTO GPS MAIS RIGOROSO
+            if (accuracy && accuracy > TRACKING_CONFIG.MAX_ACCURACY) {
+              console.log('[TRACKING] ponto ignorado: accuracy alta', accuracy);
+              return;
+            }
+
             let speedKmh = 0;
             if (position.coords.speed !== null && position.coords.speed !== undefined) {
               speedKmh = position.coords.speed * 3.6;
@@ -1001,18 +1032,29 @@ export const useDriverStore = create<DriverState>()(
               speedKmh = (dist / timeDiff) * 3600;
             }
 
-            if (!Number.isFinite(speedKmh) || speedKmh > 160) {
-              speedKmh = 0;
+            // Ignorar velocidades absurdas
+            if (!Number.isFinite(speedKmh) || speedKmh > TRACKING_CONFIG.MAX_SPEED_NOISE) {
+              console.log('[TRACKING] ponto ignorado: velocidade absurda', speedKmh);
+              return;
             }
+
+            // Ignorar pontos quase duplicados (tempo < 500ms)
+            if (lastPoint && (timestamp - lastPoint.timestamp) < 500) {
+              return;
+            }
+
+            // 6. VELOCIDADE MÉDIA SUAVIZADA
+            const newSpeedBuffer = [...currentTracking.speedBuffer, speedKmh].slice(-TRACKING_CONFIG.SPEED_BUFFER_SIZE);
+            const smoothedSpeed = newSpeedBuffer.reduce((a, b) => a + b, 0) / newSpeedBuffer.length;
             
-            console.log(`[TRACKING] ponto recebido: lat=${latitude}, lng=${longitude}, speed=${speedKmh.toFixed(1)}km/h, accuracy=${accuracy?.toFixed(1)}m`);
+            console.log(`[TRACKING] ponto recebido: lat=${latitude}, lng=${longitude}, smoothedSpeed=${smoothedSpeed.toFixed(1)}km/h, accuracy=${accuracy?.toFixed(1)}m`);
 
             const newPoint = { 
               lat: latitude, 
               lng: longitude, 
               accuracy, 
               timestamp, 
-              speed: speedKmh,
+              speed: smoothedSpeed,
               isProductive: currentTracking.isProductive 
             };
 
@@ -1027,6 +1069,7 @@ export const useDriverStore = create<DriverState>()(
             let newMode = currentTracking.mode;
             let newTripDetectionState = currentTracking.tripDetectionState;
             let newConsecutiveMovingPoints = currentTracking.consecutiveMovingPoints;
+            let newConsecutiveStoppedPoints = currentTracking.consecutiveStoppedPoints;
             let newSegments = [...(currentTracking.segments || [])];
             let newIsWarmingUp = currentTracking.isWarmingUp;
 
@@ -1034,39 +1077,31 @@ export const useDriverStore = create<DriverState>()(
               const dist = calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng);
               const timeDiff = timestamp - lastPoint.timestamp;
 
-              // Noise filter: ignore points with low accuracy
-              if (accuracy && accuracy > 50) {
-                console.log('[TRACKING] ponto ignorado: baixa precisão');
-                return;
-              }
-              
-              // PATCH 1: Precision Rules
-              // 1. Ignore micro variations (< 20m)
-              // 2. Ignore drift when stationary (< 3km/h)
-              // 3. Ignore noise/impossible jumps (> 160km/h)
-              if (dist >= TRACKING_CONFIG.MIN_DIST_PRECISION && speedKmh >= TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD && speedKmh <= TRACKING_CONFIG.MAX_SPEED_NOISE) {
+              // 1. FILTRO DE PONTO GPS MAIS RIGOROSO (Distância mínima vs Velocidade)
+              const isMoving = dist >= TRACKING_CONFIG.MIN_DIST_PRECISION && smoothedSpeed >= TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD;
+
+              if (isMoving) {
                 newMovingTime += timeDiff;
                 newLastStopTimestamp = undefined;
                 newConsecutiveMovingPoints++;
+                newConsecutiveStoppedPoints = 0;
 
-                // --- Semi-Automatic Heuristics ---
+                // 2. BUFFER DE TRANSIÇÃO DE ESTADO
                 if (!newIsManualOverride) {
-                  // 1. Pickup Candidate Detection: Moving consistently > MIN_SPEED_VALID
-                  if (newMode !== 'on_trip' && speedKmh > TRACKING_CONFIG.MIN_SPEED_VALID && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
-                    if (newTripDetectionState === 'idle') {
+                  // Searching -> On Trip (Buffer de pontos consistentes)
+                  if (newMode !== 'on_trip' && smoothedSpeed > TRACKING_CONFIG.MIN_SPEED_VALID) {
+                    if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
                       newTripDetectionState = 'pickup_candidate';
                     }
-                  }
-
-                  // 2. Trip Started Detection: If we were a candidate and keep moving
-                  if (newTripDetectionState === 'pickup_candidate' && speedKmh > TRACKING_CONFIG.MIN_SPEED_VALID && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP) {
-                    newIsProductive = true;
-                    newMode = 'on_trip';
-                    newTripDetectionState = 'trip_started';
+                    if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP) {
+                      newIsProductive = true;
+                      newMode = 'on_trip';
+                      newTripDetectionState = 'trip_started';
+                    }
                   }
                 }
 
-                // Classification Logic
+                // 3. CLASSIFICAÇÃO POR SEGMENTO (Derivada de segmentos consistentes)
                 if (newIsProductive) {
                   newProductiveDistance += dist;
                   newMode = 'on_trip';
@@ -1075,66 +1110,65 @@ export const useDriverStore = create<DriverState>()(
                   newMode = 'searching';
                 }
                 
-                // Total distance is strictly the sum of productive and idle
                 newDistance = newProductiveDistance + newIdleDistance;
-                console.log(`[TRACKING] km atualizado: total=${newDistance.toFixed(2)}km, prod=${newProductiveDistance.toFixed(2)}km, idle=${newIdleDistance.toFixed(2)}km`);
               } else {
-                // Stationary or noise
+                // Parado ou ruído
                 newStoppedTime += timeDiff;
                 newConsecutiveMovingPoints = 0;
+                newConsecutiveStoppedPoints++;
                 
-                if (speedKmh < TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD) {
-                  // If we were on a trip, we don't immediately switch to 'stopped' mode
-                  // unless it's a long stop. This keeps the context.
-                  if (newMode !== 'on_trip' || (newLastStopTimestamp && (timestamp - newLastStopTimestamp) > 30000)) {
-                    newMode = 'stopped';
-                  }
-                  
-                  if (!newLastStopTimestamp) {
-                    newLastStopTimestamp = timestamp;
-                  }
+                if (!newLastStopTimestamp) {
+                  newLastStopTimestamp = timestamp;
                 }
-                
-                // Heuristics for stopping
+
+                // 2. BUFFER DE TRANSIÇÃO DE ESTADO (On Trip -> Stopped/Searching)
                 if (!newIsManualOverride) {
-                  // If stopped for > 45s while on_trip, it might be a dropoff candidate
-                  if (newMode === 'on_trip' && (timestamp - (newLastStopTimestamp || timestamp)) > 45000) {
-                     newTripDetectionState = 'dropoff_candidate';
-                     // After STOP_BUFFER_MS total stop, confirm dropoff
-                     if ((timestamp - (newLastStopTimestamp || timestamp)) > TRACKING_CONFIG.STOP_BUFFER_MS) {
-                       newIsProductive = false;
-                       newMode = 'stopped';
-                       newTripDetectionState = 'idle';
-                     }
+                  // Se parado por mais de 45s, dropoff candidate
+                  if (newMode === 'on_trip' && (timestamp - newLastStopTimestamp) > 45000) {
+                    newTripDetectionState = 'dropoff_candidate';
+                    
+                    // Se parado por mais de STOP_BUFFER_MS, confirma fim da trip
+                    if ((timestamp - newLastStopTimestamp) > TRACKING_CONFIG.STOP_BUFFER_MS) {
+                      newIsProductive = false;
+                      newMode = 'stopped';
+                      newTripDetectionState = 'idle';
+                    }
+                  } else if (newMode !== 'on_trip' && (timestamp - newLastStopTimestamp) > 30000) {
+                    newMode = 'stopped';
                   }
                 }
               }
             }
 
-            // Warm-up logic: check if we have enough points and some movement
+            // Warm-up logic
             const points = [...currentTracking.points, newPoint];
             if (newIsWarmingUp && points.length >= TRACKING_CONFIG.WARMUP_POINTS_REQUIRED) {
               const movingPoints = points.filter(p => (p.speed || 0) > TRACKING_CONFIG.MIN_SPEED_VALID);
-              if (movingPoints.length >= 2) {
+              if (movingPoints.length >= 3) {
                 newIsWarmingUp = false;
               }
             }
 
-            // --- Segment Management ---
+            // 3. CLASSIFICAÇÃO POR SEGMENTO (Gerenciamento Robusto)
             if (newMode !== currentTracking.mode || newSegments.length === 0) {
-              // Close current segment if exists
+              // Fecha segmento anterior
               if (newSegments.length > 0) {
                 const lastIdx = newSegments.length - 1;
+                const lastSeg = newSegments[lastIdx];
                 newSegments[lastIdx] = {
-                  ...newSegments[lastIdx],
+                  ...lastSeg,
                   endTime: timestamp,
                   endLat: latitude,
                   endLng: longitude,
-                  endLocation: { lat: latitude, lng: longitude }
+                  endLocation: { lat: latitude, lng: longitude },
+                  duration: timestamp - lastSeg.startTime,
+                  avgSpeed: (timestamp - lastSeg.startTime) > 0 
+                    ? lastSeg.distance / ((timestamp - lastSeg.startTime) / 3600000) 
+                    : 0
                 };
               }
               
-              // Start new segment
+              // Inicia novo segmento
               newSegments.push({
                 id: Math.random().toString(36).substr(2, 9),
                 startTime: timestamp,
@@ -1147,13 +1181,13 @@ export const useDriverStore = create<DriverState>()(
                 avgSpeed: 0
               });
             } else {
-              // Update current segment
+              // Atualiza segmento atual
               const lastIdx = newSegments.length - 1;
               const dist = lastPoint ? calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng) : 0;
               const currentSeg = newSegments[lastIdx];
               
-              // Only add distance if it meets the precision threshold (0.02km)
-              const validDist = dist >= 0.02 ? dist : 0;
+              // Filtro de distância mínima para o segmento
+              const validDist = dist >= 0.01 ? dist : 0;
               
               newSegments[lastIdx] = {
                 ...currentSeg,
@@ -1171,7 +1205,6 @@ export const useDriverStore = create<DriverState>()(
             const totalDuration = timestamp - (currentTracking.startTime || timestamp);
             const avgSpeed = totalDuration > 0 ? (newDistance / (totalDuration / 3600000)) : 0;
             
-            // Update point with the classified state
             newPoint.isProductive = newIsProductive;
 
             set({
@@ -1193,10 +1226,13 @@ export const useDriverStore = create<DriverState>()(
                 mode: newMode,
                 tripDetectionState: newTripDetectionState,
                 consecutiveMovingPoints: newConsecutiveMovingPoints,
+                consecutiveStoppedPoints: newConsecutiveStoppedPoints,
                 segments: newSegments,
                 points,
                 duration: totalDuration,
-                avgSpeed
+                avgSpeed,
+                currentSmoothedSpeed: smoothedSpeed,
+                speedBuffer: newSpeedBuffer
               }
             });
           },
@@ -1226,6 +1262,19 @@ export const useDriverStore = create<DriverState>()(
 
         const openCycle = cycles.find(c => c.status === 'open');
         
+        // Fecha o último segmento se estiver aberto
+        const finalSegments = [...tracking.segments];
+        if (finalSegments.length > 0) {
+          const lastIdx = finalSegments.length - 1;
+          if (!finalSegments[lastIdx].endTime) {
+            finalSegments[lastIdx] = {
+              ...finalSegments[lastIdx],
+              endTime: Date.now(),
+              duration: Date.now() - finalSegments[lastIdx].startTime,
+            };
+          }
+        }
+
         // 1. Calculate the values to persist
         const persistedData = openCycle ? {
           tracked_km: (openCycle.tracked_km || 0) + tracking.distance,
@@ -1236,16 +1285,18 @@ export const useDriverStore = create<DriverState>()(
           efficiency_percentage: tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0,
           driver_score: Math.min(100, Math.round(tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0)),
           route_points: [...(openCycle.route_points || []), ...tracking.points],
-          segments: [...(openCycle.segments || []), ...tracking.segments]
+          segments: [...(openCycle.segments || []), ...finalSegments]
         } : null;
 
-        // 2. Reset tracking state IMMEDIATELY to prevent double counting in UI
+        // 2. Reset tracking state IMMEDIATELY
         set({
           tracking: {
             isActive: false,
             isLoading: false,
             distance: 0,
             avgSpeed: 0,
+            currentSmoothedSpeed: 0,
+            speedBuffer: [],
             duration: 0,
             movingTime: 0,
             stoppedTime: 0,
@@ -1258,6 +1309,7 @@ export const useDriverStore = create<DriverState>()(
             points: [],
             segments: [],
             consecutiveMovingPoints: 0,
+            consecutiveStoppedPoints: 0,
             lastPoint: undefined,
             endTime: Date.now()
           }
@@ -1572,12 +1624,16 @@ export const useDriverStore = create<DriverState>()(
           mode: 'stopped',
           tripDetectionState: 'idle',
           avgSpeed: 0,
+          currentSmoothedSpeed: 0,
+          speedBuffer: [],
           duration: 0,
           movingTime: 0,
           stoppedTime: 0,
           points: [],
           segments: [],
-          consecutiveMovingPoints: 0
+          consecutiveMovingPoints: 0,
+          consecutiveStoppedPoints: 0,
+          lastPoint: undefined
         },
       }),
       clearCloudData: async () => {

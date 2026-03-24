@@ -111,6 +111,7 @@ export const Dashboard = () => {
     aiIntelligence = {
       efficiencyTrend: 0,
       bestHourByDay: {},
+      maturity: { isMature: false, message: 'Carregando...', activeDays: 0, totalKm: 0 }
     },
   } = useConsolidatedAnalytics(last7DaysStart, today, filter);
 
@@ -464,6 +465,22 @@ export const Dashboard = () => {
     >
       <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
 
+      {!activeVehicleId && (
+        <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-3">
+          <AlertCircle className="text-amber-500 shrink-0" size={20} />
+          <div className="flex-1">
+            <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Veículo não selecionado</p>
+            <p className="text-[10px] font-bold text-amber-600/80 dark:text-amber-400/80 uppercase tracking-wider">Você precisa selecionar um veículo nas configurações para iniciar ciclos e rastreamento.</p>
+          </div>
+          <Button 
+            onClick={() => navigate('/settings')}
+            className="bg-amber-500 text-zinc-950 hover:bg-amber-400 h-8 px-3 text-[10px] font-black uppercase tracking-widest"
+          >
+            Configurar
+          </Button>
+        </Card>
+      )}
+
       <div className="flex justify-between items-end px-1 gap-4">
         <div>
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Visão Geral</p>
@@ -614,35 +631,41 @@ export const Dashboard = () => {
 
           <div className="space-y-3">
             <p className="text-sm font-medium leading-relaxed opacity-90">
-              {safeNumber(todayData?.totalRevenue) > 0
-                ? `Hoje você está com ${safeNumber(todayData?.efficiency).toFixed(0)}% de eficiência. ${
-                    aiIntelligence?.bestHourByDay?.[getDay(today)]
-                      ? `Seu melhor horário hoje costuma ser entre ${aiIntelligence.bestHourByDay[getDay(today)]}. `
-                      : ''
-                  }${
-                    safeNumber(todayData?.idleKm) > 5
-                      ? `Você rodou ${safeNumber(todayData?.idleKm).toFixed(1)}km ocioso, tente se posicionar melhor.`
-                      : 'Ótimo controle de KM ocioso hoje!'
-                  }`
-                : safeNumber(todayData?.totalKm) > 0
-                  ? `Ciclo em andamento. Você já rodou ${safeNumber(todayData?.totalKm).toFixed(1)}km. Lance seus ganhos para receber insights completos.`
-                  : 'Inicie seu ciclo para receber insights em tempo real sobre sua performance e melhores regiões.'}
+              {!aiIntelligence?.maturity?.isMature 
+                ? `Inteligência em fase de aprendizado. ${aiIntelligence?.maturity?.message}.`
+                : safeNumber(todayData?.totalRevenue) > 0
+                  ? `Hoje você está com ${safeNumber(todayData?.efficiency).toFixed(0)}% de eficiência. ${
+                      aiIntelligence?.bestHourByDay?.[getDay(today)]
+                        ? `Seu melhor horário hoje costuma ser entre ${aiIntelligence.bestHourByDay[getDay(today)]}. `
+                        : ''
+                    }${
+                      safeNumber(todayData?.idleKm) > 5
+                        ? `Você rodou ${safeNumber(todayData?.idleKm).toFixed(1)}km ocioso, tente se posicionar melhor.`
+                        : 'Ótimo controle de KM ocioso hoje!'
+                    }`
+                  : safeNumber(todayData?.totalKm) > 0
+                    ? `Ciclo em andamento. Você já rodou ${safeNumber(todayData?.totalKm).toFixed(1)}km. Lance seus ganhos para receber insights completos.`
+                    : 'Inicie seu ciclo para receber insights em tempo real sobre sua performance e melhores regiões.'}
             </p>
 
             <div className="grid grid-cols-2 gap-3 pt-2">
               <div className="bg-white/10 rounded-xl p-3 space-y-1">
                 <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Melhor Horário (Hoje)</p>
-                <p className="text-xs font-black">{aiIntelligence?.bestHourByDay?.[getDay(today)] || 'Analisando...'}</p>
+                <p className="text-xs font-black">
+                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : (aiIntelligence?.bestHourByDay?.[getDay(today)] || 'Analisando...')}
+                </p>
               </div>
 
               <div className="bg-white/10 rounded-xl p-3 space-y-1">
                 <p className="text-[8px] font-black uppercase tracking-widest opacity-60">Tendência Semanal</p>
                 <p className="text-xs font-black">
-                  {safeNumber(aiIntelligence?.efficiencyTrend) > 0
-                    ? 'Melhorando'
-                    : safeNumber(aiIntelligence?.efficiencyTrend) < 0
-                      ? 'Em Queda'
-                      : 'Estável'}
+                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : (
+                    safeNumber(aiIntelligence?.efficiencyTrend) > 0
+                      ? 'Melhorando'
+                      : safeNumber(aiIntelligence?.efficiencyTrend) < 0
+                        ? 'Em Queda'
+                        : 'Estável'
+                  )}
                 </p>
               </div>
             </div>
@@ -678,13 +701,15 @@ export const Dashboard = () => {
 
               <Button
                 onClick={handleToggleTracking}
-                disabled={tracking?.isLoading}
+                disabled={tracking?.isLoading || !activeVehicleId}
                 loading={tracking?.isLoading || isProcessing}
                 className={cn(
                   'h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shrink-0',
-                  tracking?.isActive
-                    ? 'bg-zinc-950 text-white hover:bg-zinc-900 border-none'
-                    : 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400 border-none'
+                  !activeVehicleId 
+                    ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed border-none'
+                    : tracking?.isActive
+                      ? 'bg-zinc-950 text-white hover:bg-zinc-900 border-none'
+                      : 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400 border-none'
                 )}
               >
                 {tracking?.isLoading || isProcessing ? (
@@ -1004,20 +1029,32 @@ export const Dashboard = () => {
 
             <div className="grid grid-cols-2 gap-3">
               {!openCycle ? (
-                <Button
-                  onClick={handleStartCycle}
-                  disabled={isSaving}
-                  className="col-span-2 h-16 bg-emerald-500 hover:bg-emerald-400 text-zinc-950 font-black text-lg rounded-2xl shadow-xl shadow-emerald-500/20"
-                >
-                  {isSaving ? (
-                    <div className="flex items-center gap-2">
-                      <div className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
-                      Iniciando...
-                    </div>
-                  ) : (
-                    'Iniciar Novo Ciclo'
+                <div className="col-span-2 space-y-2">
+                  <Button
+                    onClick={handleStartCycle}
+                    disabled={isSaving || !activeVehicleId}
+                    className={cn(
+                      "w-full h-16 font-black text-lg rounded-2xl shadow-xl transition-all",
+                      !activeVehicleId
+                        ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed border-none"
+                        : "bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 border-none"
+                    )}
+                  >
+                    {isSaving ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                        Iniciando...
+                      </div>
+                    ) : (
+                      'Iniciar Novo Ciclo'
+                    )}
+                  </Button>
+                  {!activeVehicleId && (
+                    <p className="text-center text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+                      Selecione um veículo para iniciar
+                    </p>
                   )}
-                </Button>
+                </div>
               ) : (
                 <>
                   <Button

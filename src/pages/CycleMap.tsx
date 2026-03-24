@@ -5,7 +5,7 @@ import L from 'leaflet';
 import { useDriverStore } from '../store';
 import { ChevronLeft, Navigation, Clock, Map as MapIcon, Info, AlertCircle } from 'lucide-react';
 import { Button, Card, CardContent } from '../components/UI';
-import { formatDuration, cn } from '../utils';
+import { formatDuration, cn, getHumanLocation } from '../utils';
 import { motion } from 'motion/react';
 
 // Fix for Leaflet default icon issues in Vite
@@ -128,7 +128,11 @@ const CycleMap = () => {
                 Heatmap {showHeatmap ? 'ON' : 'OFF'}
               </button>
             </div>
-            <p className="text-xs text-zinc-500">Visualização do trajeto</p>
+            <p className="text-xs text-zinc-500">
+              {points.length > 0 
+                ? getHumanLocation(points[points.length - 1].lat, points[points.length - 1].lng)
+                : 'Visualização do trajeto'}
+            </p>
           </div>
         </div>
       </header>
