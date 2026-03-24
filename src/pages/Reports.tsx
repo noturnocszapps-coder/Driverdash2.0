@@ -135,6 +135,24 @@ export const Reports = () => {
     // AJUSTE 6: Estados de Maturidade de Dados
     const dataMaturity = totalKm === 0 ? 'inicial' : totalKm < 50 ? 'em coleta' : 'consolidado';
 
+    // Contextual AI Tip
+    let aiTip = '';
+    if (dataMaturity === 'inicial') {
+      aiTip = "Comece a registrar suas corridas ou importe seus ganhos para que a IA possa analisar seu desempenho.";
+    } else if (dataMaturity === 'em coleta') {
+      aiTip = "Continue usando o app! Com mais alguns dias de dados, poderei identificar seus melhores horários e zonas de lucro.";
+    } else {
+      if (avgEfficiency < 40) {
+        aiTip = "Sua eficiência está abaixo da média. Tente reduzir o deslocamento ocioso entre as corridas para aumentar seu lucro líquido.";
+      } else if (netPerKm < 1.2) {
+        aiTip = "Seu lucro por KM está baixo. Considere ser mais seletivo nas corridas ou revisar seus gastos com combustível.";
+      } else if (aiIntelligence.efficiencyTrend < 0) {
+        aiTip = "Sua eficiência caiu nos últimos dias. Verifique se houve mudança no seu horário ou região de trabalho.";
+      } else {
+        aiTip = "Seu desempenho está sólido! Continue focando nos horários de pico identificados para manter sua rentabilidade.";
+      }
+    }
+
     return {
       total,
       totalExpenses,
@@ -151,9 +169,10 @@ export const Reports = () => {
       platformTotals,
       alerts,
       dataMaturity,
+      aiTip,
       mismatches: currentWeek.filter(d => d.hasMismatch)
     };
-  }, [currentWeek, weekTotals, settings, currentVehicle]);
+  }, [currentWeek, weekTotals, settings, currentVehicle, aiIntelligence]);
 
   const recentDays = useMemo(() => {
     // Group data by date first for O(1) lookup
@@ -297,29 +316,44 @@ export const Reports = () => {
               </div>
             </div>
 
-            <div className="pt-4 border-t border-white/5 flex flex-col gap-3">
-              <div className="flex items-center justify-between">
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Zonas de Espera Identificadas</p>
-                <button 
-                  onClick={() => navigate('/heatmap')}
-                  className="flex items-center gap-1.5 text-[9px] font-black text-emerald-400 uppercase tracking-widest hover:text-emerald-300 transition-colors"
-                >
-                  <MapIcon size={10} />
-                  Ver Mapa de Calor
-                </button>
+            <div className="pt-4 border-t border-white/5 space-y-4">
+              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                <div className="flex gap-2 items-start">
+                  <Zap size={14} className="text-emerald-400 shrink-0 mt-0.5" />
+                  <p className="text-[11px] font-bold text-emerald-100 leading-relaxed">
+                    {stats.aiTip}
+                  </p>
+                </div>
               </div>
-              <div className="space-y-2">
-                {aiIntelligence.waitingZones.length > 0 ? aiIntelligence.waitingZones.map((zone, i) => (
-                  <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                      <p className="text-[10px] font-bold text-zinc-300">Região {i + 1} ({zone.lat.toFixed(3)}, {zone.lng.toFixed(3)})</p>
+
+              <div className="flex flex-col gap-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Zonas de Espera Identificadas</p>
+                  <button 
+                    onClick={() => navigate('/heatmap')}
+                    className="flex items-center gap-1.5 text-[9px] font-black text-emerald-400 uppercase tracking-widest hover:text-emerald-300 transition-colors"
+                  >
+                    <MapIcon size={10} />
+                    Ver Mapa de Calor
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {aiIntelligence.waitingZones.length > 0 ? aiIntelligence.waitingZones.map((zone, i) => (
+                    <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        <p className="text-[10px] font-bold text-zinc-300">Região {i + 1} ({zone.lat.toFixed(3)}, {zone.lng.toFixed(3)})</p>
+                      </div>
+                      <p className="text-[10px] font-black text-zinc-500">{(zone.time / 60000).toFixed(0)} min acumulados</p>
                     </div>
-                    <p className="text-[10px] font-black text-zinc-500">{(zone.time / 60000).toFixed(0)} min acumulados</p>
-                  </div>
-                )) : (
-                  <p className="text-[10px] font-bold text-zinc-500 italic">Ainda não há dados de rastreamento suficientes para identificar zonas de espera.</p>
-                )}
+                  )) : (
+                    <p className="text-[10px] font-bold text-zinc-500 italic">
+                      {stats.dataMaturity === 'consolidado' 
+                        ? 'Nenhuma zona de espera crítica identificada.' 
+                        : 'Ainda não há dados de rastreamento suficientes para identificar zonas de espera.'}
+                    </p>
+                  )}
+                </div>
               </div>
             </div>
           </CardContent>
