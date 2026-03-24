@@ -117,9 +117,43 @@ export const LandingPage = () => {
               <span className="text-emerald-500">Lucro real.</span>
             </h1>
             
-            <p className="text-lg md:text-xl text-zinc-400 mb-8 max-w-2xl mx-auto leading-relaxed font-medium">
-              Saiba exatamente quanto você ganha por km, onde lucrar mais e como melhorar sua performance como motorista de app.
+            <p className="text-xl md:text-2xl text-zinc-300 mb-4 max-w-3xl mx-auto leading-tight font-bold tracking-tight">
+              Pare de rodar no escuro. Descubra quanto você realmente ganha por KM e tome decisões com base em dados reais.
             </p>
+            <p className="text-sm md:text-base text-emerald-500/80 mb-10 font-black uppercase tracking-[0.2em]">
+              Feito para motoristas de Uber e 99 que querem entender o lucro de verdade.
+            </p>
+
+            {/* Trust Indicators */}
+            <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12">
+              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
+                <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <Navigation size={16} />
+                </div>
+                <div className="text-left">
+                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Precisão</div>
+                  <div className="text-xs font-bold text-white uppercase tracking-tight">Rastreamento Real</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
+                <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
+                  <RefreshCw size={16} />
+                </div>
+                <div className="text-left">
+                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Frequência</div>
+                  <div className="text-xs font-bold text-white uppercase tracking-tight">Lucro por Ciclo</div>
+                </div>
+              </div>
+              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
+                <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
+                  <ShieldCheck size={16} />
+                </div>
+                <div className="text-left">
+                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Confiança</div>
+                  <div className="text-xs font-bold text-white uppercase tracking-tight">Sem Estimativas</div>
+                </div>
+              </div>
+            </div>
 
             <div className="flex flex-col items-center gap-4 mb-14">
               <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">
@@ -159,11 +193,11 @@ export const LandingPage = () => {
       </section>
 
       {/* Value Proof Section */}
-      <section className="py-24 relative border-t border-white/5 bg-black">
+      <section className="py-32 relative border-t border-white/5 bg-zinc-950/50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Prova de Valor</h2>
-            <p className="text-3xl md:text-5xl font-black tracking-tighter text-white">Feito para motoristas que querem lucrar de verdade.</p>
+          <div className="text-center mb-20">
+            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Por que DriverDash?</h2>
+            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white max-w-3xl mx-auto leading-[0.9]">O controle que as plataformas não te dão.</p>
           </div>
 
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
@@ -196,84 +230,84 @@ export const LandingPage = () => {
       </section>
 
       {/* How it Works Section */}
-      <section id="how-it-works" className="py-32 relative bg-zinc-950">
+      <section id="how-it-works" className="py-32 relative bg-black border-y border-white/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="text-center mb-24">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Simplicidade</h2>
-            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white">Como o DriverDash funciona.</p>
+            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">O Caminho do Lucro</h2>
+            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white">Simples. Direto. Eficiente.</p>
           </div>
 
           <div className="grid md:grid-cols-4 gap-12 relative">
             {/* Connecting Line (Desktop) */}
-            <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-white/5 -translate-y-1/2 z-0"></div>
+            <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-emerald-500/10 -translate-y-1/2 z-0"></div>
             
             <StepCard 
               number="01"
               icon={Navigation}
               title="Ative o rastreamento"
-              description="Inicie seu ciclo de 24h com um toque antes de começar a rodar."
+              description="Inicie seu turno com um toque antes de sair de casa."
             />
             <StepCard 
               number="02"
               icon={Car}
               title="Rode normalmente"
-              description="Trabalhe na Uber ou 99 enquanto o app monitora seu trajeto em segundo plano."
+              description="Trabalhe na Uber ou 99 enquanto o app monitora cada KM rodado."
             />
             <StepCard 
               number="03"
               icon={Square}
               title="Feche o ciclo"
-              description="No fim do dia, encerre o turno e lance seus ganhos das plataformas."
+              description="No fim do dia, encerre o turno e lance seus ganhos brutos."
             />
             <StepCard 
               number="04"
               icon={BarChart3}
-              title="Veja seu lucro"
-              description="Receba uma análise completa do seu lucro real e performance do dia."
+              title="Descubra seu lucro"
+              description="Veja seu lucro real, descontando custos, e entenda sua eficiência."
             />
           </div>
         </div>
       </section>
 
       {/* Differential Section */}
-      <section className="py-32 relative border-y border-white/5 bg-black">
+      <section className="py-32 relative bg-zinc-900/20">
         <div className="max-w-7xl mx-auto px-4 sm:px-6">
           <div className="flex flex-col lg:flex-row gap-20 items-center">
             <div className="flex-1 space-y-8">
               <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500">Diferencial</h2>
-              <p className="text-4xl md:text-6xl font-black tracking-tighter text-white leading-[0.9]">Diferente de tudo que você já usou.</p>
+              <p className="text-4xl md:text-6xl font-black tracking-tighter text-white leading-[0.9]">Não é apenas um app de anotação.</p>
               <p className="text-xl text-zinc-400 leading-relaxed">
-                Esqueça planilhas complicadas ou estimativas genéricas. O DriverDash foi construído com tecnologia de rastreamento proprietária para o dia a dia real das ruas.
+                O DriverDash é uma ferramenta de inteligência. Enquanto outros apps pedem que você chute dados, nós rastreamos a realidade das ruas para você.
               </p>
               
               <div className="grid sm:grid-cols-2 gap-8 pt-4">
                 <div className="space-y-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <Cpu size={20} />
-                  </div>
-                  <h4 className="font-black text-white uppercase tracking-tight">Rastreamento Próprio</h4>
-                  <p className="text-sm text-zinc-500">Não depende dos dados limitados dos apps de corrida.</p>
-                </div>
-                <div className="space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                     <Split size={20} />
                   </div>
-                  <h4 className="font-black text-white uppercase tracking-tight">Separação de KM</h4>
-                  <p className="text-sm text-zinc-500">Saiba exatamente quanto rodou com passageiro e quanto rodou vazio.</p>
+                  <h4 className="font-black text-white uppercase tracking-tight">KM Produtivo vs Ocioso</h4>
+                  <p className="text-sm text-zinc-500">Saiba exatamente quanto você rodou com passageiro e quanto rodou vazio "pagando para trabalhar".</p>
                 </div>
                 <div className="space-y-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                     <TrendingUp size={20} />
                   </div>
-                  <h4 className="font-black text-white uppercase tracking-tight">Lucro Real</h4>
-                  <p className="text-sm text-zinc-500">Focamos no que sobra no seu bolso, não apenas no faturamento bruto.</p>
+                  <h4 className="font-black text-white uppercase tracking-tight">Lucro Real, Não Bruto</h4>
+                  <p className="text-sm text-zinc-500">Faturamento é vaidade, lucro é realidade. Mostramos o que sobra após combustível e custos.</p>
                 </div>
                 <div className="space-y-3">
                   <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                     <Brain size={20} />
                   </div>
-                  <h4 className="font-black text-white uppercase tracking-tight">IA de Performance</h4>
-                  <p className="text-sm text-zinc-500">Inteligência que aprende com seu comportamento para sugerir melhorias.</p>
+                  <h4 className="font-black text-white uppercase tracking-tight">Decisões com Dados</h4>
+                  <p className="text-sm text-zinc-500">Use seu histórico real para entender se aquela região ou horário realmente compensa.</p>
+                </div>
+                <div className="space-y-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                    <Target size={20} />
+                  </div>
+                  <h4 className="font-black text-white uppercase tracking-tight">Vale a pena rodar?</h4>
+                  <p className="text-sm text-zinc-500">Tenha a resposta definitiva sobre sua rentabilidade diária, semanal e mensal.</p>
                 </div>
               </div>
             </div>
@@ -321,7 +355,7 @@ export const LandingPage = () => {
       </section>
 
       {/* Intelligence Section */}
-      <section className="py-32 relative bg-zinc-950 overflow-hidden">
+      <section className="py-32 relative bg-black overflow-hidden border-t border-white/5">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
           <div className="absolute top-0 left-0 w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full"></div>
           <div className="absolute bottom-0 right-0 w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full"></div>
@@ -329,34 +363,34 @@ export const LandingPage = () => {
 
         <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
           <div className="max-w-3xl mx-auto text-center mb-20">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Inteligência</h2>
-            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white mb-8">Entenda onde você ganha mais.</p>
+            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Inteligência de Dados</h2>
+            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white mb-8">Dirija com inteligência.</p>
             <p className="text-xl text-zinc-400 leading-relaxed">
-              O DriverDash analisa seus dados reais para mostrar melhores horários, regiões e eficiência — sem achismo.
+              O DriverDash usa seus próprios dados para identificar padrões de ganho, horários mais fortes e regiões com mais potencial.
             </p>
           </div>
 
           <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6">
+            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6 backdrop-blur-sm">
               <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
                 <Clock size={24} />
               </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Melhores Horários</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Identificamos em quais janelas de tempo sua rentabilidade por KM é maior, ajudando você a planejar seu descanso.</p>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Padrões de Ganho</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">Identificamos em quais janelas de tempo sua rentabilidade por KM é maior, baseada no seu histórico real.</p>
             </div>
-            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6">
+            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6 backdrop-blur-sm">
               <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
                 <Map size={24} />
               </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Zonas de Lucro</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Mapeamos onde você inicia as melhores corridas e onde costuma perder tempo parado esperando chamadas.</p>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Eficiência Geográfica</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">Mapeamos onde você costuma ter as melhores corridas e onde o KM ocioso está matando seu lucro.</p>
             </div>
-            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6">
+            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6 backdrop-blur-sm">
               <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500">
                 <Target size={24} />
               </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Metas Inteligentes</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Projeções baseadas no seu histórico real para que você saiba exatamente quanto falta para atingir seu objetivo mensal.</p>
+              <h3 className="text-xl font-black text-white uppercase tracking-tight">Metas de Verdade</h3>
+              <p className="text-sm text-zinc-500 leading-relaxed">Projeções honestas baseadas na sua performance média, para você saber exatamente quanto falta para o seu objetivo.</p>
             </div>
           </div>
         </div>
@@ -561,7 +595,7 @@ export const LandingPage = () => {
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-40 px-4 relative overflow-hidden">
+      <section className="py-40 px-4 relative overflow-hidden bg-zinc-950">
         <div className="absolute inset-0 bg-emerald-500/5 blur-[150px] rounded-full -translate-y-1/2"></div>
         
         <div className="max-w-4xl mx-auto text-center relative z-10">
@@ -572,11 +606,11 @@ export const LandingPage = () => {
             className="space-y-12"
           >
             <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white leading-[0.85]">
-              Comece agora a <br />
-              <span className="text-emerald-500">controlar seu lucro.</span>
+              Use dados reais para <br />
+              <span className="text-emerald-500">dirigir com inteligência.</span>
             </h2>
             <p className="text-xl text-zinc-400 max-w-xl mx-auto font-medium">
-              Junte-se a milhares de motoristas que transformaram sua gestão financeira com o DriverDash.
+              Pare de chutar seus ganhos. Comece hoje a acompanhar seu lucro real com o DriverDash.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link to="/register" className="w-full sm:w-auto">
