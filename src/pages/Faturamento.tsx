@@ -9,14 +9,14 @@ import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Faturamento = () => {
-  const { cycles, updateCycle, startCycle, settings, isSaving: storeIsSaving, tracking, stopTracking, vehicles } = useDriverStore();
+  const { cycles, updateCycle, startCycle, settings, isSaving: storeIsSaving, tracking, stopTracking, vehicles, activeVehicleId } = useDriverStore();
   const navigate = useNavigate();
   
   const openCycle = cycles.find(c => c.status === 'open');
   
   const currentVehicle = useMemo(() => {
-    return vehicles.find(v => v.id === settings.currentVehicleProfileId);
-  }, [vehicles, settings.currentVehicleProfileId]);
+    return vehicles.find(v => v.id === activeVehicleId) || vehicles.find(v => v.id === settings.currentVehicleProfileId);
+  }, [vehicles, activeVehicleId, settings.currentVehicleProfileId]);
 
   const dailyFixed = useMemo(() => {
     const fixedCosts = currentVehicle?.fixedCosts || settings.fixedCosts;
@@ -122,7 +122,7 @@ export const Faturamento = () => {
         indriver_km: kms.indriver,
         status: 'closed' as const,
         end_time: new Date().toISOString(),
-        vehicle_id: settings.currentVehicleProfileId,
+        vehicle_id: activeVehicleId || settings.currentVehicleProfileId,
         vehicle_name: currentVehicle?.name || settings.vehicle
       };
 

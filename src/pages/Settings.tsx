@@ -20,7 +20,8 @@ export const Settings = () => {
   const { 
     settings, updateSettings, clearData, clearCloudData, 
     cycles, importData, user, setUser, syncStatus, syncData, isSaving,
-    vehicles, addVehicle, updateVehicle, deleteVehicle, setActiveVehicle
+    vehicles, addVehicle, updateVehicle, deleteVehicle, setActiveVehicle,
+    activeVehicleId
   } = useDriverStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -31,8 +32,8 @@ export const Settings = () => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const currentVehicle = useMemo(() => {
-    return vehicles.find(v => v.id === settings.currentVehicleProfileId);
-  }, [vehicles, settings.currentVehicleProfileId]);
+    return vehicles.find(v => v.id === activeVehicleId) || vehicles.find(v => v.id === settings.currentVehicleProfileId);
+  }, [vehicles, activeVehicleId, settings.currentVehicleProfileId]);
 
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);

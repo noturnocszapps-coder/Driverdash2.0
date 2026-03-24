@@ -83,6 +83,7 @@ export const Dashboard = () => {
     startTrip,
     endTrip,
     vehicles = [],
+    activeVehicleId,
   } = useDriverStore();
 
   const navigate = useNavigate();
@@ -216,8 +217,8 @@ export const Dashboard = () => {
   }, [cycles]);
 
   const currentVehicle = useMemo(() => {
-    return (vehicles || []).find((v: any) => v?.id === settings?.currentVehicleProfileId) || null;
-  }, [vehicles, settings?.currentVehicleProfileId]);
+    return (vehicles || []).find((v: any) => v?.id === activeVehicleId) || (vehicles || []).find((v: any) => v?.id === settings?.currentVehicleProfileId) || null;
+  }, [vehicles, activeVehicleId, settings?.currentVehicleProfileId]);
 
   const profitStats = useMemo(() => {
     if (!openCycle) return null;

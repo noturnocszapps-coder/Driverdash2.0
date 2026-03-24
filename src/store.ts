@@ -17,6 +17,8 @@ const TRACKING_CONFIG = {
   WARMUP_POINTS_REQUIRED: 5,
 };
 
+const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
+
 export const useDriverStore = create<DriverState>()(
   persist(
     (set, get) => ({
@@ -32,6 +34,7 @@ export const useDriverStore = create<DriverState>()(
       maintenances: [],
       importedReports: [],
       vehicles: [],
+      activeVehicleId: undefined,
       settings: {
         dailyGoal: 250,
         name: 'Motorista',
@@ -706,13 +709,15 @@ export const useDriverStore = create<DriverState>()(
 
       setActiveVehicle: async (id) => {
         const { user, vehicles } = get();
-        if (!user || !isSupabaseConfigured) return;
         
         const activeVehicle = vehicles.find(v => v.id === id);
         if (!activeVehicle) return;
 
+        console.log('[VEHICLE] set active:', id);
+
         // Update local state IMMEDIATELY for responsiveness
         set((state) => ({
+          activeVehicleId: id,
           vehicles: state.vehicles.map(v => ({
             ...v,
             is_active: v.id === id
@@ -725,6 +730,11 @@ export const useDriverStore = create<DriverState>()(
             fixedCosts: activeVehicle.fixedCosts
           }
         }));
+
+        // Persist to localStorage
+        localStorage.setItem(ACTIVE_VEHICLE_KEY, id);
+
+        if (!user || !isSupabaseConfigured) return;
 
         set({ isSaving: true });
         try {
@@ -744,6 +754,11 @@ export const useDriverStore = create<DriverState>()(
           if (updateActiveError) throw updateActiveError;
 
           // Persist to profile
+          await supabase
+            .from('profiles')
+            .update({ active_vehicle_id: id })
+            .eq('id', user.id);
+
           await get().updateSettings({
             currentVehicleProfileId: id,
             vehicle: activeVehicle.name,
@@ -757,6 +772,67 @@ export const useDriverStore = create<DriverState>()(
           throw error;
         } finally {
           set({ isSaving: false });
+        }
+      },
+
+      initVehicle: async () => {
+        const { user } = get();
+        
+        // Ensure vehicles are loaded
+        await get().loadVehicles();
+        
+        const { vehicles } = get();
+        let restoredId: string | undefined = undefined;
+
+        // 1. Try Supabase if logged in
+        if (user && isSupabaseConfigured) {
+          try {
+            const { data, error } = await supabase
+              .from('profiles')
+              .select('active_vehicle_id')
+              .eq('id', user.id)
+              .single();
+            
+            if (!error && data?.active_vehicle_id) {
+              restoredId = data.active_vehicle_id;
+              console.log('[VEHICLE] restored from supabase:', restoredId);
+            }
+          } catch (err) {
+            console.error('[VEHICLE] error restoring from supabase:', err);
+          }
+        }
+
+        // 2. Fallback to localStorage
+        if (!restoredId) {
+          const localId = localStorage.getItem(ACTIVE_VEHICLE_KEY);
+          if (localId) {
+            restoredId = localId;
+            console.log('[VEHICLE] restored from storage:', restoredId);
+          }
+        }
+
+        // 3. Fallback to settings if still nothing
+        if (!restoredId && get().settings.currentVehicleProfileId) {
+          restoredId = get().settings.currentVehicleProfileId;
+        }
+
+        if (restoredId) {
+          const vehicle = vehicles.find(v => v.id === restoredId);
+          if (vehicle) {
+            set((state) => ({
+              activeVehicleId: restoredId,
+              settings: {
+                ...state.settings,
+                currentVehicleProfileId: restoredId,
+                vehicle: vehicle.name,
+                transportMode: vehicle.category,
+                fixedCosts: vehicle.fixedCosts
+              }
+            }));
+          } else {
+            // If vehicle not found in list, just set the ID
+            set({ activeVehicleId: restoredId });
+          }
         }
       },
 
@@ -797,10 +873,16 @@ export const useDriverStore = create<DriverState>()(
             }
 
             // Only update local state if Supabase update succeeded
-            set((state) => ({ 
-              settings: { ...state.settings, ...newSettings },
-              syncStatus: 'synced'
-            }));
+            set((state) => {
+              if (newSettings.currentVehicleProfileId) {
+                localStorage.setItem(ACTIVE_VEHICLE_KEY, newSettings.currentVehicleProfileId);
+              }
+              return { 
+                settings: { ...state.settings, ...newSettings },
+                syncStatus: 'synced',
+                activeVehicleId: newSettings.currentVehicleProfileId !== undefined ? newSettings.currentVehicleProfileId : state.activeVehicleId
+              };
+            });
 
             // Force refresh to ensure data integrity
             await syncData();
@@ -810,7 +892,15 @@ export const useDriverStore = create<DriverState>()(
             }, 3000);
           } else {
             // Guest mode - update local only
-            set((state) => ({ settings: { ...state.settings, ...newSettings } }));
+            set((state) => {
+              if (newSettings.currentVehicleProfileId) {
+                localStorage.setItem(ACTIVE_VEHICLE_KEY, newSettings.currentVehicleProfileId);
+              }
+              return { 
+                settings: { ...state.settings, ...newSettings },
+                activeVehicleId: newSettings.currentVehicleProfileId !== undefined ? newSettings.currentVehicleProfileId : state.activeVehicleId
+              };
+            });
           }
         } catch (err) {
           console.error('[Store] updateSettings error:', err);
@@ -1188,6 +1278,9 @@ export const useDriverStore = create<DriverState>()(
           return Array.from(map.values());
         };
 
+        const newSettings = data.settings ? { ...state.settings, ...data.settings } : state.settings;
+        const newActiveVehicleId = data.settings?.currentVehicleProfileId || state.activeVehicleId;
+
         return {
           expenses: data.expenses ? mergeById(state.expenses, data.expenses) : state.expenses,
           fuelings: data.fuelings ? mergeById(state.fuelings, data.fuelings) : state.fuelings,
@@ -1195,7 +1288,8 @@ export const useDriverStore = create<DriverState>()(
           importedReports: data.importedReports ? mergeById(state.importedReports, data.importedReports) : state.importedReports,
           cycles: data.cycles ? mergeById(state.cycles, data.cycles) : state.cycles,
           vehicles: data.vehicles ? mergeById(state.vehicles, data.vehicles) : state.vehicles,
-          settings: data.settings ? { ...state.settings, ...data.settings } : state.settings,
+          settings: newSettings,
+          activeVehicleId: newActiveVehicleId,
         };
       }),
 
@@ -1519,6 +1613,7 @@ export const useDriverStore = create<DriverState>()(
         vehicles: state.vehicles,
         settings: state.settings,
         tracking: state.tracking,
+        activeVehicleId: state.activeVehicleId,
       }),
     }
   )

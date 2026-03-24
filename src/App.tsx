@@ -311,8 +311,12 @@ function AppRoutes() {
 import { Toaster } from 'sonner';
 
 export default function App() {
-  const { setUser, setSyncStatus } = useDriverStore();
+  const { setUser, setSyncStatus, initVehicle } = useDriverStore();
   const [isAuthReady, setIsAuthReady] = React.useState(false);
+
+  useEffect(() => {
+    initVehicle();
+  }, [initVehicle]);
 
   useEffect(() => {
     if (!isSupabaseConfigured) {

@@ -27,7 +27,7 @@ import { AppType } from '../types';
 
 export const ImportReport = () => {
   const navigate = useNavigate();
-  const { user, settings, importedReports, addImportedReport } = useDriverStore();
+  const { user, settings, importedReports, addImportedReport, activeVehicleId } = useDriverStore();
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   React.useEffect(() => {
@@ -136,7 +136,7 @@ export const ImportReport = () => {
       const fingerprint = generateContentFingerprint(user.id, platform, extractedData);
 
       await addImportedReport({
-        vehicle_id: settings.currentVehicleProfileId,
+        vehicle_id: activeVehicleId || settings.currentVehicleProfileId,
         platform,
         report_type: extractedData.report_type,
         period_start: extractedData.period_start,

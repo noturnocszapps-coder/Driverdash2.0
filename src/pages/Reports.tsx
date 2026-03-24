@@ -16,7 +16,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Reports = () => {
-  const { cycles, settings, importedReports, isSaving, vehicles } = useDriverStore();
+  const { cycles, settings, importedReports, isSaving, vehicles, activeVehicleId } = useDriverStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -32,8 +32,8 @@ export const Reports = () => {
   }, [location.state]);
   
   const currentVehicle = useMemo(() => {
-    return vehicles.find(v => v.id === settings.currentVehicleProfileId);
-  }, [vehicles, settings.currentVehicleProfileId]);
+    return vehicles.find(v => v.id === activeVehicleId) || vehicles.find(v => v.id === settings.currentVehicleProfileId);
+  }, [vehicles, activeVehicleId, settings.currentVehicleProfileId]);
 
   const dailyFixed = useMemo(() => {
     const fixedCosts = currentVehicle?.fixedCosts || settings.fixedCosts;

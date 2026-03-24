@@ -312,6 +312,7 @@ export interface DriverState {
   vehicles: VehicleProfile[];
   settings: UserSettings;
   tracking: TrackingSession;
+  activeVehicleId: string | undefined;
   isSaving: boolean;
   setUser: (user: AuthUser | null) => void;
   setSyncStatus: (status: SyncStatus) => void;
@@ -337,6 +338,7 @@ export interface DriverState {
   updateVehicle: (id: string, updates: Partial<VehicleProfile>) => Promise<void>;
   deleteVehicle: (id: string) => Promise<void>;
   setActiveVehicle: (id: string) => Promise<void>;
+  initVehicle: () => Promise<void>;
 
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   updateTracking: (tracking: Partial<TrackingSession>) => void;
