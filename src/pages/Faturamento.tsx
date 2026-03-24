@@ -378,6 +378,23 @@ export const Faturamento = () => {
         </CardContent>
       </Card>
 
+      {/* Mensagem explicativa de custo fixo quando não há faturamento */}
+      {(total === 0 || kmRideFinal === 0) && (
+        <motion.div 
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-4 rounded-2xl bg-zinc-900/50 border border-zinc-800 flex items-start gap-3 mx-1"
+        >
+          <Info size={18} className="text-zinc-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-xs font-bold text-zinc-300">Você ainda não registrou ganhos hoje.</p>
+            <p className="text-[10px] text-zinc-500 font-medium leading-relaxed">
+              Seu custo fixo diário já está sendo considerado.
+            </p>
+          </div>
+        </motion.div>
+      )}
+
       <div className="flex items-center gap-3 p-5 bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl border border-zinc-100 dark:border-zinc-800/50">
         <AlertCircle size={20} className="text-zinc-400 shrink-0" />
         <p className="text-[10px] text-zinc-500 font-bold leading-relaxed uppercase tracking-wider">
