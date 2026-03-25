@@ -67,6 +67,7 @@ export interface Cycle {
   };
   imported_report_id?: string;
   source?: 'manual' | 'screenshot';
+  updated_at?: string;
   // Tracking summary
   tracked_km?: number;
   tracked_moving_time?: number;
@@ -99,6 +100,7 @@ export interface WorkLog {
   shopee_km_bracket?: string;
   notes?: string;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface UserWorkProfile {
@@ -115,6 +117,7 @@ export interface Expense {
   category: ExpenseCategory;
   description: string;
   value: number;
+  updated_at?: string;
 }
 
 export interface Fueling {
@@ -123,6 +126,7 @@ export interface Fueling {
   liters: number;
   value: number;
   odometer: number;
+  updated_at?: string;
 }
 
 export interface Maintenance {
@@ -132,6 +136,7 @@ export interface Maintenance {
   value: number;
   currentKm: number;
   nextChangeKm: number;
+  updated_at?: string;
 }
 
 export interface VehicleCosts {
@@ -169,6 +174,7 @@ export interface VehicleProfile {
   category: 'car' | 'motorcycle';
   fixedCosts: FixedCosts;
   createdAt: string;
+  updated_at?: string;
   is_active?: boolean;
 }
 
@@ -188,6 +194,7 @@ export interface UserSettings {
   theme?: 'dark' | 'light' | 'system';
   photoUrl?: string;
   currentVehicleProfileId?: string;
+  updated_at?: string;
 }
 
 export interface TrackingPoint {
@@ -273,6 +280,7 @@ export interface FaturamentoLog {
   additional_expense: number;
   notes?: string;
   created_at?: string;
+  updated_at?: string;
 }
 
 export interface ImportedReport {
@@ -298,11 +306,14 @@ export interface ImportedReport {
   status: 'confirmed';
   confidence_score: number;
   uncertain_fields: string[];
+  updated_at?: string;
 }
 
 export interface DriverState {
   user: AuthUser | null;
   syncStatus: SyncStatus;
+  lastSyncTime: string | null;
+  syncError: string | null;
   hasSynced: boolean;
   rides: Ride[];
   workLogs: WorkLog[];

@@ -9,8 +9,14 @@ import { cn } from '../utils';
 
 const DevLab = () => {
   const navigate = useNavigate();
-  const { clearData, syncData, cycles, tracking } = useDriverStore();
+  const { clearData, syncData, cycles, tracking, lastSyncTime, syncError, syncStatus } = useDriverStore();
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const formatLastSync = (time: string | null) => {
+    if (!time) return 'Nunca';
+    const date = new Date(time);
+    return date.toLocaleString('pt-BR');
+  };
 
   const handleResetData = async () => {
     if (!window.confirm('Isso apagará TODOS os seus dados locais e na nuvem. Tem certeza?')) return;
@@ -62,15 +68,32 @@ const DevLab = () => {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Card className="bg-zinc-900 border-zinc-800">
               <CardContent className="p-4 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <RefreshCw size={20} />
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-3">
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center transition-colors",
+                      syncStatus === 'syncing' ? "bg-emerald-500/20 text-emerald-500 animate-pulse" : "bg-emerald-500/10 text-emerald-500"
+                    )}>
+                      <RefreshCw size={20} className={cn(syncStatus === 'syncing' && "animate-spin")} />
+                    </div>
+                    <div>
+                      <h3 className="text-sm font-bold">Sincronização</h3>
+                      <p className="text-[10px] text-zinc-500">
+                        Última: {formatLastSync(lastSyncTime)}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="text-sm font-bold">Sincronização</h3>
-                    <p className="text-[10px] text-zinc-500">Forçar push/pull com Supabase</p>
-                  </div>
+                  {syncError && (
+                    <div className="px-2 py-1 rounded bg-red-500/10 text-red-500 text-[8px] font-bold uppercase">
+                      Erro
+                    </div>
+                  )}
                 </div>
+                {syncError && (
+                  <p className="text-[9px] text-red-400 bg-red-400/5 p-2 rounded-lg border border-red-400/10">
+                    {syncError}
+                  </p>
+                )}
                 <Button 
                   onClick={handleForceSync} 
                   disabled={isProcessing}
