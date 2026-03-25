@@ -7,16 +7,19 @@ import { calculateDistance, safeNumber } from './utils';
 let watchId: number | null = null;
 
 const TRACKING_CONFIG = {
-  MIN_POINTS_SEARCHING: 5, // Buffer: 5 pontos consistentes para mudar estado
-  MIN_POINTS_TRIP: 8, // Buffer: 8 pontos consistentes para confirmar trip
-  MIN_SPEED_VALID: 4, // km/h
-  STOP_BUFFER_MS: 90000, // 90 segundos
-  MIN_DIST_PRECISION: 0.008, // 8 metros (conforme solicitado)
-  MAX_SPEED_NOISE: 130, // km/h (conforme solicitado)
-  DRIFT_SPEED_THRESHOLD: 2, // km/h (conforme solicitado)
+  MIN_POINTS_SEARCHING: 3,
+  MIN_POINTS_TRIP: 6, // 6 pontos consecutivos > 10km/h
+  MIN_SPEED_START: 10, // km/h
+  MIN_SPEED_STOP: 3, // km/h
+  STOP_BUFFER_MS: 120000, // 120 segundos parado
+  MIN_DIST_PRECISION: 0.01, // 10 metros
+  MAX_SPEED_NOISE: 160, // km/h
+  DRIFT_SPEED_THRESHOLD: 2.5, // km/h
   WARMUP_POINTS_REQUIRED: 5,
-  MAX_ACCURACY: 35, // metros (conforme solicitado)
-  SPEED_BUFFER_SIZE: 5, // Média móvel de 5 pontos
+  MAX_ACCURACY: 35, // metros mais rigoroso
+  SPEED_BUFFER_SIZE: 5,
+  MIN_TRIP_DISPLACEMENT: 0.03, // 30 metros para confirmar fim
+  MANUAL_OVERRIDE_TIMEOUT: 60000, // 60 segundos de bloqueio auto após manual
 };
 
 const INITIAL_SETTINGS: UserSettings = {
@@ -46,6 +49,7 @@ const INITIAL_TRACKING = {
   idleDistance: 0,
   isProductive: false,
   isManualOverride: false,
+  manualOverrideTimestamp: undefined,
   avgSpeed: 0,
   currentSmoothedSpeed: 0,
   speedBuffer: [],
@@ -57,7 +61,8 @@ const INITIAL_TRACKING = {
   consecutiveMovingPoints: 0,
   consecutiveStoppedPoints: 0,
   mode: 'stopped' as const,
-  tripDetectionState: 'idle' as const
+  tripDetectionState: 'idle' as const,
+  lastStopLocation: undefined,
 };
 
 const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
@@ -1044,14 +1049,28 @@ export const useDriverStore = create<DriverState>()(
         if (!tracking.isActive) {
           get().startTracking();
         }
-        updateTracking({ isProductive: true, mode: 'on_trip', tripDetectionState: 'trip_started', isManualOverride: true });
-        console.log('[TRACKING] Trip iniciada (manual)');
+        updateTracking({ 
+          isProductive: true, 
+          mode: 'on_trip', 
+          tripDetectionState: 'trip_started', 
+          isManualOverride: true,
+          manualOverrideTimestamp: Date.now()
+        });
+        console.log('[TRACK] Trip iniciada (manual)');
+        if (navigator.vibrate) navigator.vibrate(50);
       },
 
       endTrip: () => {
         const { updateTracking } = get();
-        updateTracking({ isProductive: false, mode: 'searching', tripDetectionState: 'idle', isManualOverride: true });
-        console.log('[TRACKING] Trip encerrada (manual)');
+        updateTracking({ 
+          isProductive: false, 
+          mode: 'searching', 
+          tripDetectionState: 'idle', 
+          isManualOverride: true,
+          manualOverrideTimestamp: Date.now()
+        });
+        console.log('[TRACK] Trip encerrada (manual)');
+        if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
       },
 
       startTracking: () => {
@@ -1089,6 +1108,7 @@ export const useDriverStore = create<DriverState>()(
             idleDistance: 0,
             isProductive: false,
             isManualOverride: false,
+            manualOverrideTimestamp: undefined,
             isWarmingUp: true,
             points: [],
             segments: [],
@@ -1096,7 +1116,8 @@ export const useDriverStore = create<DriverState>()(
             consecutiveStoppedPoints: 0,
             mode: 'stopped',
             tripDetectionState: 'idle',
-            lastPoint: undefined
+            lastPoint: undefined,
+            lastStopLocation: undefined
           }
         });
 
@@ -1157,6 +1178,7 @@ export const useDriverStore = create<DriverState>()(
             let newIdleDistance = currentTracking.idleDistance;
             let newIsProductive = currentTracking.isProductive;
             let newIsManualOverride = currentTracking.isManualOverride;
+            let manualOverrideTimestamp = currentTracking.manualOverrideTimestamp;
             let newLastStopTimestamp = currentTracking.lastStopTimestamp;
             let newMode = currentTracking.mode;
             let newTripDetectionState = currentTracking.tripDetectionState;
@@ -1165,35 +1187,55 @@ export const useDriverStore = create<DriverState>()(
             let newSegments = [...(currentTracking.segments || [])];
             let newIsWarmingUp = currentTracking.isWarmingUp;
 
+            // 0. GERENCIAMENTO DE OVERRIDE MANUAL
+            if (newIsManualOverride && manualOverrideTimestamp) {
+              if (Date.now() - manualOverrideTimestamp > TRACKING_CONFIG.MANUAL_OVERRIDE_TIMEOUT) {
+                newIsManualOverride = false;
+                console.log('[TRACK] manual override expired, auto detection re-enabled');
+              }
+            }
+
             if (lastPoint) {
               const dist = calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng);
               const timeDiff = timestamp - lastPoint.timestamp;
 
-              // 1. FILTRO DE PONTO GPS MAIS RIGOROSO (Distância mínima vs Velocidade)
+              // 1. FILTRO DE MOVIMENTO (Distância mínima vs Velocidade)
               const isMoving = dist >= TRACKING_CONFIG.MIN_DIST_PRECISION && smoothedSpeed >= TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD;
 
               if (isMoving) {
                 newMovingTime += timeDiff;
                 newLastStopTimestamp = undefined;
-                newConsecutiveMovingPoints++;
+                
+                if (smoothedSpeed > TRACKING_CONFIG.MIN_SPEED_START) {
+                  newConsecutiveMovingPoints++;
+                } else {
+                  // Se a velocidade cair mas ainda estiver movendo, não reseta totalmente para evitar ruído em trânsito
+                  newConsecutiveMovingPoints = Math.max(0, newConsecutiveMovingPoints - 1);
+                }
                 newConsecutiveStoppedPoints = 0;
 
-                // 2. BUFFER DE TRANSIÇÃO DE ESTADO
+                // 2. DETECÇÃO AUTOMÁTICA DE INÍCIO
                 if (!newIsManualOverride) {
-                  // Searching -> On Trip (Buffer de pontos consistentes)
-                  if (newMode !== 'on_trip' && smoothedSpeed > TRACKING_CONFIG.MIN_SPEED_VALID) {
-                    if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
-                      newTripDetectionState = 'pickup_candidate';
-                    }
-                    if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP) {
+                  if (newMode !== 'on_trip') {
+                    // Só inicia se vier de searching e tiver passado um tempo mínimo desde a última parada total
+                    const timeSinceStop = currentTracking.lastStopTimestamp ? (timestamp - currentTracking.lastStopTimestamp) : 999999;
+                    
+                    if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP && timeSinceStop > 10000) {
+                      console.log('[TRACK] start trip detected (auto)');
                       newIsProductive = true;
                       newMode = 'on_trip';
                       newTripDetectionState = 'trip_started';
+                      if (navigator.vibrate) navigator.vibrate(100);
+                    } else if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
+                      if (newTripDetectionState !== 'pickup_candidate') {
+                        console.log('[TRACK] pickup candidate detected');
+                        newTripDetectionState = 'pickup_candidate';
+                      }
                     }
                   }
                 }
 
-                // 3. CLASSIFICAÇÃO POR SEGMENTO (Derivada de segmentos consistentes)
+                // 3. CLASSIFICAÇÃO DE DISTÂNCIA E MODO
                 if (newIsProductive) {
                   newProductiveDistance += dist;
                   newMode = 'on_trip';
@@ -1207,25 +1249,39 @@ export const useDriverStore = create<DriverState>()(
                 // Parado ou ruído
                 newStoppedTime += timeDiff;
                 newConsecutiveMovingPoints = 0;
-                newConsecutiveStoppedPoints++;
                 
-                if (!newLastStopTimestamp) {
-                  newLastStopTimestamp = timestamp;
+                if (smoothedSpeed < TRACKING_CONFIG.MIN_SPEED_STOP) {
+                  newConsecutiveStoppedPoints++;
+                  if (!newLastStopTimestamp) {
+                    newLastStopTimestamp = timestamp;
+                    // Salva posição de parada para checar deslocamento
+                    set({ tracking: { ...get().tracking, lastStopLocation: { lat: latitude, lng: longitude } } });
+                  }
                 }
 
-                // 2. BUFFER DE TRANSIÇÃO DE ESTADO (On Trip -> Stopped/Searching)
-                if (!newIsManualOverride) {
-                  // Se parado por mais de 45s, dropoff candidate
-                  if (newMode === 'on_trip' && (timestamp - newLastStopTimestamp) > 45000) {
-                    newTripDetectionState = 'dropoff_candidate';
-                    
-                    // Se parado por mais de STOP_BUFFER_MS, confirma fim da trip
-                    if ((timestamp - newLastStopTimestamp) > TRACKING_CONFIG.STOP_BUFFER_MS) {
-                      newIsProductive = false;
-                      newMode = 'stopped';
-                      newTripDetectionState = 'idle';
+                // 4. DETECÇÃO AUTOMÁTICA DE FIM
+                if (!newIsManualOverride && newMode === 'on_trip') {
+                  const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
+                  
+                  // Checa deslocamento desde que parou
+                  const lastStopLoc = get().tracking.lastStopLocation;
+                  const displacementSinceStop = lastStopLoc ? calculateDistance(lastStopLoc.lat, lastStopLoc.lng, latitude, longitude) : 0;
+
+                  if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS && displacementSinceStop < TRACKING_CONFIG.MIN_TRIP_DISPLACEMENT) {
+                    console.log('[TRACK] end trip detected (auto) - duration:', stopDuration, 'displacement:', displacementSinceStop);
+                    newIsProductive = false;
+                    newMode = 'searching';
+                    newTripDetectionState = 'idle';
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                  } else if (stopDuration > 60000) {
+                    if (newTripDetectionState !== 'dropoff_candidate') {
+                      console.log('[TRACK] dropoff candidate detected');
+                      newTripDetectionState = 'dropoff_candidate';
                     }
-                  } else if (newMode !== 'on_trip' && (timestamp - newLastStopTimestamp) > 30000) {
+                  }
+                } else if (!newIsManualOverride && newMode === 'searching') {
+                  const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
+                  if (stopDuration > 30000) {
                     newMode = 'stopped';
                   }
                 }
@@ -1235,7 +1291,7 @@ export const useDriverStore = create<DriverState>()(
             // Warm-up logic
             const points = [...currentTracking.points, newPoint];
             if (newIsWarmingUp && points.length >= TRACKING_CONFIG.WARMUP_POINTS_REQUIRED) {
-              const movingPoints = points.filter(p => (p.speed || 0) > TRACKING_CONFIG.MIN_SPEED_VALID);
+              const movingPoints = points.filter(p => (p.speed || 0) > TRACKING_CONFIG.MIN_SPEED_START);
               if (movingPoints.length >= 3) {
                 newIsWarmingUp = false;
               }
@@ -1396,6 +1452,7 @@ export const useDriverStore = create<DriverState>()(
             idleDistance: 0,
             isProductive: false,
             isManualOverride: false,
+            manualOverrideTimestamp: undefined,
             mode: 'stopped',
             tripDetectionState: 'idle',
             points: [],
@@ -1403,6 +1460,7 @@ export const useDriverStore = create<DriverState>()(
             consecutiveMovingPoints: 0,
             consecutiveStoppedPoints: 0,
             lastPoint: undefined,
+            lastStopLocation: undefined,
             endTime: Date.now()
           }
         });

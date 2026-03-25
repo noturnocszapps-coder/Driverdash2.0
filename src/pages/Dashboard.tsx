@@ -754,20 +754,6 @@ export const Dashboard = () => {
                   </p>
                 </div>
 
-                <div className="flex gap-2 mt-4">
-                  <Button
-                    onClick={() => tracking.isProductive ? endTrip?.() : startTrip?.()}
-                    className={cn(
-                      "flex-1 h-10 rounded-xl font-black text-[10px] uppercase tracking-widest transition-all shadow-sm",
-                      tracking.isProductive
-                        ? "bg-amber-500 text-zinc-950 hover:bg-amber-400 border-none"
-                        : "bg-zinc-100 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:bg-zinc-200 dark:hover:bg-zinc-700 border border-zinc-200 dark:border-zinc-700"
-                    )}
-                  >
-                    {tracking.isProductive ? 'Finalizar Corrida (Manual)' : 'Iniciar Corrida (Manual)'}
-                  </Button>
-                </div>
-
                 {smartAlerts.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {smartAlerts.map((alert) => (

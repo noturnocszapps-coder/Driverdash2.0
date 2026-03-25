@@ -138,6 +138,8 @@ const SafeRoute = ({
   return <RouteErrorBoundary routeName={routeName}>{children}</RouteErrorBoundary>;
 };
 
+import { TripControl } from './components/TripControl';
+
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const isLanding = location.pathname === '/';
@@ -160,6 +162,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           {children}
         </main>
       </div>
+      <TripControl />
       <BottomNav />
     </div>
   );

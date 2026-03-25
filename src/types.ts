@@ -242,9 +242,11 @@ export interface TrackingSession {
   idleDistance: number;
   isProductive: boolean;
   isManualOverride: boolean;
+  manualOverrideTimestamp?: number;
   mode: TrackingMode;
   tripDetectionState: TripDetectionState;
   lastStopTimestamp?: number;
+  lastStopLocation?: { lat: number; lng: number };
   isWarmingUp?: boolean;
   points: TrackingPoint[];
   lastPoint?: TrackingPoint;
