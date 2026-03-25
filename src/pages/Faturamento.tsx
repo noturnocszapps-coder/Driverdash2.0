@@ -1,11 +1,11 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useDriverStore } from '../store';
 import { formatCurrency, cn, calculateDailyFixedCost } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
 import { ChevronLeft, Save, Plus, Minus, Info, AlertCircle, Smartphone, Fuel, Utensils, MoreHorizontal, TrendingUp, Navigation } from 'lucide-react';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Faturamento = () => {
@@ -47,8 +47,6 @@ export const Faturamento = () => {
   // Consolidate KM data sources before rendering
   const kmTotalFinal = useMemo(() => {
     const tracked = (openCycle?.tracked_km || 0) + (tracking.isActive ? tracking.distance : 0);
-    // If we have tracked data, it takes precedence over manual state unless manual state was explicitly changed
-    // For simplicity and following the "ONE final value" rule:
     return tracked > 0 ? tracked : (kms.total || openCycle?.total_km || 0);
   }, [openCycle, tracking.isActive, tracking.distance, kms.total]);
 
@@ -63,7 +61,6 @@ export const Faturamento = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
-    console.log("[Fechamento] Versão v2.1 carregada");
     if (openCycle) {
       setAmounts({
         uber: openCycle.uber_amount || 0,
@@ -77,7 +74,6 @@ export const Faturamento = () => {
         other: openCycle.other_expense || 0
       });
       
-      // Consolidate KM data: prefer tracked data if available
       const trackedTotal = (openCycle.tracked_km || 0) + (tracking.isActive ? tracking.distance : 0);
       const trackedRide = (openCycle.productive_km || 0) + (tracking.isActive ? tracking.productiveDistance : 0);
       
@@ -97,13 +93,9 @@ export const Faturamento = () => {
     if (isProcessing || isSaving || storeIsSaving) return;
     
     setIsProcessing(true);
-    if (process.env.NODE_ENV === 'development') {
-      console.log("[Fechamento] Salvando ciclo...");
-    }
     setSaveStatus('idle');
 
     try {
-      // Garantir que o rastreamento parou antes de fechar o ciclo
       if (tracking.isActive) {
         await stopTracking();
       }
@@ -134,7 +126,6 @@ export const Faturamento = () => {
         await updateCycle(openCycle.id, cycleData);
       }
       
-      // Pequeno delay visual para UX
       await new Promise(resolve => setTimeout(resolve, 500));
       
       toast.success("Ciclo fechado com sucesso");
@@ -161,319 +152,286 @@ export const Faturamento = () => {
     setAmounts(prev => ({ ...prev, [key]: Math.max(0, value) }));
   };
 
+  const handleAdjustAmount = (key: keyof typeof amounts, delta: number) => {
+    setAmounts(prev => ({ ...prev, [key]: Math.max(0, prev[key] + delta) }));
+  };
+
   return (
     <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-4 pb-24 md:pb-8"
+      initial={{ opacity: 0 }}
+      animate={{ opacity: 1 }}
+      className="space-y-4 pb-28 md:pb-8 max-w-lg mx-auto"
     >
-      <header className="flex items-center justify-between px-1">
+      {/* HEADER PREMIUM & COMPACTO */}
+      <header className="flex items-center justify-between px-2 pt-2">
         <div className="flex items-center gap-3">
-          <button 
+          <motion.button 
+            whileTap={{ scale: 0.9 }}
             onClick={() => navigate(-1)}
-            className="w-10 h-10 rounded-xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 flex items-center justify-center text-zinc-500 shadow-sm active:scale-90 transition-all"
+            className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-500 transition-colors"
           >
-            <ChevronLeft size={20} />
-          </button>
+            <ChevronLeft size={18} />
+          </motion.button>
           <div>
-            <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-0">Lançamento</p>
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-black tracking-tighter">Fechamento do Ciclo</h1>
-              <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-black uppercase tracking-widest">v2.1</span>
+            <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white leading-none">Fechamento do Ciclo</h1>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-[9px] font-bold text-emerald-500 uppercase tracking-wider">
+                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                Online
+              </span>
+              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-bold uppercase tracking-widest">v2.2</span>
             </div>
           </div>
         </div>
         <SyncIndicator />
       </header>
 
-      {!activeVehicleId && (
-        <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-3">
-          <AlertCircle className="text-amber-500 shrink-0" size={20} />
-          <div className="flex-1">
-            <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Veículo não selecionado</p>
-            <p className="text-[10px] font-bold text-amber-600/80 dark:text-amber-400/80 uppercase tracking-wider">Você precisa selecionar um veículo para salvar faturamentos.</p>
+      <div className="px-2 space-y-4">
+        {/* AVISOS E ALERTAS */}
+        <AnimatePresence>
+          {!activeVehicleId && (
+            <motion.div 
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+              exit={{ opacity: 0, height: 0 }}
+            >
+              <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-3 flex items-center gap-3">
+                <AlertCircle className="text-amber-500 shrink-0" size={18} />
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Veículo não selecionado</p>
+                  <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 leading-tight">Selecione um veículo para salvar faturamentos.</p>
+                </div>
+                <Button 
+                  onClick={() => navigate('/settings')}
+                  className="bg-amber-500 text-zinc-950 h-7 px-3 text-[9px] font-bold uppercase tracking-widest rounded-lg"
+                >
+                  Configurar
+                </Button>
+              </Card>
+            </motion.div>
+          )}
+
+          {!openCycle && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+            >
+              <Card className="bg-blue-500/5 border-blue-500/10 p-3 flex items-start gap-2.5">
+                <Info className="text-blue-500 shrink-0 mt-0.5" size={14} />
+                <p className="text-[10px] text-blue-400 font-medium leading-tight">
+                  Sem ciclo ativo. Um novo ciclo será iniciado com estes valores.
+                </p>
+              </Card>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* FATURAMENTO - MODO ULTRA RÁPIDO */}
+        <div className="space-y-2">
+          <SectionHeader icon={Smartphone} title="Faturamento" />
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-100 dark:border-zinc-800/50">
+            <PlatformInput 
+              label="Uber" 
+              value={amounts.uber} 
+              onChange={(val: number) => updateAmount('uber', val)}
+              onAdjust={(delta: number) => handleAdjustAmount('uber', delta)}
+              accent="bg-zinc-900 dark:bg-white"
+            />
+            <PlatformInput 
+              label="99" 
+              value={amounts.noventanove} 
+              onChange={(val: number) => updateAmount('noventanove', val)}
+              onAdjust={(delta: number) => handleAdjustAmount('noventanove', delta)}
+              accent="bg-yellow-500"
+            />
+            <PlatformInput 
+              label="inDrive" 
+              value={amounts.indriver} 
+              onChange={(val: number) => updateAmount('indriver', val)}
+              onAdjust={(delta: number) => handleAdjustAmount('indriver', delta)}
+              accent="bg-emerald-500"
+            />
+            <PlatformInput 
+              label="Extra" 
+              value={amounts.extra} 
+              onChange={(val: number) => updateAmount('extra', val)}
+              onAdjust={(delta: number) => handleAdjustAmount('extra', delta)}
+              accent="bg-blue-500"
+              isLast
+            />
           </div>
-          <Button 
-            onClick={() => navigate('/settings')}
-            className="bg-amber-500 text-zinc-950 hover:bg-amber-400 h-8 px-3 text-[10px] font-black uppercase tracking-widest"
-          >
-            Configurar
-          </Button>
-        </Card>
-      )}
-
-      {!openCycle && (
-        <Card className="bg-blue-50 dark:bg-blue-500/5 border-blue-100 dark:border-blue-500/10">
-          <CardContent className="p-5 flex items-start gap-3">
-            <Info className="text-blue-600 shrink-0 mt-0.5" size={18} />
-            <p className="text-xs text-blue-700 dark:text-blue-400 font-medium leading-relaxed">
-              Você não tem um ciclo ativo. Ao salvar, um novo ciclo de 24h será iniciado automaticamente com estes valores.
-            </p>
-          </CardContent>
-        </Card>
-      )}
-
-      <div className="space-y-2">
-        <SectionHeader icon={Smartphone} title="Faturamento por Plataforma" />
-        <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden shadow-sm border border-zinc-100 dark:border-zinc-800/50">
-          <PlatformInput 
-            label="Uber" 
-            value={amounts.uber} 
-            onChange={(val: number) => updateAmount('uber', val)}
-            accent="bg-zinc-900 dark:bg-white"
-          />
-          <PlatformInput 
-            label="99" 
-            value={amounts.noventanove} 
-            onChange={(val: number) => updateAmount('noventanove', val)}
-            accent="bg-yellow-500"
-          />
-          <PlatformInput 
-            label="inDrive" 
-            value={amounts.indriver} 
-            onChange={(val: number) => updateAmount('indriver', val)}
-            accent="bg-emerald-500"
-          />
-          <PlatformInput 
-            label="Extra / Outros" 
-            value={amounts.extra} 
-            onChange={(val: number) => updateAmount('extra', val)}
-            accent="bg-blue-500"
-            isLast
-          />
         </div>
-      </div>
 
-      <div className="space-y-2">
-        <SectionHeader icon={Fuel} title="Despesas do Ciclo" />
-        <div className="grid grid-cols-1 gap-2">
-          <ExpenseInput 
-            icon={Fuel}
-            label="Combustível" 
-            value={expenses.fuel} 
-            onChange={(val) => setExpenses(prev => ({ ...prev, fuel: val }))} 
-          />
-          <ExpenseInput 
-            icon={Utensils}
-            label="Alimentação" 
-            value={expenses.food} 
-            onChange={(val) => setExpenses(prev => ({ ...prev, food: val }))} 
-          />
-          <ExpenseInput 
-            icon={MoreHorizontal}
-            label="Outras Despesas" 
-            value={expenses.other} 
-            onChange={(val) => setExpenses(prev => ({ ...prev, other: val }))} 
-          />
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <div className="flex justify-between items-center px-1">
-          <h3 className="font-black text-[10px] uppercase tracking-widest flex items-center gap-2 text-zinc-500">
-            <TrendingUp size={14} className="text-emerald-500" />
-            Distância Percorrida
-          </h3>
-          <button 
-            onClick={() => setShowAdvancedKm(!showAdvancedKm)}
-            className="text-[9px] font-black text-emerald-500 uppercase tracking-widest"
-          >
-            {showAdvancedKm ? 'Simples' : 'Avançado'}
-          </button>
-        </div>
-        
-        <div className="grid grid-cols-2 gap-2">
-          <div className="relative">
-            <KmInput 
+        {/* DISTÂNCIA - MINI DASHBOARD */}
+        <div className="space-y-2">
+          <div className="flex justify-between items-center px-1">
+            <SectionHeader icon={TrendingUp} title="Distância" />
+            <button 
+              onClick={() => setShowAdvancedKm(!showAdvancedKm)}
+              className="text-[9px] font-bold text-emerald-500 uppercase tracking-widest px-2 py-1 bg-emerald-500/10 rounded-md"
+            >
+              {showAdvancedKm ? 'Simples' : 'Avançado'}
+            </button>
+          </div>
+          
+          <div className="grid grid-cols-2 gap-2">
+            <KmCard 
               label="KM Total" 
               value={kmTotalFinal} 
               onChange={(val: number) => setKms(prev => ({ ...prev, total: val }))} 
+              isTracked={!!(openCycle?.tracked_km || tracking.isActive)}
             />
-            {(openCycle?.tracked_km || tracking.isActive) && (
-              <div className="absolute -top-1.5 -right-1.5 bg-emerald-500 text-zinc-950 text-[7px] font-black px-1.5 py-0.5 rounded-full shadow-lg flex items-center gap-1 z-10">
-                <Navigation size={6} />
-                TRACKED
-              </div>
-            )}
+            <KmCard 
+              label="KM em Corrida" 
+              value={kmRideFinal} 
+              onChange={(val: number) => setKms(prev => ({ ...prev, ride: val }))} 
+            />
           </div>
-          <KmInput 
-            label="KM em Corrida" 
-            value={kmRideFinal} 
-            onChange={(val: number) => setKms(prev => ({ ...prev, ride: val }))} 
-          />
+
+          <AnimatePresence>
+            {showAdvancedKm && (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="grid grid-cols-3 gap-2 pt-1"
+              >
+                <KmCardMini label="Uber" value={kms.uber} onChange={(val) => setKms(prev => ({ ...prev, uber: val }))} />
+                <KmCardMini label="99" value={kms.noventanove} onChange={(val) => setKms(prev => ({ ...prev, noventanove: val }))} />
+                <KmCardMini label="inDrive" value={kms.indriver} onChange={(val) => setKms(prev => ({ ...prev, indriver: val }))} />
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
-        {showAdvancedKm && (
-          <motion.div 
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            className="space-y-3 pt-2 border-t border-zinc-100 dark:border-zinc-800"
-          >
-            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest px-1">KM por Plataforma</p>
-            <div className="grid grid-cols-3 gap-3">
-              <KmInput 
-                label="Uber" 
-                value={kms.uber} 
-                onChange={(val) => setKms(prev => ({ ...prev, uber: val }))} 
-              />
-              <KmInput 
-                label="99" 
-                value={kms.noventanove} 
-                onChange={(val) => setKms(prev => ({ ...prev, noventanove: val }))} 
-              />
-              <KmInput 
-                label="inDrive" 
-                value={kms.indriver} 
-                onChange={(val) => setKms(prev => ({ ...prev, indriver: val }))} 
-              />
+        {/* DESPESAS INTELIGENTES */}
+        <div className="space-y-2">
+          <SectionHeader icon={Fuel} title="Despesas" />
+          <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-100 dark:border-zinc-800/50">
+            <ExpenseRow 
+              icon={Fuel}
+              label="Combustível" 
+              value={expenses.fuel} 
+              onChange={(val) => setExpenses(prev => ({ ...prev, fuel: val }))} 
+            />
+            <ExpenseRow 
+              icon={Utensils}
+              label="Alimentação" 
+              value={expenses.food} 
+              onChange={(val) => setExpenses(prev => ({ ...prev, food: val }))} 
+            />
+            <ExpenseRow 
+              icon={MoreHorizontal}
+              label="Outras" 
+              value={expenses.other} 
+              onChange={(val) => setExpenses(prev => ({ ...prev, other: val }))} 
+              isLast
+            />
+          </div>
+        </div>
+
+        {/* MENSAGENS E INSTRUÇÕES */}
+        <div className="space-y-2">
+          {(total === 0 || kmRideFinal === 0) && (
+            <div className="p-3 rounded-xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/50 flex items-center gap-3">
+              <Info size={14} className="text-zinc-400 shrink-0" />
+              <p className="text-[9px] text-zinc-500 font-medium leading-tight uppercase tracking-wider">
+                Sem ganhos registrados. O custo fixo diário ({formatCurrency(dailyFixed)}) está sendo aplicado.
+              </p>
             </div>
-          </motion.div>
-        )}
+          )}
+          <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/20 flex items-center gap-3">
+            <AlertCircle size={14} className="text-zinc-400 shrink-0" />
+            <p className="text-[9px] text-zinc-500 font-medium leading-tight uppercase tracking-wider">
+              Insira o valor bruto de cada plataforma no momento do fechamento.
+            </p>
+          </div>
+        </div>
       </div>
 
-      <Card className="bg-zinc-900 text-white border-none shadow-2xl shadow-zinc-900/40 rounded-[2rem] overflow-hidden mx-0.5">
-        <CardContent className="p-6 flex flex-col gap-5">
-          <div className="grid grid-cols-2 gap-4 items-center">
-            <div className="space-y-0.5">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">Total Bruto</p>
-              <p className="text-xl font-black tracking-tighter">{formatCurrency(total)}</p>
-            </div>
-            <div className="space-y-0.5 text-right">
-              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">Lucro Líquido</p>
-              <p className="text-xl font-black tracking-tighter text-emerald-400">{formatCurrency(estimatedProfit)}</p>
-            </div>
-          </div>
-          
-          <Button 
-            onClick={handleSave}
-            disabled={isProcessing || !activeVehicleId}
-            loading={isProcessing}
-            className={cn(
-              "w-full h-14 font-black text-base rounded-xl shadow-lg gap-2 transition-all",
-              !activeVehicleId
-                ? "bg-zinc-800 text-zinc-500 cursor-not-allowed border-none"
-                : saveStatus === 'success' 
-                  ? "bg-emerald-600 shadow-emerald-500/40 border-none" 
-                  : "bg-emerald-500 hover:bg-emerald-400 shadow-emerald-500/20 border-none text-black"
-            )}
-          >
-            {isProcessing ? (
-              'Salvando...'
-            ) : (
-              <>
-                <Save size={18} />
-                Confirmar Fechamento
-              </>
-            )}
-          </Button>
+      {/* CARD FINAL - FOCO TOTAL */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent pt-12 z-50">
+        <div className="max-w-lg mx-auto">
+          <Card className="bg-zinc-900 text-white border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden">
+            <CardContent className="p-5 space-y-4">
+              <div className="flex justify-between items-end">
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Total Bruto</p>
+                  <p className="text-2xl font-bold tracking-tight">{formatCurrency(total)}</p>
+                </div>
+                <div className="text-right space-y-0.5">
+                  <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Lucro Líquido</p>
+                  <p className={cn(
+                    "text-2xl font-bold tracking-tight",
+                    estimatedProfit >= 0 ? "text-emerald-400" : "text-red-400"
+                  )}>
+                    {formatCurrency(estimatedProfit)}
+                  </p>
+                </div>
+              </div>
+              
+              <motion.div
+                whileTap={{ scale: 0.98 }}
+              >
+                <Button 
+                  onClick={handleSave}
+                  disabled={isProcessing || !activeVehicleId}
+                  loading={isProcessing}
+                  className={cn(
+                    "w-full h-14 font-bold text-lg rounded-2xl shadow-lg gap-2 transition-all",
+                    !activeVehicleId
+                      ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
+                      : saveStatus === 'success' 
+                        ? "bg-emerald-600" 
+                        : "bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
+                  )}
+                  style={activeVehicleId && saveStatus !== 'success' ? { 
+                    boxShadow: '0 0 25px rgba(16, 185, 129, 0.3)',
+                    filter: 'drop-shadow(0 0 10px rgba(16, 185, 129, 0.2))'
+                  } : {}}
+                >
+                  {isProcessing ? 'Processando...' : (
+                    <>
+                      <Save size={20} />
+                      Confirmar Ciclo
+                    </>
+                  )}
+                </Button>
+              </motion.div>
 
-          {saveStatus === 'error' && (
-            <p className="text-center text-xs font-bold text-red-400 animate-pulse">
-              Não foi possível salvar o fechamento. Tente novamente.
-            </p>
-          )}
-          
-          {saveStatus === 'success' && (
-            <p className="text-center text-xs font-bold text-emerald-400">
-              Fechamento salvo com sucesso! Redirecionando...
-            </p>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Mensagem explicativa de custo fixo quando não há faturamento */}
-      {(total === 0 || kmRideFinal === 0) && (
-        <motion.div 
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="p-3 rounded-xl bg-zinc-900/30 border border-zinc-800/50 flex items-center gap-3 mx-1"
-        >
-          <Info size={14} className="text-zinc-500 shrink-0" />
-          <p className="text-[9px] text-zinc-500 font-bold leading-tight uppercase tracking-wider">
-            Você ainda não registrou ganhos. Seu custo fixo diário já está sendo considerado.
-          </p>
-        </motion.div>
-      )}
-
-      <div className="flex items-center gap-3 p-4 bg-zinc-50 dark:bg-zinc-900/30 rounded-xl border border-zinc-100 dark:border-zinc-800/50 mx-1">
-        <AlertCircle size={16} className="text-zinc-400 shrink-0" />
-        <p className="text-[9px] text-zinc-500 font-bold leading-relaxed uppercase tracking-wider">
-          Insira o valor total bruto que aparece no aplicativo de cada plataforma no momento do seu fechamento.
-        </p>
+              {saveStatus === 'success' && (
+                <motion.p 
+                  initial={{ opacity: 0, y: 5 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="text-center text-[10px] font-bold text-emerald-400 uppercase tracking-widest"
+                >
+                  Sucesso! Redirecionando...
+                </motion.p>
+              )}
+            </CardContent>
+          </Card>
+        </div>
       </div>
     </motion.div>
   );
 };
 
 const SectionHeader = ({ icon: Icon, title }: any) => (
-  <div className="flex items-center gap-2 px-1">
-    <Icon size={14} className="text-emerald-500" />
-    <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">{title}</h3>
+  <div className="flex items-center gap-1.5 px-1">
+    <Icon size={12} className="text-emerald-500" />
+    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{title}</h3>
   </div>
 );
 
-const ExpenseInput = ({ icon: Icon, label, value, onChange }: any) => (
-  <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-    <CardContent className="p-3 flex items-center justify-between">
-      <div className="flex items-center gap-2">
-        <div className="w-7 h-7 rounded-lg bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-400">
-          <Icon size={14} />
-        </div>
-        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-      </div>
-      <div className="relative w-20">
-        <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-zinc-400">R$</span>
-        <input 
-          type="number"
-          value={value === 0 ? '' : value}
-          onChange={(e) => {
-            const val = e.target.value;
-            onChange(val === '' ? 0 : Number(val));
-          }}
-          placeholder="0,00"
-          className="w-full bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-lg py-2 pl-7 pr-2.5 text-right font-black text-xs focus:ring-1 focus:ring-emerald-500 transition-all"
-        />
-      </div>
-    </CardContent>
-  </Card>
-);
-
-const KmInput = ({ label, value, onChange }: any) => {
-  const displayValue = value !== undefined && value !== null && !isNaN(value) 
-    ? Number(parseFloat(value.toString()).toFixed(2)) 
-    : 0;
-
-  return (
-    <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-      <CardContent className="p-3 flex flex-col gap-1.5">
-        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-        <div className="relative">
-          <input 
-            type="number"
-            step="0.01"
-            value={displayValue === 0 ? '' : displayValue}
-            onChange={(e) => {
-              const val = e.target.value;
-              onChange(val === '' ? 0 : Number(val));
-            }}
-            placeholder="0"
-            className="w-full bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-lg py-2 pl-8 pr-2.5 text-right font-black text-xs focus:ring-1 focus:ring-emerald-500 transition-all"
-          />
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-zinc-400">KM</span>
-        </div>
-      </CardContent>
-    </Card>
-  );
-};
-
-const PlatformInput = ({ label, value, onChange, accent, isLast }: any) => {
+const PlatformInput = ({ label, value, onChange, onAdjust, accent, isLast }: any) => {
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState(value.toString());
+  const timerRef = useRef<any>(null);
+  const valueRef = useRef(value);
 
   useEffect(() => {
-    if (!isEditing) {
-      setTempValue(value.toString());
-    }
+    valueRef.current = value;
+    if (!isEditing) setTempValue(value.toString());
   }, [value, isEditing]);
 
   const handleBlur = () => {
@@ -482,26 +440,51 @@ const PlatformInput = ({ label, value, onChange, accent, isLast }: any) => {
     onChange(isNaN(num) ? 0 : num);
   };
 
+  const startAdjust = (delta: number) => {
+    // Initial click
+    onAdjust(delta);
+    
+    let count = 0;
+    timerRef.current = setInterval(() => {
+      count++;
+      // Accelerate after 8 ticks
+      const speed = count > 15 ? 10 : count > 8 ? 5 : 1;
+      for (let i = 0; i < speed; i++) {
+        onAdjust(delta);
+      }
+    }, 100);
+  };
+
+  const stopAdjust = () => {
+    if (timerRef.current) {
+      clearInterval(timerRef.current);
+      timerRef.current = null;
+    }
+  };
+
   return (
     <div className={cn(
-      "p-3 flex items-center justify-between gap-3 transition-all",
+      "px-4 py-3 flex items-center justify-between gap-3",
       !isLast && "border-b border-zinc-50 dark:border-zinc-800/50"
     )}>
-      <div className="flex items-center gap-2.5">
-        <div className={cn("w-1.5 h-1.5 rounded-full", accent)} />
-        <span className="font-black text-[11px] uppercase tracking-widest text-zinc-500">{label}</span>
+      <div className="flex items-center gap-3">
+        <div className={cn("w-2 h-2 rounded-full shadow-sm", accent)} />
+        <span className="font-bold text-xs text-zinc-700 dark:text-zinc-300">{label}</span>
       </div>
       
       <div className="flex items-center gap-2">
-        <button 
-          onClick={() => onChange(Math.max(0, value - 5))}
-          className="w-8 h-8 rounded-lg bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 active:scale-90 transition-all"
+        <motion.button 
+          whileTap={{ scale: 0.9 }}
+          onPointerDown={() => startAdjust(-5)}
+          onPointerUp={stopAdjust}
+          onPointerLeave={stopAdjust}
+          className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 transition-colors"
         >
-          <Minus size={14} />
-        </button>
+          <Minus size={16} />
+        </motion.button>
         
         <div className="relative w-24">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[9px] font-black text-zinc-400">R$</span>
+          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400">R$</span>
           <input 
             type="text"
             inputMode="decimal"
@@ -511,17 +494,111 @@ const PlatformInput = ({ label, value, onChange, accent, isLast }: any) => {
               if (!isEditing) setIsEditing(true);
             }}
             onBlur={handleBlur}
-            className="w-full bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-lg py-2 pl-7 pr-2.5 text-right font-black text-sm tracking-tight focus:ring-1 focus:ring-emerald-500 transition-all"
+            className="w-full bg-zinc-50 dark:bg-zinc-800/30 border-none rounded-xl py-2 pl-8 pr-3 text-right font-bold text-sm tracking-tight focus:ring-1 focus:ring-emerald-500 transition-all"
           />
         </div>
 
-        <button 
-          onClick={() => onChange(value + 5)}
-          className="w-8 h-8 rounded-lg bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:bg-zinc-100 dark:hover:bg-zinc-700 active:scale-90 transition-all"
+        <motion.button 
+          whileTap={{ scale: 0.9 }}
+          onPointerDown={() => startAdjust(5)}
+          onPointerUp={stopAdjust}
+          onPointerLeave={stopAdjust}
+          className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 transition-colors"
         >
-          <Plus size={14} />
-        </button>
+          <Plus size={16} />
+        </motion.button>
       </div>
     </div>
   );
 };
+
+const ExpenseRow = ({ icon: Icon, label, value, onChange, isLast }: any) => (
+  <div className={cn(
+    "px-4 py-3 flex items-center justify-between transition-colors",
+    !isLast && "border-b border-zinc-50 dark:border-zinc-800/50",
+    value > 0 && "bg-emerald-500/5"
+  )}>
+    <div className="flex items-center gap-3">
+      <div className={cn(
+        "w-8 h-8 rounded-xl flex items-center justify-center transition-colors",
+        value > 0 ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+      )}>
+        <Icon size={16} />
+      </div>
+      <span className={cn(
+        "text-xs font-bold transition-colors",
+        value > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-600 dark:text-zinc-400"
+      )}>{label}</span>
+    </div>
+    <div className="relative w-24">
+      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400">R$</span>
+      <input 
+        type="number"
+        value={value === 0 ? '' : value}
+        onChange={(e) => {
+          const val = e.target.value;
+          onChange(val === '' ? 0 : Number(val));
+        }}
+        placeholder="0,00"
+        className={cn(
+          "w-full bg-zinc-50 dark:bg-zinc-800/30 border-none rounded-xl py-2 pl-8 pr-3 text-right font-bold text-sm transition-all",
+          value > 0 ? "text-emerald-500" : "text-zinc-400"
+        )}
+      />
+    </div>
+  </div>
+);
+
+const KmCard = ({ label, value, onChange, isTracked }: any) => {
+  const displayValue = value !== undefined && value !== null && !isNaN(value) 
+    ? Number(parseFloat(value.toString()).toFixed(2)) 
+    : 0;
+
+  return (
+    <div className="bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 relative overflow-hidden group">
+      <div className="flex flex-col gap-1 relative z-10">
+        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{label}</span>
+        <div className="flex items-baseline gap-1">
+          <input 
+            type="number"
+            step="0.01"
+            value={displayValue === 0 ? '' : displayValue}
+            onChange={(e) => {
+              const val = e.target.value;
+              onChange(val === '' ? 0 : Number(val));
+            }}
+            placeholder="0"
+            className="w-full bg-transparent border-none p-0 text-xl font-bold tracking-tight text-zinc-900 dark:text-white focus:ring-0"
+          />
+          <span className="text-[10px] font-bold text-zinc-400">KM</span>
+        </div>
+      </div>
+      
+      <div className="absolute -right-2 -bottom-2 text-zinc-100 dark:text-zinc-800/20 group-focus-within:text-emerald-500/10 transition-colors">
+        <Navigation size={48} strokeWidth={1} />
+      </div>
+
+      {isTracked && (
+        <div className="absolute top-0 right-0 bg-emerald-500 text-zinc-950 text-[8px] font-bold px-2 py-0.5 rounded-bl-lg flex items-center gap-1 shadow-sm">
+          <div className="w-1 h-1 rounded-full bg-zinc-950 animate-pulse" />
+          GPS
+        </div>
+      )}
+    </div>
+  );
+};
+
+const KmCardMini = ({ label, value, onChange }: any) => (
+  <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded-xl border border-zinc-100 dark:border-zinc-800/50">
+    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">{label}</span>
+    <div className="flex items-baseline gap-1">
+      <input 
+        type="number"
+        value={value === 0 ? '' : value}
+        onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
+        className="w-full bg-transparent border-none p-0 text-sm font-bold text-zinc-600 dark:text-zinc-300 focus:ring-0"
+      />
+      <span className="text-[8px] font-bold text-zinc-500">KM</span>
+    </div>
+  </div>
+);

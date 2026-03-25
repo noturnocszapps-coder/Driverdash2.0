@@ -4,7 +4,7 @@ import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncManager } from './components/SyncManager';
 import { ReloadPrompt } from './ReloadPrompt';
 import { Footer } from './components/Footer';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { supabase, isSupabaseConfigured, clearInvalidSessionData } from './lib/supabase';
 import { useDriverStore } from './store';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { lazyWithRetry } from './lib/lazyWithRetry';
@@ -329,7 +329,16 @@ export default function App() {
       try {
         const {
           data: { session },
+          error
         } = await supabase.auth.getSession();
+
+        if (error) {
+          if (error.message.includes('Refresh Token Not Found') || error.message.includes('Invalid Refresh Token')) {
+            await clearInvalidSessionData();
+            return;
+          }
+          throw error;
+        }
 
         if (session?.user) {
           setUser({
@@ -353,7 +362,11 @@ export default function App() {
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_OUT') {
+        useDriverStore.getState().resetStore();
+      }
+
       if (session?.user) {
         setUser({
           id: session.user.id,
