@@ -2,6 +2,7 @@ import React, { useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncManager } from './components/SyncManager';
+import { ReloadPrompt } from './ReloadPrompt';
 import { Footer } from './components/Footer';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { useDriverStore } from './store';
@@ -376,6 +377,7 @@ export default function App() {
   return (
     <Router>
       <Toaster position="top-center" richColors />
+      <ReloadPrompt />
       <SyncManager />
       <AppRoutes />
     </Router>

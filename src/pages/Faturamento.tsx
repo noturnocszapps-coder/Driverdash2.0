@@ -63,6 +63,7 @@ export const Faturamento = () => {
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   useEffect(() => {
+    console.log("[Fechamento] Versão v2.1 carregada");
     if (openCycle) {
       setAmounts({
         uber: openCycle.uber_amount || 0,
@@ -176,7 +177,10 @@ export const Faturamento = () => {
           </button>
           <div>
             <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-0">Lançamento</p>
-            <h1 className="text-xl font-black tracking-tighter">Fechamento do Ciclo</h1>
+            <div className="flex items-center gap-2">
+              <h1 className="text-xl font-black tracking-tighter">Fechamento do Ciclo</h1>
+              <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 font-black uppercase tracking-widest">v2.1</span>
+            </div>
           </div>
         </div>
         <SyncIndicator />
