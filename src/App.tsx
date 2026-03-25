@@ -312,7 +312,7 @@ function AppRoutes() {
 import { Toaster } from 'sonner';
 
 export default function App() {
-  const { setUser, setSyncStatus, initVehicle } = useDriverStore();
+  const { setUser, setSyncStatus, initVehicle, hasSynced, user } = useDriverStore();
   const [isAuthReady, setIsAuthReady] = React.useState(false);
 
   useEffect(() => {
@@ -372,7 +372,9 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [setUser, setSyncStatus]);
 
-  if (!isAuthReady) return <PageLoader />;
+  // Block rendering until auth is ready AND initial sync is done (if user is logged in)
+  // This prevents showing "dirty" data from a previous user session
+  if (!isAuthReady || (user && !hasSynced)) return <PageLoader />;
 
   return (
     <Router>

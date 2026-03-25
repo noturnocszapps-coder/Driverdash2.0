@@ -19,6 +19,47 @@ const TRACKING_CONFIG = {
   SPEED_BUFFER_SIZE: 5, // Média móvel de 5 pontos
 };
 
+const INITIAL_SETTINGS: UserSettings = {
+  dailyGoal: 250,
+  name: 'Motorista',
+  vehicle: 'Veículo Padrão',
+  avgRideValue: 15,
+  avgRideKm: 5,
+  kmPerLiter: 10,
+  fuelPrice: 5.80,
+  activePlatforms: ['uber_car'],
+  transportMode: 'car',
+  dashboardMode: 'merged',
+  theme: 'dark',
+  photoUrl: undefined,
+  fixedCosts: {
+    vehicleType: 'owned',
+  },
+  currentVehicleProfileId: undefined,
+};
+
+const INITIAL_TRACKING = {
+  isActive: false,
+  isLoading: false,
+  distance: 0,
+  productiveDistance: 0,
+  idleDistance: 0,
+  isProductive: false,
+  isManualOverride: false,
+  avgSpeed: 0,
+  currentSmoothedSpeed: 0,
+  speedBuffer: [],
+  duration: 0,
+  movingTime: 0,
+  stoppedTime: 0,
+  points: [],
+  segments: [],
+  consecutiveMovingPoints: 0,
+  consecutiveStoppedPoints: 0,
+  mode: 'stopped' as const,
+  tripDetectionState: 'idle' as const
+};
+
 const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
 
 export const useDriverStore = create<DriverState>()(
@@ -39,55 +80,49 @@ export const useDriverStore = create<DriverState>()(
       importedReports: [],
       vehicles: [],
       activeVehicleId: undefined,
-      settings: {
-        dailyGoal: 250,
-        name: 'Motorista',
-        vehicle: 'Veículo Padrão',
-        avgRideValue: 15,
-        avgRideKm: 5,
-        kmPerLiter: 10,
-        fuelPrice: 5.80,
-        activePlatforms: ['uber_car'],
-        transportMode: 'car',
-        dashboardMode: 'merged',
-        theme: 'dark',
-        photoUrl: undefined,
-        fixedCosts: {
-          vehicleType: 'owned',
-        },
-        currentVehicleProfileId: undefined,
-      },
-      tracking: {
-        isActive: false,
-        isLoading: false,
-        distance: 0,
-        productiveDistance: 0,
-        idleDistance: 0,
-        isProductive: false,
-        isManualOverride: false,
-        avgSpeed: 0,
-        currentSmoothedSpeed: 0,
-        speedBuffer: [],
-        duration: 0,
-        movingTime: 0,
-        stoppedTime: 0,
-        points: [],
-        segments: [],
-        consecutiveMovingPoints: 0,
-        consecutiveStoppedPoints: 0,
-        mode: 'stopped',
-        tripDetectionState: 'idle'
-      },
+      settings: INITIAL_SETTINGS,
+      tracking: INITIAL_TRACKING,
       isSaving: false,
       setUser: (user) => {
         const currentUser = get().user;
+        
+        // If logging out or switching users, reset the store
+        if (!user || (currentUser && user.id !== currentUser.id)) {
+          console.log('[STORE] User changed or logout, resetting store...');
+          get().resetStore();
+        }
+
         set({ user });
         
-        // If user just logged in or changed, or if we haven't synced yet, trigger a full sync
+        // If user just logged in or changed, trigger a full sync
         if (user && (user.id !== currentUser?.id || !get().hasSynced)) {
           console.log('[SYNC] User active, triggering initial sync...');
           get().syncData();
         }
+      },
+      resetStore: () => {
+        // Clear local storage keys that might leak between users
+        localStorage.removeItem(ACTIVE_VEHICLE_KEY);
+        
+        set({
+          syncStatus: 'idle',
+          lastSyncTime: null,
+          syncError: null,
+          hasSynced: false,
+          rides: [],
+          workLogs: [],
+          faturamentoLogs: [],
+          cycles: [],
+          expenses: [],
+          fuelings: [],
+          maintenances: [],
+          importedReports: [],
+          vehicles: [],
+          activeVehicleId: undefined,
+          settings: INITIAL_SETTINGS,
+          tracking: INITIAL_TRACKING,
+          isSaving: false
+        });
       },
       setSyncStatus: (syncStatus) => set({ syncStatus }),
       
@@ -224,7 +259,8 @@ export const useDriverStore = create<DriverState>()(
             const { error } = await supabase
               .from('cycles')
               .update({ status: 'closed', end_time: endTime })
-              .eq('id', id);
+              .eq('id', id)
+              .eq('user_id', user.id);
             if (error) console.error('[Store] Sync error (close cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             
@@ -326,7 +362,8 @@ export const useDriverStore = create<DriverState>()(
                 end_time: cycle.end_time,
                 status: cycle.status
               })
-              .eq('id', id);
+              .eq('id', id)
+              .eq('user_id', user.id);
             if (error) console.error('[Store] Sync error (update cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             
@@ -583,7 +620,7 @@ export const useDriverStore = create<DriverState>()(
 
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
-            const { error } = await supabase.from('cycles').delete().eq('id', id);
+            const { error } = await supabase.from('cycles').delete().eq('id', id).eq('user_id', user.id);
             if (error) console.error('[Store] Sync error (delete cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
@@ -607,7 +644,7 @@ export const useDriverStore = create<DriverState>()(
 
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
-            const { error } = await supabase.from('imported_reports').delete().eq('id', id);
+            const { error } = await supabase.from('imported_reports').delete().eq('id', id).eq('user_id', user.id);
             if (error) console.error('[Store] Sync error (delete imported report):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
@@ -737,7 +774,7 @@ export const useDriverStore = create<DriverState>()(
             if (updates.fixedCosts.rentalValue !== undefined) dbUpdates.rental_value = updates.fixedCosts.rentalValue;
           }
 
-          const { error } = await supabase.from('vehicles').update(dbUpdates).eq('id', id);
+          const { error } = await supabase.from('vehicles').update(dbUpdates).eq('id', id).eq('user_id', user.id);
           if (error) throw error;
 
           set((state) => ({
@@ -757,7 +794,7 @@ export const useDriverStore = create<DriverState>()(
         
         set({ isSaving: true });
         try {
-          const { error } = await supabase.from('vehicles').delete().eq('id', id);
+          const { error } = await supabase.from('vehicles').delete().eq('id', id).eq('user_id', user.id);
           if (error) throw error;
 
           set((state) => ({
@@ -1813,7 +1850,10 @@ export const useDriverStore = create<DriverState>()(
           }, 3000);
         } catch (error: any) {
           console.error('[SYNC] error:', error);
-          set({ syncError: error.message || 'Erro desconhecido' });
+          set({ 
+            syncError: error.message || 'Erro desconhecido',
+            hasSynced: true // Allow user to enter app even if sync fails (e.g. offline)
+          });
           setSyncStatus('offline');
         } finally {
           set({ isSaving: false });

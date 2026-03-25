@@ -372,6 +372,7 @@ export interface DriverState {
     faturamentoLogs?: FaturamentoLog[]
   }) => void;
   syncData: () => Promise<void>;
+  resetStore: () => void;
   clearData: () => void;
   clearCloudData: () => Promise<{ success: boolean; error?: any }>;
 }
