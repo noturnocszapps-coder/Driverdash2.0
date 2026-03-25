@@ -1137,18 +1137,38 @@ export const useDriverStore = create<DriverState>()(
             }
 
             let speedKmh = 0;
-            if (position.coords.speed !== null && position.coords.speed !== undefined) {
-              speedKmh = position.coords.speed * 3.6;
+            const rawSpeed = position.coords.speed;
+            
+            if (rawSpeed !== null && rawSpeed !== undefined && rawSpeed >= 0 && Number.isFinite(rawSpeed)) {
+              // 1. USAR COORDS.SPEED QUANDO DISPONÍVEL
+              speedKmh = rawSpeed * 3.6;
             } else if (lastPoint) {
+              // 2. FALLBACK POR DISTÂNCIA/TEMPO (HAVERSINE)
               const dist = calculateDistance(lastPoint.lat, lastPoint.lng, latitude, longitude);
-              const timeDiff = Math.max(1, (timestamp - lastPoint.timestamp) / 1000);
-              speedKmh = (dist / timeDiff) * 3600;
+              const timeDiffMs = timestamp - lastPoint.timestamp;
+              
+              // Proteger contra divisão por zero e timestamps duplicados
+              if (timeDiffMs > 100) {
+                const timeDiffSec = timeDiffMs / 1000;
+                speedKmh = (dist / timeDiffSec) * 3600;
+              } else {
+                speedKmh = lastPoint.speed || 0;
+              }
             }
 
-            // Ignorar velocidades absurdas
-            if (!Number.isFinite(speedKmh) || speedKmh > TRACKING_CONFIG.MAX_SPEED_NOISE) {
-              console.log('[TRACKING] ponto ignorado: velocidade absurda', speedKmh);
+            // 3. PROTEÇÃO E FILTROS DE QUALIDADE
+            // Garantir que é um número seguro
+            speedKmh = safeNumber(speedKmh);
+
+            // Descartar velocidades absurdas (> 160 km/h)
+            if (speedKmh > TRACKING_CONFIG.MAX_SPEED_NOISE) {
+              console.log('[TRACKING] velocidade ignorada: absurda', speedKmh);
               return;
+            }
+
+            // Considerar parado se < 3 km/h (Filtro de Drift)
+            if (speedKmh < TRACKING_CONFIG.MIN_SPEED_STOP) {
+              speedKmh = 0;
             }
 
             // Ignorar pontos quase duplicados (tempo < 500ms)
@@ -1156,11 +1176,17 @@ export const useDriverStore = create<DriverState>()(
               return;
             }
 
-            // 6. VELOCIDADE MÉDIA SUAVIZADA
+            // 4. SUAVIZAÇÃO POR MÉDIA MÓVEL (3-5 pontos)
             const newSpeedBuffer = [...currentTracking.speedBuffer, speedKmh].slice(-TRACKING_CONFIG.SPEED_BUFFER_SIZE);
-            const smoothedSpeed = newSpeedBuffer.reduce((a, b) => a + b, 0) / newSpeedBuffer.length;
+            let smoothedSpeed = newSpeedBuffer.reduce((a, b) => a + b, 0) / newSpeedBuffer.length;
             
-            console.log(`[TRACKING] ponto recebido: lat=${latitude}, lng=${longitude}, smoothedSpeed=${smoothedSpeed.toFixed(1)}km/h, accuracy=${accuracy?.toFixed(1)}m`);
+            // Estabilidade visual: se a média for muito baixa, forçar zero
+            if (smoothedSpeed < 1.5) smoothedSpeed = 0;
+            
+            // Garantir que smoothedSpeed é um número válido
+            smoothedSpeed = safeNumber(smoothedSpeed);
+            
+            console.log(`[TRACKING] velocidade: raw=${speedKmh.toFixed(1)}km/h, smoothed=${smoothedSpeed.toFixed(1)}km/h`);
 
             const newPoint = { 
               lat: latitude, 

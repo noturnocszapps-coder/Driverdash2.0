@@ -80,11 +80,19 @@ export const TripControl = () => {
               </span>
             </div>
             <div className="w-px h-4 bg-zinc-800 mx-1" />
-            <div className="flex items-center gap-2">
-              <span className="text-xs font-black text-white tabular-nums">
+            <div className="flex items-center gap-1.5">
+              <span className={cn(
+                "text-2xl font-black tabular-nums transition-colors duration-500 tracking-tighter",
+                tracking.currentSmoothedSpeed > 20 ? "text-emerald-500" :
+                tracking.currentSmoothedSpeed > 5 ? "text-amber-400" :
+                "text-zinc-500"
+              )}>
                 {tracking.currentSmoothedSpeed.toFixed(0)}
               </span>
-              <span className="text-[8px] font-bold text-zinc-500 uppercase">km/h</span>
+              <div className="flex flex-col -space-y-1">
+                <span className="text-[8px] font-black text-zinc-500 uppercase tracking-tighter">km/h</span>
+                <span className="text-[6px] font-bold text-zinc-600 uppercase tracking-[0.1em]">Real</span>
+              </div>
             </div>
           </motion.div>
         </AnimatePresence>
