@@ -160,7 +160,8 @@ export const Faturamento = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-4 pb-28 md:pb-8 max-w-lg mx-auto"
+      className="min-h-screen overflow-y-auto space-y-4 max-w-lg mx-auto"
+      style={{ paddingBottom: 'calc(120px + env(safe-area-inset-bottom))' }}
     >
       {/* HEADER PREMIUM & COMPACTO */}
       <header className="flex items-center justify-between px-2 pt-2">
@@ -349,8 +350,8 @@ export const Faturamento = () => {
         </div>
       </div>
 
-      {/* CARD FINAL - FOCO TOTAL */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-zinc-950 via-zinc-950/80 to-transparent pt-12 z-50">
+      {/* CARD FINAL - FLUXO NORMAL */}
+      <div className="w-full px-2 pt-4 h-auto">
         <div className="max-w-lg mx-auto">
           <Card className="bg-zinc-900 text-white border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden">
             <CardContent className="p-5 space-y-4">
