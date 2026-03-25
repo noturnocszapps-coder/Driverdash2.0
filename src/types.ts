@@ -343,6 +343,7 @@ export interface DriverState {
   addFueling: (fueling: Omit<Fueling, 'id'>) => Promise<void>;
   addMaintenance: (maintenance: Omit<Maintenance, 'id'>) => Promise<void>;
   addImportedReport: (report: Omit<ImportedReport, 'id' | 'user_id' | 'imported_at'>) => Promise<void>;
+  addFaturamentoLog: (log: Omit<FaturamentoLog, 'id' | 'user_id'>) => Promise<void>;
   deleteCycle: (id: string) => Promise<void>;
   deleteImportedReport: (id: string) => Promise<void>;
   
@@ -360,7 +361,16 @@ export interface DriverState {
   stopTracking: () => Promise<void>;
   startTrip: () => void;
   endTrip: () => void;
-  importData: (data: { cycles?: Cycle[], expenses?: Expense[], fuelings?: Fueling[], maintenances?: Maintenance[], settings?: Partial<UserSettings>, importedReports?: ImportedReport[], vehicles?: VehicleProfile[] }) => void;
+  importData: (data: { 
+    cycles?: Cycle[], 
+    expenses?: Expense[], 
+    fuelings?: Fueling[], 
+    maintenances?: Maintenance[], 
+    settings?: Partial<UserSettings>, 
+    importedReports?: ImportedReport[], 
+    vehicles?: VehicleProfile[],
+    faturamentoLogs?: FaturamentoLog[]
+  }) => void;
   syncData: () => Promise<void>;
   clearData: () => void;
   clearCloudData: () => Promise<{ success: boolean; error?: any }>;
