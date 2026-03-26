@@ -102,3 +102,32 @@ export const Select = ({ className, children, value, ...props }: React.SelectHTM
     {children}
   </select>
 );
+
+import * as DropdownMenuPrimitive from "@radix-ui/react-dropdown-menu";
+
+export const DropdownMenu = DropdownMenuPrimitive.Root;
+export const DropdownMenuTrigger = DropdownMenuPrimitive.Trigger;
+export const DropdownMenuContent = ({ children, className, ...props }: any) => (
+  <DropdownMenuPrimitive.Portal>
+    <DropdownMenuPrimitive.Content
+      className={cn(
+        "z-50 min-w-[8rem] overflow-hidden rounded-xl border border-zinc-200 bg-white p-1 text-zinc-950 shadow-md animate-in fade-in-80 data-[side=bottom]:slide-in-from-top-2 data-[side=left]:slide-in-from-right-2 data-[side=right]:slide-in-from-left-2 data-[side=top]:slide-in-from-bottom-2 dark:border-zinc-800 dark:bg-zinc-900 dark:text-zinc-50",
+        className
+      )}
+      {...props}
+    >
+      {children}
+    </DropdownMenuPrimitive.Content>
+  </DropdownMenuPrimitive.Portal>
+);
+export const DropdownMenuItem = ({ children, className, ...props }: any) => (
+  <DropdownMenuPrimitive.Item
+    className={cn(
+      "relative flex cursor-default select-none items-center rounded-lg px-2 py-1.5 text-sm outline-none transition-colors focus:bg-zinc-100 focus:text-zinc-900 data-[disabled]:pointer-events-none data-[disabled]:opacity-50 dark:focus:bg-zinc-800 dark:focus:text-zinc-50",
+      className
+    )}
+    {...props}
+  >
+    {children}
+  </DropdownMenuPrimitive.Item>
+);

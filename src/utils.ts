@@ -13,7 +13,8 @@ export function safeNumber(value: any, fallback = 0): number {
   return Number(value);
 }
 
-export function formatCurrency(value: number) {
+export function formatCurrency(value: number, isPrivacyMode: boolean = false) {
+  if (isPrivacyMode) return 'R$ ••••';
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',

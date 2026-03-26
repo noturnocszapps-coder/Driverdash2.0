@@ -194,6 +194,8 @@ export interface UserSettings {
   theme?: 'dark' | 'light' | 'system';
   photoUrl?: string;
   currentVehicleProfileId?: string;
+  isPrivacyMode?: boolean;
+  keepScreenOn?: boolean;
   updated_at?: string;
 }
 
@@ -311,6 +313,19 @@ export interface ImportedReport {
   updated_at?: string;
 }
 
+export interface FinancialEntry {
+  id: string;
+  cycle_id: string;
+  user_id: string;
+  platform: 'uber' | 'noventanove' | 'indriver' | 'extra';
+  value: number;
+  timestamp: string;
+  origin: string;
+  note?: string;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface DriverState {
   user: AuthUser | null;
   syncStatus: SyncStatus;
@@ -330,6 +345,12 @@ export interface DriverState {
   tracking: TrackingSession;
   activeVehicleId: string | undefined;
   isSaving: boolean;
+  financialEntries: FinancialEntry[];
+  addFinancialEntry: (entry: Omit<FinancialEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
+  updateFinancialEntry: (id: string, data: Partial<FinancialEntry>) => Promise<void>;
+  deleteFinancialEntry: (id: string) => Promise<void>;
+  loadFinancialEntries: () => Promise<void>;
+
   setUser: (user: AuthUser | null) => void;
   setSyncStatus: (status: SyncStatus) => void;
   
@@ -371,7 +392,8 @@ export interface DriverState {
     settings?: Partial<UserSettings>, 
     importedReports?: ImportedReport[], 
     vehicles?: VehicleProfile[],
-    faturamentoLogs?: FaturamentoLog[]
+    faturamentoLogs?: FaturamentoLog[],
+    financialEntries?: FinancialEntry[]
   }) => void;
   syncData: () => Promise<void>;
   resetStore: () => void;

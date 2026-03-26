@@ -8,35 +8,57 @@ import { motion, AnimatePresence } from 'motion/react';
 interface QuickEntryModalProps {
   isOpen: boolean;
   onClose: () => void;
+  editEntry?: any; // Using any for now to avoid circular dependency or just use FinancialEntry if imported
 }
 
-export const QuickEntryModal = ({ isOpen, onClose }: QuickEntryModalProps) => {
-  const { cycles, addCycleAmount, startCycle, isSaving } = useDriverStore();
+export const QuickEntryModal = ({ isOpen, onClose, editEntry }: QuickEntryModalProps) => {
+  const { cycles, addFinancialEntry, updateFinancialEntry, startCycle, isSaving } = useDriverStore();
   const [amount, setAmount] = useState('');
   const [platform, setPlatform] = useState<'uber' | 'noventanove' | 'indriver' | 'extra'>('uber');
   const [note, setNote] = useState('');
 
-  // Reset state when opening
+  // Reset state when opening or editing
   useEffect(() => {
     if (isOpen) {
-      setAmount('');
-      setNote('');
+      if (editEntry) {
+        setAmount(editEntry.value.toString().replace('.', ','));
+        setPlatform(editEntry.platform === '99' ? 'noventanove' : editEntry.platform);
+        setNote(editEntry.origin || '');
+      } else {
+        setAmount('');
+        setNote('');
+        setPlatform('uber');
+      }
     }
-  }, [isOpen]);
+  }, [isOpen, editEntry]);
 
   const handleSave = async () => {
     if (isSaving) return;
     const value = parseFloat(amount.replace(',', '.'));
     if (isNaN(value) || value <= 0) return;
 
-    let openCycle = cycles.find(c => c.status === 'open');
-    let cycleId = openCycle?.id;
+    if (editEntry) {
+      await updateFinancialEntry(editEntry.id, {
+        platform,
+        value,
+        origin: note
+      });
+    } else {
+      let openCycle = cycles.find(c => c.status === 'open');
+      let cycleId = openCycle?.id;
 
-    if (!cycleId) {
-      cycleId = await startCycle();
+      if (!cycleId) {
+        cycleId = await startCycle();
+      }
+
+      await addFinancialEntry({
+        cycle_id: cycleId,
+        platform,
+        value,
+        timestamp: new Date().toISOString(),
+        origin: note || 'manual'
+      });
     }
-
-    addCycleAmount(cycleId, platform, value);
     onClose();
   };
 
@@ -69,7 +91,7 @@ export const QuickEntryModal = ({ isOpen, onClose }: QuickEntryModalProps) => {
                   <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
                     <Zap size={20} />
                   </div>
-                  <h3 className="text-xl font-black tracking-tight">Lançamento Rápido</h3>
+                  <h3 className="text-xl font-black tracking-tight">{editEntry ? 'Editar Lançamento' : 'Lançamento Rápido'}</h3>
                 </div>
                 <button 
                   onClick={onClose} 

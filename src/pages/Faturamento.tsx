@@ -161,7 +161,7 @@ export const Faturamento = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="min-h-screen overflow-y-auto space-y-4 max-w-lg mx-auto"
-      style={{ paddingBottom: 'calc(120px + env(safe-area-inset-bottom))' }}
+      style={{ paddingBottom: 'calc(180px + env(safe-area-inset-bottom))' }}
     >
       {/* HEADER PREMIUM & COMPACTO */}
       <header className="flex items-center justify-between px-2 pt-2">
@@ -337,7 +337,7 @@ export const Faturamento = () => {
             <div className="p-3 rounded-xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/50 flex items-center gap-3">
               <Info size={14} className="text-zinc-400 shrink-0" />
               <p className="text-[9px] text-zinc-500 font-medium leading-tight uppercase tracking-wider">
-                Sem ganhos registrados. O custo fixo diário ({formatCurrency(dailyFixed)}) está sendo aplicado.
+                Sem ganhos registrados. O custo fixo diário ({formatCurrency(dailyFixed, settings.isPrivacyMode)}) está sendo aplicado.
               </p>
             </div>
           )}
@@ -358,7 +358,7 @@ export const Faturamento = () => {
               <div className="flex justify-between items-end">
                 <div className="space-y-0.5">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Total Bruto</p>
-                  <p className="text-2xl font-bold tracking-tight">{formatCurrency(total)}</p>
+                  <p className="text-2xl font-bold tracking-tight">{formatCurrency(total, settings.isPrivacyMode)}</p>
                 </div>
                 <div className="text-right space-y-0.5">
                   <p className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Lucro Líquido</p>
@@ -366,7 +366,7 @@ export const Faturamento = () => {
                     "text-2xl font-bold tracking-tight",
                     estimatedProfit >= 0 ? "text-emerald-400" : "text-red-400"
                   )}>
-                    {formatCurrency(estimatedProfit)}
+                    {formatCurrency(estimatedProfit, settings.isPrivacyMode)}
                   </p>
                 </div>
               </div>

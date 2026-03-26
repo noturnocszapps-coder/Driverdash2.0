@@ -233,7 +233,7 @@ export const Reports = () => {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 pb-24 md:pb-8"
+      className="space-y-6 pb-48 md:pb-8"
     >
       <header className="flex justify-between items-center px-1">
         <div>
@@ -325,7 +325,7 @@ export const Reports = () => {
               <div className="space-y-1">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Média Lucro/KM</p>
                 <p className="text-sm font-black text-blue-400">
-                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : `${formatCurrency(aiIntelligence.avgProfitPerKm)}/km`}
+                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : `${formatCurrency(aiIntelligence.avgProfitPerKm, settings.isPrivacyMode)}/km`}
                 </p>
               </div>
               <div className="space-y-1">
@@ -410,12 +410,12 @@ export const Reports = () => {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
         <SummaryCard 
           label="Faturado" 
-          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.total)} 
+          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.total, settings.isPrivacyMode)} 
           color="text-zinc-900 dark:text-white" 
         />
         <SummaryCard 
           label="Lucro Total" 
-          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.totalProfit)} 
+          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.totalProfit, settings.isPrivacyMode)} 
           color="text-emerald-500" 
         />
         <SummaryCard 
@@ -435,17 +435,17 @@ export const Reports = () => {
         <SummaryCard label="KM Ocioso" value={formatKm(stats.totalIdleKm)} color="text-zinc-400" />
         <SummaryCard 
           label="R$ Perdido" 
-          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.totalLostRevenue)} 
+          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.totalLostRevenue, settings.isPrivacyMode)} 
           color="text-amber-500" 
         />
         <SummaryCard 
           label="R$/KM Bruto" 
-          value={stats.maturity.status === 'coletando' ? '--' : formatCurrency(stats.grossPerKm)} 
+          value={stats.maturity.status === 'coletando' ? '--' : formatCurrency(stats.grossPerKm, settings.isPrivacyMode)} 
           color="text-zinc-500" 
         />
         <SummaryCard 
           label="R$/KM Líquido" 
-          value={stats.maturity.status === 'coletando' ? '--' : formatCurrency(stats.netPerKm)} 
+          value={stats.maturity.status === 'coletando' ? '--' : formatCurrency(stats.netPerKm, settings.isPrivacyMode)} 
           color="text-zinc-500" 
         />
       </div>
@@ -490,7 +490,7 @@ export const Reports = () => {
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{day.fullName}</p>
                     <p className="text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                      O valor manual ({formatCurrency(day.value)}) difere do print ({formatCurrency(day.importedTotal)}).
+                      O valor manual ({formatCurrency(day.value, settings.isPrivacyMode)}) difere do print ({formatCurrency(day.importedTotal, settings.isPrivacyMode)}).
                     </p>
                   </div>
                   <Button 
@@ -542,15 +542,15 @@ export const Reports = () => {
                       return (
                         <div className="bg-zinc-950 border border-white/5 p-4 rounded-2xl shadow-2xl space-y-3 min-w-[160px]">
                           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{data.fullName}</p>
-                          <p className="text-xl font-black text-white">{formatCurrency(data.value)}</p>
+                          <p className="text-xl font-black text-white">{formatCurrency(data.value, settings.isPrivacyMode)}</p>
                           <div className="space-y-2 pt-2 border-t border-white/5">
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-zinc-500 uppercase">Lucro</span>
-                              <span className="text-emerald-400">{formatCurrency(data.profit)}</span>
+                              <span className="text-emerald-400">{formatCurrency(data.profit, settings.isPrivacyMode)}</span>
                             </div>
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-zinc-500 uppercase">Despesas</span>
-                              <span className="text-red-400">{formatCurrency(data.expenses)}</span>
+                              <span className="text-red-400">{formatCurrency(data.expenses, settings.isPrivacyMode)}</span>
                             </div>
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-zinc-500 uppercase">KM Total</span>
@@ -558,7 +558,7 @@ export const Reports = () => {
                             </div>
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-zinc-500 uppercase">R$/KM Bruto</span>
-                              <span className="text-zinc-300">{formatCurrency(data.grossPerKm)}</span>
+                              <span className="text-zinc-300">{formatCurrency(data.grossPerKm, settings.isPrivacyMode)}</span>
                             </div>
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-zinc-500 uppercase">Eficiência</span>
@@ -566,18 +566,18 @@ export const Reports = () => {
                             </div>
                             <div className="flex justify-between items-center text-[9px] font-bold">
                               <span className="text-zinc-500 uppercase">Lucro/KM Real</span>
-                              <span className="text-emerald-400">{formatCurrency(data.profitPerProductiveKm)}</span>
+                              <span className="text-emerald-400">{formatCurrency(data.profitPerProductiveKm, settings.isPrivacyMode)}</span>
                             </div>
                             {data.hasMismatch && (
                               <div className="flex justify-between items-center text-[9px] font-bold text-amber-400 pt-1 border-t border-white/5">
                                 <span className="uppercase">Diferença Print</span>
-                                <span>{formatCurrency(data.value - data.importedTotal)}</span>
+                                <span>{formatCurrency(data.value - data.importedTotal, settings.isPrivacyMode)}</span>
                               </div>
                             )}
                             <div className="pt-1" />
-                            <TooltipItem label="Uber" value={data.uber} color="bg-white" />
-                            <TooltipItem label="99" value={data.noventanove} color="bg-yellow-500" />
-                            <TooltipItem label="inDrive" value={data.indriver} color="bg-emerald-500" />
+                            <TooltipItem label="Uber" value={data.uber} color="bg-white" isPrivacyMode={settings.isPrivacyMode} />
+                            <TooltipItem label="99" value={data.noventanove} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
+                            <TooltipItem label="inDrive" value={data.indriver} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
                           </div>
                         </div>
                       );
@@ -622,10 +622,10 @@ export const Reports = () => {
           </div>
           
           <div className="space-y-5">
-            <PlatformRow label="Uber" value={stats.platformTotals.uber} total={stats.total} color="bg-zinc-900 dark:bg-white" />
-            <PlatformRow label="99" value={stats.platformTotals.noventanove} total={stats.total} color="bg-yellow-500" />
-            <PlatformRow label="inDrive" value={stats.platformTotals.indriver} total={stats.total} color="bg-emerald-500" />
-            <PlatformRow label="Extra / Outros" value={stats.platformTotals.extra} total={stats.total} color="bg-blue-500" />
+            <PlatformRow label="Uber" value={stats.platformTotals.uber} total={stats.total} color="bg-zinc-900 dark:bg-white" isPrivacyMode={settings.isPrivacyMode} />
+            <PlatformRow label="99" value={stats.platformTotals.noventanove} total={stats.total} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
+            <PlatformRow label="inDrive" value={stats.platformTotals.indriver} total={stats.total} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
+            <PlatformRow label="Extra / Outros" value={stats.platformTotals.extra} total={stats.total} color="bg-blue-500" isPrivacyMode={settings.isPrivacyMode} />
           </div>
         </CardContent>
       </Card>
@@ -666,7 +666,7 @@ export const Reports = () => {
                   <div className="h-8 w-px bg-zinc-100 dark:bg-zinc-800" />
                   <div>
                     <div className="flex items-center gap-2">
-                      <p className="text-sm font-black tracking-tight">{formatCurrency(day.totalRevenue)}</p>
+                      <p className="text-sm font-black tracking-tight">{formatCurrency(day.totalRevenue, settings.isPrivacyMode)}</p>
                       {day.hasMismatch && (
                         <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-[8px] font-black uppercase text-amber-400">
                           <AlertCircle size={8} />
@@ -684,7 +684,7 @@ export const Reports = () => {
                     </p>
                     <div className="flex items-center gap-2 mt-1">
                       <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">
-                        Lucro: {formatCurrency(day.profit)}
+                        Lucro: {formatCurrency(day.profit, settings.isPrivacyMode)}
                       </span>
                     </div>
                   </div>
@@ -731,7 +731,7 @@ export const Reports = () => {
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <p className="text-sm font-black tracking-tight">{formatCurrency(report.total_earnings)}</p>
+                          <p className="text-sm font-black tracking-tight">{formatCurrency(report.total_earnings, settings.isPrivacyMode)}</p>
                           <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[8px] font-black uppercase text-zinc-500">
                             {report.platform}
                           </span>
@@ -839,14 +839,14 @@ const SummaryCard = ({ label, value, color }: any) => (
   </Card>
 );
 
-const PlatformRow = ({ label, value, total, color }: any) => {
+const PlatformRow = ({ label, value, total, color, isPrivacyMode }: any) => {
   const percent = total > 0 ? (value / total) * 100 : 0;
   return (
     <div className="space-y-2">
       <div className="flex justify-between items-end">
         <span className="text-[10px] font-black text-zinc-400 uppercase tracking-wider">{label}</span>
         <div className="text-right">
-          <span className="text-sm font-black tracking-tight">{formatCurrency(value)}</span>
+          <span className="text-sm font-black tracking-tight">{formatCurrency(value, isPrivacyMode)}</span>
           <span className="text-[10px] text-zinc-400 ml-2 font-black">{percent.toFixed(0)}%</span>
         </div>
       </div>
@@ -861,12 +861,12 @@ const PlatformRow = ({ label, value, total, color }: any) => {
   );
 };
 
-const TooltipItem = ({ label, value, color }: any) => (
+const TooltipItem = ({ label, value, color, isPrivacyMode }: any) => (
   <div className="flex items-center justify-between gap-4">
     <div className="flex items-center gap-1.5">
       <div className={cn("w-1.5 h-1.5 rounded-full", color)} />
       <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">{label}</span>
     </div>
-    <span className="text-[10px] font-black text-white">{formatCurrency(value)}</span>
+    <span className="text-[10px] font-black text-white">{formatCurrency(value, isPrivacyMode)}</span>
   </div>
 );

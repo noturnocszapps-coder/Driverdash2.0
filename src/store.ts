@@ -35,6 +35,8 @@ const INITIAL_SETTINGS: UserSettings = {
   dashboardMode: 'merged',
   theme: 'dark',
   photoUrl: undefined,
+  isPrivacyMode: false,
+  keepScreenOn: false,
   fixedCosts: {
     vehicleType: 'owned',
   },
@@ -87,6 +89,7 @@ export const useDriverStore = create<DriverState>()(
       activeVehicleId: undefined,
       settings: INITIAL_SETTINGS,
       tracking: INITIAL_TRACKING,
+      financialEntries: [],
       isSaving: false,
       setUser: (user) => {
         const currentUser = get().user;
@@ -126,6 +129,7 @@ export const useDriverStore = create<DriverState>()(
           activeVehicleId: undefined,
           settings: INITIAL_SETTINGS,
           tracking: INITIAL_TRACKING,
+          financialEntries: [],
           isSaving: false
         });
       },
@@ -384,14 +388,170 @@ export const useDriverStore = create<DriverState>()(
         }
       },
 
-      addCycleAmount: (id, platform, amount) => {
-        const { cycles, updateCycle } = get();
-        const cycle = cycles.find(c => c.id === id);
-        if (!cycle) return;
+      addCycleAmount: async (id, platform, amount) => {
+        const { addFinancialEntry } = get();
+        
+        await addFinancialEntry({
+          cycle_id: id,
+          platform,
+          value: amount,
+          timestamp: new Date().toISOString(),
+          origin: 'manual'
+        });
+      },
 
-        const field = `${platform}_amount` as const;
-        const currentAmount = (cycle[field] as number) || 0;
-        updateCycle(id, { [field]: currentAmount + amount });
+      loadFinancialEntries: async () => {
+        const { user } = get();
+        if (!user || !isSupabaseConfigured) return;
+        
+        try {
+          const { data, error } = await supabase
+            .from('financial_entries')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('timestamp', { ascending: false });
+            
+          if (error) throw error;
+          
+          if (data) {
+            set({ financialEntries: data });
+          }
+        } catch (error) {
+          console.error('[Store] loadFinancialEntries error:', error);
+        }
+      },
+
+      addFinancialEntry: async (entry) => {
+        const { user, isSaving, updateCycle, cycles, financialEntries } = get();
+        if (isSaving) return;
+
+        set({ isSaving: true });
+        try {
+          const id = crypto.randomUUID();
+          const now = new Date().toISOString();
+          const newEntry = { 
+            ...entry, 
+            id, 
+            user_id: user?.id || '', 
+            created_at: now,
+            updated_at: now 
+          };
+          
+          set((state) => ({ financialEntries: [newEntry, ...state.financialEntries] }));
+
+          // Update cycle totals
+          const cycle = cycles.find(c => c.id === entry.cycle_id);
+          if (cycle) {
+            const field = `${entry.platform}_amount` as const;
+            const currentAmount = (cycle[field] as number) || 0;
+            await updateCycle(entry.cycle_id, { [field]: currentAmount + entry.value });
+          }
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase.from('financial_entries').insert(newEntry);
+            if (error) console.error('[Store] Sync error (add financial entry):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      updateFinancialEntry: async (id, data) => {
+        const { user, isSaving, financialEntries, cycles, updateCycle } = get();
+        if (isSaving) return;
+
+        const entry = financialEntries.find(e => e.id === id);
+        if (!entry) return;
+
+        set({ isSaving: true });
+        try {
+          const now = new Date().toISOString();
+          const updatedEntry = { ...entry, ...data, updated_at: now };
+          
+          set((state) => ({
+            financialEntries: state.financialEntries.map(e => e.id === id ? updatedEntry : e)
+          }));
+
+          // Recalculate cycle totals if value or platform changed
+          if (data.value !== undefined || data.platform !== undefined) {
+            const cycle = cycles.find(c => c.id === entry.cycle_id);
+            if (cycle) {
+              // We need to subtract old value and add new value
+              const oldField = `${entry.platform}_amount` as const;
+              const newField = `${updatedEntry.platform}_amount` as const;
+              
+              const updates: any = {};
+              if (oldField === newField) {
+                updates[oldField] = (cycle[oldField] as number || 0) - entry.value + updatedEntry.value;
+              } else {
+                updates[oldField] = (cycle[oldField] as number || 0) - entry.value;
+                updates[newField] = (cycle[newField] as number || 0) + updatedEntry.value;
+              }
+              
+              await updateCycle(entry.cycle_id, updates);
+            }
+          }
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase
+              .from('financial_entries')
+              .update({ ...data, updated_at: now })
+              .eq('id', id)
+              .eq('user_id', user.id);
+            if (error) console.error('[Store] Sync error (update financial entry):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
+        }
+      },
+
+      deleteFinancialEntry: async (id) => {
+        const { user, isSaving, financialEntries, cycles, updateCycle } = get();
+        if (isSaving) return;
+
+        const entry = financialEntries.find(e => e.id === id);
+        if (!entry) return;
+
+        set({ isSaving: true });
+        try {
+          set((state) => ({
+            financialEntries: state.financialEntries.filter(e => e.id !== id)
+          }));
+
+          // Update cycle totals
+          const cycle = cycles.find(c => c.id === entry.cycle_id);
+          if (cycle) {
+            const field = `${entry.platform}_amount` as const;
+            const currentAmount = (cycle[field] as number) || 0;
+            await updateCycle(entry.cycle_id, { [field]: currentAmount - entry.value });
+          }
+
+          if (user && isSupabaseConfigured) {
+            set({ syncStatus: 'syncing' });
+            const { error } = await supabase
+              .from('financial_entries')
+              .delete()
+              .eq('id', id)
+              .eq('user_id', user.id);
+            if (error) console.error('[Store] Sync error (delete financial entry):', error);
+            set({ syncStatus: error ? 'offline' : 'synced' });
+            setTimeout(() => {
+              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            }, 3000);
+          }
+        } finally {
+          set({ isSaving: false });
+        }
       },
 
       checkAndCloseCycles: () => {
@@ -978,6 +1138,8 @@ export const useDriverStore = create<DriverState>()(
             if (newSettings.photoUrl !== undefined) updateObj.photo_url = newSettings.photoUrl;
             if (newSettings.fixedCosts !== undefined) updateObj.fixed_costs = newSettings.fixedCosts;
             if (newSettings.currentVehicleProfileId !== undefined) updateObj.current_vehicle_profile_id = newSettings.currentVehicleProfileId;
+            if (newSettings.isPrivacyMode !== undefined) updateObj.is_privacy_mode = newSettings.isPrivacyMode;
+            if (newSettings.keepScreenOn !== undefined) updateObj.keep_screen_on = newSettings.keepScreenOn;
 
             const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
             
@@ -1547,6 +1709,7 @@ export const useDriverStore = create<DriverState>()(
           cycles: data.cycles ? mergeByUpdatedAt(state.cycles, data.cycles) : state.cycles,
           vehicles: data.vehicles ? mergeByUpdatedAt(state.vehicles, data.vehicles) : state.vehicles,
           faturamentoLogs: data.faturamentoLogs ? mergeByUpdatedAt(state.faturamentoLogs, data.faturamentoLogs) : state.faturamentoLogs,
+          financialEntries: data.financialEntries ? mergeByUpdatedAt(state.financialEntries, data.financialEntries) : state.financialEntries,
           settings: (data.settings?.updated_at && state.settings.updated_at && new Date(data.settings.updated_at) < new Date(state.settings.updated_at)) ? state.settings : newSettings,
           activeVehicleId: newActiveVehicleId,
         };
@@ -1572,7 +1735,8 @@ export const useDriverStore = create<DriverState>()(
             { data: dbCycles, error: errCyc },
             { data: dbImported, error: errImp },
             { data: dbVehicles, error: errVeh },
-            { data: dbFat, error: errFat }
+            { data: dbFat, error: errFat },
+            { data: dbFin, error: errFin }
           ] = await Promise.all([
             supabase.from('profiles').select('*').eq('id', user.id).single(),
             supabase.from('expenses').select('*').eq('user_id', user.id),
@@ -1581,7 +1745,8 @@ export const useDriverStore = create<DriverState>()(
             supabase.from('cycles').select('*').eq('user_id', user.id),
             supabase.from('imported_reports').select('*').eq('user_id', user.id),
             supabase.from('vehicles').select('*').eq('user_id', user.id).order('created_at', { ascending: false }),
-            supabase.from('faturamento_logs').select('*').eq('user_id', user.id)
+            supabase.from('faturamento_logs').select('*').eq('user_id', user.id),
+            supabase.from('financial_entries').select('*').eq('user_id', user.id)
           ]);
 
           if (errProf && errProf.code !== 'PGRST116') console.warn('[SYNC] Error pulling profile:', errProf);
@@ -1592,6 +1757,7 @@ export const useDriverStore = create<DriverState>()(
           if (errImp) console.warn('[SYNC] Error pulling imported_reports:', errImp);
           if (errVeh) console.warn('[SYNC] Error pulling vehicles:', errVeh);
           if (errFat) console.warn('[SYNC] Error pulling faturamento_logs:', errFat);
+          if (errFin) console.warn('[SYNC] Error pulling financial_entries:', errFin);
 
           const remoteData: any = {};
 
@@ -1719,12 +1885,17 @@ export const useDriverStore = create<DriverState>()(
             remoteData.faturamentoLogs = dbFat;
           }
 
+          if (dbFin) {
+            remoteData.financialEntries = dbFin;
+          }
+
           console.log('[SYNC] Pull complete:', {
             cycles: remoteData.cycles?.length || 0,
             reports: remoteData.importedReports?.length || 0,
             vehicles: remoteData.vehicles?.length || 0,
             expenses: remoteData.expenses?.length || 0,
-            faturamento: remoteData.faturamentoLogs?.length || 0
+            faturamento: remoteData.faturamentoLogs?.length || 0,
+            financial: remoteData.financialEntries?.length || 0
           });
 
           // 2. MERGE remote into local
@@ -1884,6 +2055,20 @@ export const useDriverStore = create<DriverState>()(
             }))).then(res => ({ ...res, table: 'faturamento_logs' })));
           }
 
+          if (currentStore.financialEntries.length > 0) {
+            pushPromises.push(supabase.from('financial_entries').upsert(currentStore.financialEntries.map(e => ({
+              id: e.id,
+              user_id: user.id,
+              cycle_id: e.cycle_id,
+              platform: e.platform,
+              value: e.value,
+              timestamp: e.timestamp,
+              origin: e.origin,
+              created_at: e.created_at || new Date().toISOString(),
+              updated_at: e.updated_at || new Date().toISOString()
+            }))).then(res => ({ ...res, table: 'financial_entries' })));
+          }
+
           // Push settings to profiles
           pushPromises.push(supabase.from('profiles').upsert({
             id: user.id,
@@ -2008,6 +2193,7 @@ export const useDriverStore = create<DriverState>()(
         tracking: state.tracking,
         activeVehicleId: state.activeVehicleId,
         faturamentoLogs: state.faturamentoLogs,
+        financialEntries: state.financialEntries,
       }),
     }
   )

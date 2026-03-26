@@ -5,7 +5,7 @@ import {
   User, Car, Target, Trash2, LogOut, Download, Database, 
   Upload, RefreshCw, AlertCircle, FlaskConical,
   Zap, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
-  DollarSign, Plus, CheckCircle2
+  DollarSign, Plus, CheckCircle2, Eye, EyeOff
 } from 'lucide-react';
 import { downloadFile, formatCurrency, calculateDailyFixedCost, calculateMonthlyFixedCost } from '../utils';
 import { supabase } from '../lib/supabase';
@@ -215,7 +215,7 @@ export const Settings = () => {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-8 pb-24 md:pb-8"
+      className="space-y-8 pb-48 md:pb-8"
     >
       <header className="px-1">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Configurações</p>
@@ -387,6 +387,58 @@ export const Settings = () => {
                 <option value="light">Claro</option>
                 <option value="system">Sistema</option>
               </Select>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Usability Section */}
+      <section className="space-y-4">
+        <SectionHeader icon={Eye} title="Usabilidade" />
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold">Modo de Privacidade</p>
+                <p className="text-[10px] text-zinc-500 font-medium">
+                  Ocultar valores monetários em todo o app.
+                </p>
+              </div>
+              <button
+                onClick={() => updateSettings({ isPrivacyMode: !settings.isPrivacyMode })}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  settings.isPrivacyMode ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm",
+                  settings.isPrivacyMode ? "left-7" : "left-1"
+                )} />
+              </button>
+            </div>
+
+            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold">Manter tela ligada</p>
+                <p className="text-[10px] text-zinc-500 font-medium">
+                  Evita que a tela apague durante o uso do app.
+                </p>
+              </div>
+              <button
+                onClick={() => updateSettings({ keepScreenOn: !settings.keepScreenOn })}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  settings.keepScreenOn ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm",
+                  settings.keepScreenOn ? "left-7" : "left-1"
+                )} />
+              </button>
             </div>
           </CardContent>
         </Card>

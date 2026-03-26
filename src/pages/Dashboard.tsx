@@ -14,6 +14,7 @@ import {
   safeNumber,
 } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
+import { useWakeLock } from '../hooks/useWakeLock';
 import { Card, CardContent, Button } from '../components/UI';
 import {
   TrendingUp,
@@ -30,12 +31,15 @@ import {
   Map as MapIcon,
   Award,
   Info,
+  Eye,
+  EyeOff,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfDay, isSameDay, subDays, format, differenceInMinutes, getDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { QuickEntryModal } from '../components/QuickEntryModal';
+import { FinancialEntryList } from '../components/FinancialEntryList';
 import { motion } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 import { AIRealTimeAlerts } from '../components/AIRealTimeAlerts';
@@ -84,7 +88,11 @@ export const Dashboard = () => {
     endTrip,
     vehicles = [],
     activeVehicleId,
+    updateSettings,
   } = useDriverStore();
+
+  // Activate Wake Lock if enabled and tracking is active
+  useWakeLock();
 
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
@@ -461,7 +469,7 @@ export const Dashboard = () => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 pb-24 md:pb-8"
+      className="space-y-6 pb-48 md:pb-8"
     >
       <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
 
@@ -538,6 +546,13 @@ export const Dashboard = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => updateSettings({ isPrivacyMode: !settings.isPrivacyMode })}
+              className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
+              title={settings.isPrivacyMode ? "Mostrar valores" : "Ocultar valores"}
+            >
+              {settings.isPrivacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
+            </button>
             <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
               {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
             </p>
@@ -698,28 +713,6 @@ export const Dashboard = () => {
                   </p>
                 </div>
               </div>
-
-              <Button
-                onClick={handleToggleTracking}
-                disabled={tracking?.isLoading || !activeVehicleId}
-                loading={tracking?.isLoading || isProcessing}
-                className={cn(
-                  'h-12 px-6 rounded-2xl font-black text-xs uppercase tracking-widest transition-all shadow-lg shrink-0',
-                  !activeVehicleId 
-                    ? 'bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed border-none'
-                    : tracking?.isActive
-                      ? 'bg-zinc-950 text-white hover:bg-zinc-900 border-none'
-                      : 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400 border-none'
-                )}
-              >
-                {tracking?.isLoading || isProcessing ? (
-                  tracking?.isActive ? 'Encerrando...' : 'Processando'
-                ) : tracking?.isActive ? (
-                  'Encerrar'
-                ) : (
-                  'Iniciar'
-                )}
-              </Button>
             </div>
 
             {locationError && (
@@ -731,29 +724,6 @@ export const Dashboard = () => {
 
             {tracking?.isActive && (
               <>
-                <div className="flex items-center gap-2 mt-2">
-                  <div className={cn(
-                    "w-2 h-2 rounded-full",
-                    tracking.mode === 'on_trip' ? "bg-emerald-500 animate-pulse" : 
-                    tracking.mode === 'searching' ? "bg-amber-500" : "bg-zinc-400"
-                  )} />
-                  <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
-                    Modo: {
-                      tracking.mode === 'on_trip' ? 'Em Corrida' : 
-                      tracking.mode === 'searching' ? 'Buscando' : 'Parado'
-                    }
-                    {tracking.tripDetectionState !== 'idle' && (
-                      <span className="ml-1 opacity-60">
-                        • {
-                          tracking.tripDetectionState === 'pickup_candidate' ? 'Possível Início' :
-                          tracking.tripDetectionState === 'trip_started' ? 'Corrida Detectada' :
-                          tracking.tripDetectionState === 'dropoff_candidate' ? 'Possível Fim' : ''
-                        }
-                      </span>
-                    )}
-                  </p>
-                </div>
-
                 {smartAlerts.length > 0 && (
                   <div className="mt-4 space-y-2">
                     {smartAlerts.map((alert) => (
@@ -899,12 +869,12 @@ export const Dashboard = () => {
 
                   <div className="space-y-1">
                     <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Média R$/KM</p>
-                    <p className="text-sm font-black text-blue-400">{formatCurrency(stats.avgEfficiency)}/km</p>
+                    <p className="text-sm font-black text-blue-400">{formatCurrency(stats.avgEfficiency, settings.isPrivacyMode)}/km</p>
                   </div>
 
                   <div className="space-y-1">
                     <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Lucro Semanal</p>
-                    <p className="text-sm font-black text-white">{formatCurrency(stats.totalProfit7Days)}</p>
+                    <p className="text-sm font-black text-white">{formatCurrency(stats.totalProfit7Days, settings.isPrivacyMode)}</p>
                   </div>
                 </div>
               </CardContent>
@@ -927,26 +897,26 @@ export const Dashboard = () => {
         </Card>
       )}
 
-      <Card className="relative overflow-hidden border-none bg-zinc-900 text-white shadow-2xl shadow-zinc-900/20">
-        <div className="absolute top-0 right-0 p-8 opacity-10">
+      <Card className="relative overflow-hidden border-none bg-zinc-900 text-white shadow-2xl shadow-zinc-900/40">
+        <div className="absolute top-0 right-0 p-8 opacity-5">
           <Navigation size={120} className="rotate-45" />
         </div>
 
         <CardContent className="p-8 space-y-8 relative z-10">
           <div className="flex justify-between items-start gap-4">
             <div className="space-y-1 min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
                 {safeNumber(openCycle?.total_amount) > 0 ? 'Faturamento do Ciclo' : 'Ciclo iniciado, aguardando lançamentos'}
               </p>
-              <h2 className="text-5xl font-black tracking-tighter break-words">
-                {safeNumber(openCycle?.total_amount) > 0 ? formatCurrency(safeNumber(openCycle?.total_amount)) : 'R$ 0,00'}
+              <h2 className="text-5xl font-black tracking-tighter break-words text-white">
+                {safeNumber(openCycle?.total_amount) > 0 ? formatCurrency(safeNumber(openCycle?.total_amount), settings.isPrivacyMode) : 'R$ 0,00'}
               </h2>
             </div>
 
             {openCycle && cycleProgress && (
-              <div className="bg-white/10 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/10 shrink-0">
+              <div className="bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/5 shrink-0">
                 <Clock size={14} className="text-emerald-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-300">
                   Fecha em {safeNumber(cycleProgress?.remainingHours)}h {safeNumber(cycleProgress?.remainingMinutes)}m
                 </span>
               </div>
@@ -954,23 +924,23 @@ export const Dashboard = () => {
           </div>
 
           {profitStats && (
-            <div className="grid grid-cols-3 gap-4 pt-4 border-t border-white/5">
-              <div className="space-y-0.5">
+            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/5">
+              <div className="space-y-1">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Despesas</p>
                 <p className="text-sm font-black text-red-400">
-                  {formatCurrency(safeNumber(profitStats.expenses) + safeNumber(profitStats.dailyFixed))}
+                  {formatCurrency(safeNumber(profitStats.expenses) + safeNumber(profitStats.dailyFixed), settings.isPrivacyMode)}
                 </p>
               </div>
-              <div className="space-y-0.5">
+              <div className="space-y-1">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">R$ Perdido</p>
                 <p className="text-sm font-black text-amber-400">
-                  {formatCurrency(safeNumber(efficiencyStats?.lostRevenue))}
+                  {formatCurrency(safeNumber(efficiencyStats?.lostRevenue), settings.isPrivacyMode)}
                 </p>
               </div>
-              <div className="text-right space-y-0.5">
+              <div className="text-right space-y-1">
                 <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Lucro Estimado</p>
-                <p className="text-xl font-black text-emerald-400 leading-none">
-                  {formatCurrency(safeNumber(profitStats.profit))}
+                <p className="text-2xl font-black text-emerald-400 leading-none">
+                  {formatCurrency(safeNumber(profitStats.profit), settings.isPrivacyMode)}
                 </p>
               </div>
             </div>
@@ -1013,7 +983,7 @@ export const Dashboard = () => {
               </div>
             )}
 
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-4">
               {!openCycle ? (
                 <div className="col-span-2 space-y-2">
                   <Button
@@ -1045,15 +1015,16 @@ export const Dashboard = () => {
                 <>
                   <Button
                     onClick={() => setIsQuickEntryOpen(true)}
-                    className="h-14 bg-white text-zinc-950 hover:bg-zinc-100 font-black rounded-2xl gap-2 text-sm"
+                    className="h-16 bg-emerald-500 text-zinc-950 hover:bg-emerald-400 font-black rounded-2xl gap-2 text-base shadow-lg shadow-emerald-500/20 border-none"
                   >
-                    <Plus size={18} />
+                    <Plus size={20} />
                     Lançar Valor
                   </Button>
 
                   <Button
                     onClick={() => navigate('/faturamento')}
-                    className="h-14 bg-zinc-800 hover:bg-zinc-700 text-white font-black rounded-2xl gap-2 text-sm border border-white/5"
+                    variant="outline"
+                    className="h-16 bg-zinc-800/50 hover:bg-zinc-800 text-white font-black rounded-2xl gap-2 text-sm border border-white/10"
                   >
                     <LayoutGrid size={18} />
                     Fechamento
@@ -1082,7 +1053,7 @@ export const Dashboard = () => {
               <p className="text-[10px] font-black uppercase tracking-widest">Meta Diária</p>
             </div>
             <div className="flex items-baseline gap-2">
-              <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(settings?.dailyGoal))}</p>
+              <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(settings?.dailyGoal), settings.isPrivacyMode)}</p>
               {openCycle && safeNumber(openCycle?.total_amount) >= safeNumber(settings?.dailyGoal) && (
                 <span className="text-[10px] font-bold text-emerald-500">Batida!</span>
               )}
@@ -1096,13 +1067,14 @@ export const Dashboard = () => {
               <TrendingUp size={14} />
               <p className="text-[10px] font-black uppercase tracking-widest">Média (7d)</p>
             </div>
-            <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(stats?.avg))}</p>
+            <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(stats?.avg), settings.isPrivacyMode)}</p>
           </CardContent>
         </Card>
       </div>
 
       {openCycle && (
         <div className="grid grid-cols-1 gap-4">
+          <FinancialEntryList />
           <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-hidden">
             <CardContent className="p-0">
               <div className="p-5 border-b border-zinc-50 dark:border-zinc-800/50 flex justify-between items-center gap-3">
@@ -1132,7 +1104,7 @@ export const Dashboard = () => {
                 <div className="p-4 space-y-1">
                   <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">R$/km Bruto</p>
                   <p className="text-sm font-black tracking-tight text-emerald-500">
-                    {formatCurrency(safeNumber(efficiencyStats?.grossPerKm)).replace('R$', '')}/km
+                    {formatCurrency(safeNumber(efficiencyStats?.grossPerKm), settings.isPrivacyMode).replace('R$', '')}/km
                   </p>
                 </div>
               </div>
@@ -1144,7 +1116,7 @@ export const Dashboard = () => {
                   </div>
                   <div>
                     <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">R$/km Líquido</p>
-                    <p className="text-xs font-black">{formatCurrency(safeNumber(efficiencyStats?.netPerKm))}/km</p>
+                    <p className="text-xs font-black">{formatCurrency(safeNumber(efficiencyStats?.netPerKm), settings.isPrivacyMode)}/km</p>
                   </div>
                 </div>
 
@@ -1167,7 +1139,7 @@ export const Dashboard = () => {
                   <div>
                     <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Lucro/km Real</p>
                     <p className="text-xs font-black text-emerald-500">
-                      {formatCurrency(safeNumber(efficiencyStats?.profitPerKm))}/km
+                      {formatCurrency(safeNumber(efficiencyStats?.profitPerKm), settings.isPrivacyMode)}/km
                     </p>
                   </div>
                 </div>
@@ -1239,17 +1211,17 @@ export const Dashboard = () => {
                                 safeNumber(p?.value) > 0 ? (
                                   <div key={i} className="flex justify-between gap-4">
                                     <span className="text-zinc-400">{p?.name}:</span>
-                                    <span>{formatCurrency(safeNumber(p?.value))}</span>
+                                    <span>{formatCurrency(safeNumber(p?.value), settings.isPrivacyMode)}</span>
                                   </div>
                                 ) : null
                               )}
                               <div className="pt-1 border-t border-white/10 flex justify-between gap-4">
                                 <span className="text-emerald-400">Total:</span>
-                                <span className="text-emerald-400">{formatCurrency(total)}</span>
+                                <span className="text-emerald-400">{formatCurrency(total, settings.isPrivacyMode)}</span>
                               </div>
                             </>
                           ) : (
-                            <span>{formatCurrency(total)}</span>
+                            <span>{formatCurrency(total, settings.isPrivacyMode)}</span>
                           )}
                         </div>
                       );
@@ -1268,12 +1240,12 @@ export const Dashboard = () => {
   );
 };
 
-const PlatformMiniStat = ({ label, value, color }: any) => (
+const PlatformMiniStat = ({ label, value, color, isPrivacyMode }: any) => (
   <div className="flex flex-col gap-1.5">
     <div className="flex items-center gap-1.5">
       <div className={cn('w-1.5 h-1.5 rounded-full', color)} />
       <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">{label}</span>
     </div>
-    <span className="text-xs font-black tracking-tight">{formatCurrency(safeNumber(value))}</span>
+    <span className="text-xs font-black tracking-tight">{formatCurrency(safeNumber(value), isPrivacyMode)}</span>
   </div>
 );
