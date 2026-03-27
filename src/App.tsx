@@ -10,10 +10,7 @@ import { ProtectedRoute } from './components/ProtectedRoute';
 import { lazyWithRetry } from './lib/lazyWithRetry';
 
 // Lazy load pages with retry
-const LandingPage = lazyWithRetry(
-  () => import('./LandingPage').then((m) => ({ default: m.LandingPage })),
-  'LandingPage'
-);
+const LandingPage = React.lazy(() => import('./LandingPage'));
 const Dashboard = lazyWithRetry(
   () => import('./pages/Dashboard').then((m) => ({ default: m.Dashboard })),
   'Dashboard'
@@ -139,6 +136,7 @@ const SafeRoute = ({
 };
 
 import { TripControl } from './components/TripControl';
+import { useWakeLock } from './hooks/useWakeLock';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -169,6 +167,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 };
 
 function AppRoutes() {
+  useWakeLock();
   return (
     <Layout>
       <Suspense fallback={<PageLoader />}>

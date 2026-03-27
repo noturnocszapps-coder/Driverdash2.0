@@ -124,11 +124,11 @@ export const CycleDetail = () => {
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <p className="text-[8px] font-black text-zinc-400 uppercase">Faturamento</p>
-                <p className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(consolidatedDay.totalRevenue)}</p>
+                <p className="text-sm font-black text-blue-600 dark:text-blue-400">{formatCurrency(consolidatedDay.totalRevenue, settings.isPrivacyMode)}</p>
               </div>
               <div>
                 <p className="text-[8px] font-black text-zinc-400 uppercase">Lucro Real</p>
-                <p className="text-sm font-black text-emerald-500">{formatCurrency(consolidatedDay.profit)}</p>
+                <p className="text-sm font-black text-emerald-500">{formatCurrency(consolidatedDay.profit, settings.isPrivacyMode)}</p>
               </div>
               <div>
                 <p className="text-[8px] font-black text-zinc-400 uppercase">KM Total</p>
@@ -144,13 +144,13 @@ export const CycleDetail = () => {
         <Card className="border-none bg-zinc-900 text-white shadow-xl">
           <CardContent className="p-6 space-y-1">
             <p className="text-[10px] font-black uppercase text-zinc-500 tracking-widest">Faturamento Total</p>
-            <p className="text-2xl font-black tracking-tight text-emerald-400">{formatCurrency(cycle.total_amount)}</p>
+            <p className="text-2xl font-black tracking-tight text-emerald-400">{formatCurrency(cycle.total_amount, settings.isPrivacyMode)}</p>
           </CardContent>
         </Card>
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
           <CardContent className="p-6 space-y-1">
             <p className="text-[10px] font-black uppercase text-zinc-400 tracking-widest">Lucro Líquido</p>
-            <p className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">{formatCurrency(profit)}</p>
+            <p className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">{formatCurrency(profit, settings.isPrivacyMode)}</p>
           </CardContent>
         </Card>
       </div>
@@ -196,7 +196,7 @@ export const CycleDetail = () => {
               <div key={i} className="space-y-2">
                 <div className="flex justify-between items-center text-xs font-black uppercase">
                   <span>{p.label}</span>
-                  <span>{formatCurrency(p.value)}</span>
+                  <span>{formatCurrency(p.value, settings.isPrivacyMode)}</span>
                 </div>
                 <div className="h-2 w-full bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden">
                   <motion.div 
@@ -228,12 +228,12 @@ export const CycleDetail = () => {
                     </div>
                     <span className="text-xs font-bold text-zinc-600 dark:text-zinc-400">{e.label}</span>
                   </div>
-                  <span className="text-sm font-black">{formatCurrency(e.value)}</span>
+                  <span className="text-sm font-black">{formatCurrency(e.value, settings.isPrivacyMode)}</span>
                 </div>
               ))}
               <div className="pt-2 flex justify-between items-center border-t border-zinc-100 dark:border-zinc-800">
                 <span className="text-[10px] font-black uppercase text-zinc-400">Total Despesas</span>
-                <span className="text-sm font-black text-red-500">{formatCurrency(totalExpenses)}</span>
+                <span className="text-sm font-black text-red-500">{formatCurrency(totalExpenses, settings.isPrivacyMode)}</span>
               </div>
             </div>
           </CardContent>

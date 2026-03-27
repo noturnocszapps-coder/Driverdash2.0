@@ -1138,7 +1138,10 @@ export const useDriverStore = create<DriverState>()(
             if (newSettings.photoUrl !== undefined) updateObj.photo_url = newSettings.photoUrl;
             if (newSettings.fixedCosts !== undefined) updateObj.fixed_costs = newSettings.fixedCosts;
             if (newSettings.currentVehicleProfileId !== undefined) updateObj.current_vehicle_profile_id = newSettings.currentVehicleProfileId;
-            if (newSettings.isPrivacyMode !== undefined) updateObj.is_privacy_mode = newSettings.isPrivacyMode;
+            if (newSettings.isPrivacyMode !== undefined) {
+              updateObj.is_privacy_mode = newSettings.isPrivacyMode;
+              console.log(`[SETTINGS] privacy mode ${newSettings.isPrivacyMode ? 'enabled' : 'disabled'}`);
+            }
             if (newSettings.keepScreenOn !== undefined) updateObj.keep_screen_on = newSettings.keepScreenOn;
 
             const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
@@ -1169,6 +1172,9 @@ export const useDriverStore = create<DriverState>()(
             }, 3000);
           } else {
             // Guest mode - update local only
+            if (newSettings.isPrivacyMode !== undefined) {
+              console.log(`[SETTINGS] privacy mode ${newSettings.isPrivacyMode ? 'enabled' : 'disabled'}`);
+            }
             set((state) => {
               if (newSettings.currentVehicleProfileId) {
                 localStorage.setItem(ACTIVE_VEHICLE_KEY, newSettings.currentVehicleProfileId);

@@ -15,6 +15,16 @@ import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'rechar
 import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
+import { ReportsHeader } from '../components/reports/ReportsHeader';
+import { WeeklyExecutiveSummary } from '../components/reports/WeeklyExecutiveSummary';
+import { InsightsCard } from '../components/reports/InsightsCard';
+import { HeatmapSummaryCard } from '../components/reports/HeatmapSummaryCard';
+import { BestHoursCard } from '../components/reports/BestHoursCard';
+import { PerformanceGrid } from '../components/reports/PerformanceGrid';
+import { DailyRevenueCard } from '../components/reports/DailyRevenueCard';
+import { PlatformMixCard } from '../components/reports/PlatformMixCard';
+import { RecentHistoryCardList } from '../components/reports/RecentHistoryCardList';
+
 export const Reports = () => {
   const { cycles, settings, importedReports, isSaving, vehicles, activeVehicleId } = useDriverStore();
   const navigate = useNavigate();
@@ -235,39 +245,17 @@ export const Reports = () => {
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6 pb-48 md:pb-8"
     >
-      <header className="flex justify-between items-center px-1">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Relatórios</p>
-          <h1 className="text-3xl font-black tracking-tighter">Análise Semanal</h1>
-        </div>
-        <div className="flex items-center gap-4">
-          <SyncIndicator />
-          <div className="flex gap-2">
-            <button 
-              onClick={() => navigate('/import-report')}
-              className="w-10 h-10 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500 border border-emerald-500/20"
-              title="Importar por Print"
-            >
-              <Camera size={18} />
-            </button>
-            <button 
-              onClick={() => setShowFilterModal(true)}
-              className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center transition-colors",
-                filter !== 'all' ? "bg-emerald-500 text-zinc-950" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-500"
-              )}
-            >
-              <Filter size={18} />
-            </button>
-          </div>
-        </div>
-      </header>
+      <ReportsHeader 
+        onImportClick={() => navigate('/import-report')}
+        onFilterClick={() => setShowFilterModal(true)}
+        filter={filter}
+      />
 
       {showSuccess && (
         <motion.div 
           initial={{ opacity: 0, height: 0 }}
           animate={{ opacity: 1, height: 'auto' }}
-          className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-3 text-emerald-500"
+          className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-center gap-3 text-emerald-500 mb-6"
         >
           <CheckCircle2 size={20} />
           <p className="text-sm font-bold">{location.state.successMessage}</p>
@@ -275,7 +263,7 @@ export const Reports = () => {
       )}
 
       {!activeVehicleId && (
-        <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-3">
+        <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-3 mb-6">
           <AlertCircle className="text-amber-500 shrink-0" size={20} />
           <div className="flex-1">
             <p className="text-xs font-black uppercase tracking-widest text-amber-600 dark:text-amber-400">Veículo não selecionado</p>
@@ -290,165 +278,57 @@ export const Reports = () => {
         </Card>
       )}
 
-      {/* AI Intelligence Section */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card className="border-none bg-zinc-900 text-white shadow-xl">
-          <CardContent className="p-6 space-y-6">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                  <Award size={16} className="text-emerald-400" />
-                </div>
-                <h3 className="text-xs font-black uppercase tracking-widest">Inteligência de Performance</h3>
-              </div>
-              <div className={cn(
-                "px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
-                !aiIntelligence?.maturity?.isMature ? "border-zinc-700 text-zinc-500" : driverScore.color
-              )}>
-                Score: {!aiIntelligence?.maturity?.isMature ? 'Em formação' : `${driverScore.score} - ${driverScore.label}`}
-              </div>
-            </div>
+      {/* 2. Resumo Executivo da Semana */}
+      <WeeklyExecutiveSummary 
+        total={stats.total}
+        totalProfit={stats.totalProfit}
+        totalRideKm={stats.totalRideKm}
+        avgEfficiency={stats.avgEfficiency}
+        isPrivacyMode={settings.isPrivacyMode}
+        isCollecting={stats.maturity.status === 'coletando'}
+      />
 
-            <div className="grid grid-cols-2 gap-6">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Melhor Dia da Semana</p>
-                <p className="text-sm font-black text-emerald-400">
-                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : (aiIntelligence.bestDayOfWeek !== null ? format(addDays(start, aiIntelligence.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...')}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Pior Dia da Semana</p>
-                <p className="text-sm font-black text-red-400">
-                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : (aiIntelligence.weakestDayOfWeek !== null ? format(addDays(start, aiIntelligence.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...')}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Média Lucro/KM</p>
-                <p className="text-sm font-black text-blue-400">
-                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : `${formatCurrency(aiIntelligence.avgProfitPerKm, settings.isPrivacyMode)}/km`}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">KM Produtivo Médio</p>
-                <p className="text-sm font-black text-white">
-                  {!aiIntelligence?.maturity?.isMature ? 'Dados insuficientes' : `${aiIntelligence.avgProductiveKm.toFixed(1)} km/dia`}
-                </p>
-              </div>
-            </div>
+      {/* 3. Insights Inteligentes */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+        <InsightsCard 
+          aiIntelligence={{
+            ...aiIntelligence,
+            bestDayLabel: aiIntelligence.bestDayOfWeek !== null ? format(addDays(start, aiIntelligence.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...',
+            weakestDayLabel: aiIntelligence.weakestDayOfWeek !== null ? format(addDays(start, aiIntelligence.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...',
+            avgProfitPerKmLabel: formatCurrency(aiIntelligence.avgProfitPerKm, settings.isPrivacyMode)
+          }}
+          driverScore={driverScore}
+          isCollecting={stats.maturity.status === 'coletando'}
+          aiTip={stats.aiTip}
+        />
 
-            <div className="pt-4 border-t border-white/5 space-y-4">
-              <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
-                <div className="flex gap-2 items-start">
-                  <Zap size={14} className="text-emerald-400 shrink-0 mt-0.5" />
-                  <p className="text-[11px] font-bold text-emerald-100 leading-relaxed">
-                    {!aiIntelligence?.maturity?.isMature 
-                      ? `Inteligência em fase de aprendizado. ${aiIntelligence?.maturity?.message}.`
-                      : stats.aiTip}
-                  </p>
-                </div>
-              </div>
+        <div className="space-y-6">
+          {/* 4. Melhores Horários */}
+          <BestHoursCard 
+            bestHourByDay={aiIntelligence.bestHourByDay}
+            start={start}
+            isCollecting={stats.maturity.status === 'coletando'}
+          />
 
-              <div className="flex flex-col gap-3">
-                <div className="flex items-center justify-between">
-                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Zonas de Espera Identificadas</p>
-                  <button 
-                    onClick={() => navigate('/heatmap')}
-                    className="flex items-center gap-1.5 text-[9px] font-black text-emerald-400 uppercase tracking-widest hover:text-emerald-300 transition-colors"
-                  >
-                    <MapIcon size={10} />
-                    Ver Mapa de Calor
-                  </button>
-                </div>
-                <div className="space-y-2">
-                  {aiIntelligence.waitingZones.length > 0 ? aiIntelligence.waitingZones.map((zone, i) => (
-                    <div key={i} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-1.5 h-1.5 rounded-full bg-amber-500" />
-                        <p className="text-[10px] font-bold text-zinc-300">Região {i + 1} ({zone.lat.toFixed(3)}, {zone.lng.toFixed(3)})</p>
-                      </div>
-                      <p className="text-[10px] font-black text-zinc-500">{(zone.time / 60000).toFixed(0)} min acumulados</p>
-                    </div>
-                  )) : (
-                    <p className="text-[10px] font-bold text-zinc-500 italic">
-                      {stats.maturity.status === 'maturo' 
-                        ? 'Nenhuma zona de espera crítica identificada.' 
-                        : 'Ainda não há dados de rastreamento suficientes para identificar zonas de espera.'}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
-          <CardContent className="p-6 space-y-6">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center">
-                <Clock size={16} className="text-blue-500" />
-              </div>
-              <h3 className="text-xs font-black uppercase tracking-widest">Melhores Horários por Dia</h3>
-            </div>
-
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5, 6, 0].map(day => (
-                <div key={day} className="flex items-center justify-between py-2 border-b border-zinc-100 dark:border-zinc-800 last:border-0">
-                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">
-                    {format(addDays(start, day), 'EEEE', { locale: ptBR })}
-                  </p>
-                  <p className="text-xs font-black text-zinc-900 dark:text-white">
-                    {aiIntelligence.bestHourByDay[day] || 'Sem dados'}
-                  </p>
-                </div>
-              ))}
-            </div>
-          </CardContent>
-        </Card>
+          {/* 5. Zonas de Espera */}
+          <HeatmapSummaryCard 
+            waitingZones={aiIntelligence.waitingZones}
+            isCollecting={stats.maturity.status === 'coletando'}
+            onViewHeatmap={() => navigate('/heatmap')}
+          />
+        </div>
       </div>
 
-      {/* Weekly Summary Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <SummaryCard 
-          label="Faturado" 
-          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.total, settings.isPrivacyMode)} 
-          color="text-zinc-900 dark:text-white" 
-        />
-        <SummaryCard 
-          label="Lucro Total" 
-          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.totalProfit, settings.isPrivacyMode)} 
-          color="text-emerald-500" 
-        />
-        <SummaryCard 
-          label="KM Produtivo" 
-          value={formatKm(stats.totalRideKm)} 
-          color="text-emerald-500" 
-        />
-        <SummaryCard 
-          label="Eficiência" 
-          value={stats.maturity.status === 'coletando' ? '--' : `${stats.avgEfficiency.toFixed(0)}%`} 
-          color="text-blue-500" 
-        />
-      </div>
-
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-        <SummaryCard label="KM Total" value={formatKm(stats.totalKm)} color="text-zinc-500" />
-        <SummaryCard label="KM Ocioso" value={formatKm(stats.totalIdleKm)} color="text-zinc-400" />
-        <SummaryCard 
-          label="R$ Perdido" 
-          value={stats.maturity.status === 'coletando' ? 'R$ 0,00' : formatCurrency(stats.totalLostRevenue, settings.isPrivacyMode)} 
-          color="text-amber-500" 
-        />
-        <SummaryCard 
-          label="R$/KM Bruto" 
-          value={stats.maturity.status === 'coletando' ? '--' : formatCurrency(stats.grossPerKm, settings.isPrivacyMode)} 
-          color="text-zinc-500" 
-        />
-        <SummaryCard 
-          label="R$/KM Líquido" 
-          value={stats.maturity.status === 'coletando' ? '--' : formatCurrency(stats.netPerKm, settings.isPrivacyMode)} 
-          color="text-zinc-500" 
-        />
-      </div>
+      {/* 6. Performance Operacional */}
+      <PerformanceGrid 
+        totalKm={stats.totalKm}
+        totalIdleKm={stats.totalIdleKm}
+        totalLostRevenue={stats.totalLostRevenue}
+        grossPerKm={stats.grossPerKm}
+        netPerKm={stats.netPerKm}
+        isPrivacyMode={settings.isPrivacyMode}
+        isCollecting={stats.maturity.status === 'coletando'}
+      />
 
       {/* Smart Alerts */}
       {stats.alerts.length > 0 && (
@@ -511,199 +391,74 @@ export const Reports = () => {
         </div>
       )}
 
-      {/* Main Chart Card */}
-      <Card className="border-none bg-zinc-900 text-white shadow-2xl overflow-hidden">
-        <CardContent className="p-8 space-y-8">
-          <div className="flex justify-between items-center">
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Faturamento Diário</p>
-              <h2 className="text-2xl font-black tracking-tight">{stats.best.fullName} foi seu melhor dia</h2>
-            </div>
-            <div className="w-12 h-12 bg-emerald-500/10 rounded-2xl flex items-center justify-center border border-emerald-500/20">
-              <TrendingUp className="text-emerald-400" size={24} />
-            </div>
-          </div>
+      {/* 7. Faturamento Diário / Gráfico */}
+      <DailyRevenueCard 
+        bestDay={stats.best}
+        currentWeek={currentWeek}
+        settings={settings}
+        today={today}
+      />
 
-          <div className="h-64 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={currentWeek}>
-                <XAxis 
-                  dataKey="name" 
-                  axisLine={false} 
-                  tickLine={false} 
-                  tick={{ fontSize: 10, fill: '#52525b', fontWeight: 800 }}
-                  dy={10}
-                />
-                <Tooltip 
-                  cursor={{ fill: 'rgba(255,255,255,0.03)' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const data = payload[0].payload;
-                      return (
-                        <div className="bg-zinc-950 border border-white/5 p-4 rounded-2xl shadow-2xl space-y-3 min-w-[160px]">
-                          <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{data.fullName}</p>
-                          <p className="text-xl font-black text-white">{formatCurrency(data.value, settings.isPrivacyMode)}</p>
-                          <div className="space-y-2 pt-2 border-t border-white/5">
-                            <div className="flex justify-between items-center text-[9px] font-bold">
-                              <span className="text-zinc-500 uppercase">Lucro</span>
-                              <span className="text-emerald-400">{formatCurrency(data.profit, settings.isPrivacyMode)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[9px] font-bold">
-                              <span className="text-zinc-500 uppercase">Despesas</span>
-                              <span className="text-red-400">{formatCurrency(data.expenses, settings.isPrivacyMode)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[9px] font-bold">
-                              <span className="text-zinc-500 uppercase">KM Total</span>
-                              <span className="text-blue-400">{formatKm(data.totalKm)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[9px] font-bold">
-                              <span className="text-zinc-500 uppercase">R$/KM Bruto</span>
-                              <span className="text-zinc-300">{formatCurrency(data.grossPerKm, settings.isPrivacyMode)}</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[9px] font-bold">
-                              <span className="text-zinc-500 uppercase">Eficiência</span>
-                              <span className="text-blue-400">{Math.round(data.efficiencyPercentage)}%</span>
-                            </div>
-                            <div className="flex justify-between items-center text-[9px] font-bold">
-                              <span className="text-zinc-500 uppercase">Lucro/KM Real</span>
-                              <span className="text-emerald-400">{formatCurrency(data.profitPerProductiveKm, settings.isPrivacyMode)}</span>
-                            </div>
-                            {data.hasMismatch && (
-                              <div className="flex justify-between items-center text-[9px] font-bold text-amber-400 pt-1 border-t border-white/5">
-                                <span className="uppercase">Diferença Print</span>
-                                <span>{formatCurrency(data.value - data.importedTotal, settings.isPrivacyMode)}</span>
-                              </div>
-                            )}
-                            <div className="pt-1" />
-                            <TooltipItem label="Uber" value={data.uber} color="bg-white" isPrivacyMode={settings.isPrivacyMode} />
-                            <TooltipItem label="99" value={data.noventanove} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
-                            <TooltipItem label="inDrive" value={data.indriver} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
-                          </div>
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-                {settings.dashboardMode === 'segmented' ? (
-                  <>
-                    <Bar dataKey="uber" stackId="a" fill="#ffffff" radius={[0, 0, 0, 0]} barSize={32} />
-                    <Bar dataKey="noventanove" stackId="a" fill="#eab308" radius={[0, 0, 0, 0]} barSize={32} />
-                    <Bar dataKey="indriver" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={32} />
-                    <Bar dataKey="extra" stackId="a" fill="#3b82f6" radius={[6, 6, 0, 0]} barSize={32} />
-                  </>
-                ) : (
-                  <Bar dataKey="value" radius={[6, 6, 0, 0]} barSize={32}>
-                    {currentWeek.map((entry, index) => (
-                      <Cell 
-                        key={`cell-${index}`} 
-                        className={cn(
-                          isSameDay(entry.date, today) ? "fill-emerald-500" : "fill-zinc-800"
-                        )}
-                      />
-                    ))}
-                  </Bar>
-                )}
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+      {/* 8. Mix de Plataformas */}
+      <PlatformMixCard 
+        platformTotals={stats.platformTotals}
+        total={stats.total}
+        isPrivacyMode={settings.isPrivacyMode}
+      />
 
-      {/* Platform Breakdown */}
-      <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-        <CardContent className="p-6 space-y-6">
-          <div className="flex justify-between items-center">
-            <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
-              <BarChart3 size={16} className="text-emerald-500" />
-              Mix de Plataformas
-            </h3>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase">Últimos 7 dias</span>
-          </div>
-          
-          <div className="space-y-5">
-            <PlatformRow label="Uber" value={stats.platformTotals.uber} total={stats.total} color="bg-zinc-900 dark:bg-white" isPrivacyMode={settings.isPrivacyMode} />
-            <PlatformRow label="99" value={stats.platformTotals.noventanove} total={stats.total} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
-            <PlatformRow label="inDrive" value={stats.platformTotals.indriver} total={stats.total} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
-            <PlatformRow label="Extra / Outros" value={stats.platformTotals.extra} total={stats.total} color="bg-blue-500" isPrivacyMode={settings.isPrivacyMode} />
-          </div>
-        </CardContent>
-      </Card>
-
-      {/* History List */}
-      <div className="space-y-4">
-        <div className="flex justify-between items-center px-1">
-          <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
-            <Calendar size={16} className="text-zinc-400" />
-            Histórico Recente
+      {/* Correction Suggestions */}
+      {stats.mismatches.length > 0 && (
+        <div className="space-y-4 mb-8">
+          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2 px-1">
+            <Zap size={14} className="text-amber-500" />
+            Sugestões de Correção
           </h3>
-        </div>
-        
-        <div className="space-y-3">
-          {recentDays.map((day) => (
-            <Card 
-              key={day.id} 
-              className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group active:scale-[0.98] transition-all cursor-pointer"
-              onClick={() => {
-                if (day.cycles.length === 1) {
-                  navigate(`/cycle/${day.cycles[0].id}`);
-                } else if (day.cycles.length > 1) {
-                  // If multiple cycles, go to the first one for now
-                  navigate(`/cycle/${day.cycles[0].id}`);
-                }
-              }}
-            >
-              <CardContent className="p-4 flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="text-center min-w-[40px]">
-                    <p className="text-[9px] font-black text-zinc-400 uppercase">
-                      {format(day.date, 'MMM', { locale: ptBR })}
-                    </p>
-                    <p className="text-xl font-black tracking-tighter">
-                      {format(day.date, 'dd')}
+          <div className="space-y-3">
+            {stats.mismatches.map((day, i) => (
+              <Card key={i} className="border-none bg-amber-500/5 border border-amber-500/20 shadow-sm">
+                <CardContent className="p-4 flex items-center justify-between">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{day.fullName}</p>
+                    <p className="text-xs font-bold text-zinc-600 dark:text-zinc-400">
+                      O valor manual ({formatCurrency(day.value, settings.isPrivacyMode)}) difere do print ({formatCurrency(day.importedTotal, settings.isPrivacyMode)}).
                     </p>
                   </div>
-                  <div className="h-8 w-px bg-zinc-100 dark:bg-zinc-800" />
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-black tracking-tight">{formatCurrency(day.totalRevenue, settings.isPrivacyMode)}</p>
-                      {day.hasMismatch && (
-                        <span className="flex items-center gap-1 px-1.5 py-0.5 rounded bg-amber-500/10 text-[8px] font-black uppercase text-amber-400">
-                          <AlertCircle size={8} />
-                          Divergência
-                        </span>
-                      )}
-                      {day.cycles.length > 1 && (
-                        <span className="px-1.5 py-0.5 rounded bg-blue-500/10 text-[8px] font-black uppercase text-blue-500">
-                          {day.cycles.length} Ciclos
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
-                      {formatKm(day.totalKm)} • {day.rideKm > 0 ? `${Math.round(day.efficiency)}% Efic.` : 'Sem KM'}
-                    </p>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[8px] font-black uppercase tracking-widest text-emerald-500">
-                        Lucro: {formatCurrency(day.profit, settings.isPrivacyMode)}
-                      </span>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <ChevronRight size={18} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
+                  <Button 
+                    size="sm" 
+                    disabled={isSaving}
+                    className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase h-8"
+                    onClick={() => {
+                      const cycle = cycles.find(c => isSameDay(parseISO(c.start_time), day.date));
+                      if (cycle) navigate(`/cycle/${cycle.id}`);
+                    }}
+                  >
+                    {isSaving ? '...' : 'Corrigir'}
+                  </Button>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
         </div>
-      </div>
+      )}
+
+      {/* 9. Histórico Recente */}
+      <RecentHistoryCardList 
+        recentDays={recentDays}
+        isPrivacyMode={settings.isPrivacyMode}
+        onDayClick={(day) => {
+          if (day.cycles.length === 1) {
+            navigate(`/cycle/${day.cycles[0].id}`);
+          } else if (day.cycles.length > 1) {
+            navigate(`/cycle/${day.cycles[0].id}`);
+          }
+        }}
+      />
 
       {/* Imported Reports List */}
       {importedReports.length > 0 && (
         <div className="space-y-4">
           <div className="flex justify-between items-center px-1">
-            <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
-              <FileText size={16} className="text-zinc-400" />
+            <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
               Relatórios Importados (Prints)
             </h3>
           </div>
@@ -715,7 +470,7 @@ export const Reports = () => {
                 <Card 
                   key={report.id} 
                   className={cn(
-                    "border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group transition-all",
+                    "border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group transition-all border border-zinc-100 dark:border-zinc-800/50",
                     linkedCycle ? "cursor-pointer active:scale-[0.98]" : ""
                   )}
                   onClick={() => linkedCycle && navigate(`/cycle/${linkedCycle.id}`)}
@@ -723,7 +478,7 @@ export const Reports = () => {
                   <CardContent className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-4">
                       <div className={cn(
-                        "w-10 h-10 rounded-xl flex items-center justify-center",
+                        "w-10 h-10 rounded-xl flex items-center justify-center shadow-sm",
                         report.platform === 'Uber' ? "bg-zinc-900 text-white" : 
                         report.platform === '99' ? "bg-yellow-500 text-black" : "bg-emerald-500 text-white"
                       )}>
@@ -732,7 +487,7 @@ export const Reports = () => {
                       <div>
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-black tracking-tight">{formatCurrency(report.total_earnings, settings.isPrivacyMode)}</p>
-                          <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[8px] font-black uppercase text-zinc-500">
+                          <span className="px-1.5 py-0.5 rounded bg-zinc-100 dark:bg-zinc-800 text-[8px] font-black uppercase text-zinc-500 border border-zinc-200 dark:border-zinc-700/50">
                             {report.platform}
                           </span>
                         </div>
@@ -745,7 +500,7 @@ export const Reports = () => {
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
-                      <div className="text-right">
+                      <div className="text-right hidden sm:block">
                         <p className="text-[9px] font-black text-zinc-400 uppercase">Importado em</p>
                         <p className="text-[10px] font-black text-zinc-600 dark:text-zinc-400">
                           {format(new Date(report.imported_at), 'dd/MM/yy')}
@@ -763,28 +518,28 @@ export const Reports = () => {
       {/* Filter Modal */}
       <AnimatePresence>
         {showFilterModal && (
-          <div className="fixed inset-0 z-50 flex items-end justify-center sm:items-center p-4">
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-4">
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
               onClick={() => setShowFilterModal(false)}
-              className="absolute inset-0 bg-black/60 backdrop-blur-sm"
+              className="absolute inset-0 bg-zinc-950/80 backdrop-blur-sm"
             />
             <motion.div
-              initial={{ y: "100%" }}
-              animate={{ y: 0 }}
-              exit={{ y: "100%" }}
-              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl border border-zinc-200 dark:border-zinc-800"
+              initial={{ opacity: 0, y: 100, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: 100, scale: 0.95 }}
+              className="relative w-full max-w-sm bg-white dark:bg-zinc-900 rounded-3xl shadow-2xl overflow-hidden border border-zinc-100 dark:border-zinc-800"
             >
               <div className="p-6 space-y-6">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-black tracking-tight uppercase">Filtrar Dados</h3>
+                  <h3 className="text-lg font-black tracking-tighter uppercase">Filtrar Dados</h3>
                   <button 
                     onClick={() => setShowFilterModal(false)}
-                    className="p-2 hover:bg-zinc-100 dark:hover:bg-zinc-800 rounded-full transition-colors"
+                    className="w-8 h-8 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500"
                   >
-                    <X className="w-5 h-5" />
+                    <X size={16} />
                   </button>
                 </div>
 

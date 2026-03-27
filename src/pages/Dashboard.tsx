@@ -14,7 +14,6 @@ import {
   safeNumber,
 } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
-import { useWakeLock } from '../hooks/useWakeLock';
 import { Card, CardContent, Button } from '../components/UI';
 import {
   TrendingUp,
@@ -90,9 +89,6 @@ export const Dashboard = () => {
     activeVehicleId,
     updateSettings,
   } = useDriverStore();
-
-  // Activate Wake Lock if enabled and tracking is active
-  useWakeLock();
 
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
@@ -853,7 +849,7 @@ export const Dashboard = () => {
                     <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Melhor Dia</p>
                     <p className="text-sm font-black text-emerald-400">
                       {stats.bestDay
-                        ? `${stats.bestDay.name} (${formatCurrency(stats.bestDay.value)})`
+                        ? `${stats.bestDay.name} (${formatCurrency(stats.bestDay.value, settings.isPrivacyMode)})`
                         : '-'}
                     </p>
                   </div>
@@ -862,7 +858,7 @@ export const Dashboard = () => {
                     <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Pior Eficiência</p>
                     <p className="text-sm font-black text-red-400">
                       {stats.worstDayByEfficiency
-                        ? `${stats.worstDayByEfficiency.name} (${formatCurrency(stats.worstDayByEfficiency.efficiency)}/km)`
+                        ? `${stats.worstDayByEfficiency.name} (${formatCurrency(stats.worstDayByEfficiency.efficiency, settings.isPrivacyMode)}/km)`
                         : '-'}
                     </p>
                   </div>
@@ -1037,10 +1033,10 @@ export const Dashboard = () => {
 
         {openCycle && (
           <div className="bg-white/[0.02] border-t border-white/5 px-8 py-5 grid grid-cols-4 gap-4">
-            <PlatformMiniStat label="Uber" value={safeNumber(openCycle?.uber_amount)} color="bg-white" />
-            <PlatformMiniStat label="99" value={safeNumber(openCycle?.noventanove_amount)} color="bg-yellow-500" />
-            <PlatformMiniStat label="inDrive" value={safeNumber(openCycle?.indriver_amount)} color="bg-emerald-500" />
-            <PlatformMiniStat label="Outros" value={safeNumber(openCycle?.extra_amount)} color="bg-blue-500" />
+            <PlatformMiniStat label="Uber" value={safeNumber(openCycle?.uber_amount)} color="bg-white" isPrivacyMode={settings.isPrivacyMode} />
+            <PlatformMiniStat label="99" value={safeNumber(openCycle?.noventanove_amount)} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
+            <PlatformMiniStat label="inDrive" value={safeNumber(openCycle?.indriver_amount)} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
+            <PlatformMiniStat label="Outros" value={safeNumber(openCycle?.extra_amount)} color="bg-blue-500" isPrivacyMode={settings.isPrivacyMode} />
           </div>
         )}
       </Card>
