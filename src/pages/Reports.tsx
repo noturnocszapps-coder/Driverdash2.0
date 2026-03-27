@@ -58,6 +58,7 @@ export const Reports = () => {
 
   const currentWeek = useMemo(() => {
     return weekData.map(day => ({
+      id: format(day.date, 'yyyy-MM-dd'),
       name: format(day.date, 'EEE', { locale: ptBR }),
       fullName: format(day.date, "dd 'de' MMM", { locale: ptBR }),
       value: safeNumber(day.totalRevenue),
@@ -108,6 +109,7 @@ export const Reports = () => {
     const alerts = [];
     if (total > 0 && (totalProfit / total) < 0.3) {
       alerts.push({
+        id: 'low-margin',
         type: 'warning',
         title: 'Margem de Lucro Baixa',
         message: 'Seu lucro está abaixo de 30% do faturamento. Revise seus custos fixos e combustível.'
@@ -117,6 +119,7 @@ export const Reports = () => {
     const mismatchDays = currentWeek.filter(d => d.hasMismatch);
     if (mismatchDays.length > 0) {
       alerts.push({
+        id: 'data-mismatch',
         type: 'info',
         title: 'Divergência de Dados',
         message: `Identificamos ${mismatchDays.length} dia(s) onde o valor manual difere do print importado.`
@@ -125,6 +128,7 @@ export const Reports = () => {
 
     if (totalKm > 0 && grossPerKm < 1.5) {
       alerts.push({
+        id: 'low-yield',
         type: 'warning',
         title: 'Baixo Rendimento por KM',
         message: 'Sua média bruta por KM está abaixo de R$ 1,50. Tente selecionar melhor as corridas.'
@@ -333,12 +337,11 @@ export const Reports = () => {
       {/* Smart Alerts */}
       {stats.alerts.length > 0 && (
         <div className="space-y-3">
-          {stats.alerts.map((alert, i) => (
+          {stats.alerts.map((alert) => (
             <motion.div 
-              key={i}
+              key={alert.id}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: i * 0.1 }}
               className={cn(
                 "p-4 rounded-2xl border flex gap-3 items-start",
                 alert.type === 'warning' 
@@ -364,8 +367,8 @@ export const Reports = () => {
             Sugestões de Correção
           </h3>
           <div className="space-y-3">
-            {stats.mismatches.map((day, i) => (
-              <Card key={i} className="border-none bg-amber-500/5 border border-amber-500/20 shadow-sm">
+            {stats.mismatches.map((day) => (
+              <Card key={day.id} className="border-none bg-amber-500/5 border border-amber-500/20 shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{day.fullName}</p>
@@ -405,41 +408,6 @@ export const Reports = () => {
         total={stats.total}
         isPrivacyMode={settings.isPrivacyMode}
       />
-
-      {/* Correction Suggestions */}
-      {stats.mismatches.length > 0 && (
-        <div className="space-y-4 mb-8">
-          <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 flex items-center gap-2 px-1">
-            <Zap size={14} className="text-amber-500" />
-            Sugestões de Correção
-          </h3>
-          <div className="space-y-3">
-            {stats.mismatches.map((day, i) => (
-              <Card key={i} className="border-none bg-amber-500/5 border border-amber-500/20 shadow-sm">
-                <CardContent className="p-4 flex items-center justify-between">
-                  <div className="space-y-1">
-                    <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{day.fullName}</p>
-                    <p className="text-xs font-bold text-zinc-600 dark:text-zinc-400">
-                      O valor manual ({formatCurrency(day.value, settings.isPrivacyMode)}) difere do print ({formatCurrency(day.importedTotal, settings.isPrivacyMode)}).
-                    </p>
-                  </div>
-                  <Button 
-                    size="sm" 
-                    disabled={isSaving}
-                    className="bg-amber-500 hover:bg-amber-600 text-white text-[10px] font-black uppercase h-8"
-                    onClick={() => {
-                      const cycle = cycles.find(c => isSameDay(parseISO(c.start_time), day.date));
-                      if (cycle) navigate(`/cycle/${cycle.id}`);
-                    }}
-                  >
-                    {isSaving ? '...' : 'Corrigir'}
-                  </Button>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* 9. Histórico Recente */}
       <RecentHistoryCardList 
