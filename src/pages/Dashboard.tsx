@@ -32,6 +32,9 @@ import {
   Info,
   Eye,
   EyeOff,
+  Pause,
+  Square,
+  Play,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfDay, isSameDay, subDays, format, differenceInMinutes, getDay } from 'date-fns';
@@ -82,6 +85,8 @@ export const Dashboard = () => {
       isProductive: false,
     },
     startTracking,
+    pauseTracking,
+    resumeTracking,
     stopTracking,
     startTrip,
     endTrip,
@@ -159,42 +164,34 @@ export const Dashboard = () => {
 
   const handleToggleTracking = async () => {
     if (isProcessing) return;
-
-    if (tracking?.isActive) {
-      setIsProcessing(true);
-      if (process.env.NODE_ENV === 'development') {
-        console.log("[Tracking] Encerrando...");
-      }
-
-      try {
-        await stopTracking?.();
-        
-        // Pequeno delay visual para UX
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        toast.success("Rastreamento finalizado com sucesso");
-      } catch (error) {
-        console.error("[Tracking] Erro ao encerrar:", error);
-        toast.error("Erro ao salvar. Tente novamente.");
-      } finally {
-        setIsProcessing(false);
-      }
-      return;
-    }
+    setIsProcessing(true);
 
     try {
-      if (navigator?.permissions?.query) {
-        const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-        if (permission.state === 'denied') {
-          setLocationError('Permissão de localização negada. Por favor, habilite nas configurações do navegador.');
-          return;
+      if (tracking?.isActive) {
+        if (process.env.NODE_ENV === 'development') {
+          console.log("[Tracking] Encerrando...");
         }
-      }
+        await stopTracking?.();
+        toast.success("Rastreamento finalizado com sucesso");
+      } else {
+        if (navigator?.permissions?.query) {
+          const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+          if (permission.state === 'denied') {
+            setLocationError('Permissão de localização negada. Por favor, habilite nas configurações do navegador.');
+            setIsProcessing(false);
+            return;
+          }
+        }
 
-      startTracking?.();
-      setLocationError(null);
-    } catch {
-      startTracking?.();
+        await startTracking?.();
+        setLocationError(null);
+        toast.success("Rastreamento iniciado");
+      }
+    } catch (error: any) {
+      console.error("[Tracking] Erro:", error);
+      toast.error(error.message || "Erro ao alterar estado do rastreamento");
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -704,10 +701,60 @@ export const Dashboard = () => {
                   <h3 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-white">
                     Rastreamento de KM
                   </h3>
-                  <p className="text-[10px] font-bold uppercase tracking-wider text-zinc-500 dark:text-zinc-400">
-                    {tracking?.isActive ? 'Rastreamento ativo' : 'Rastreamento pausado'}
-                  </p>
+                  <div className="flex items-center gap-2">
+                    <p className={cn(
+                      "text-[10px] font-bold uppercase tracking-wider",
+                      tracking?.isActive ? "text-emerald-500" : "text-zinc-500 dark:text-zinc-400"
+                    )}>
+                      {tracking?.isActive ? 'Rastreamento ativo' : 'Rastreamento pausado'}
+                    </p>
+                    {tracking?.isActive && tracking?.isPaused && (
+                      <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase tracking-tighter">
+                        Pausado
+                      </span>
+                    )}
+                  </div>
                 </div>
+              </div>
+
+              <div className="flex items-center gap-2">
+                {tracking?.isActive && (
+                  <Button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      tracking.isPaused ? resumeTracking() : pauseTracking();
+                    }}
+                    variant="outline"
+                    className="h-8 w-8 rounded-xl border-zinc-200 dark:border-zinc-800 p-0 flex items-center justify-center"
+                  >
+                    {tracking.isPaused ? <Play size={14} fill="currentColor" /> : <Pause size={14} fill="currentColor" />}
+                  </Button>
+                )}
+                
+                <Button
+                  onClick={handleToggleTracking}
+                  disabled={isProcessing}
+                  className={cn(
+                    "h-8 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300",
+                    tracking?.isActive
+                      ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20"
+                      : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20"
+                  )}
+                >
+                  {isProcessing ? (
+                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
+                  ) : tracking?.isActive ? (
+                    <>
+                      <Square size={12} fill="currentColor" className="mr-1.5" />
+                      Parar
+                    </>
+                  ) : (
+                    <>
+                      <Play size={12} fill="currentColor" className="mr-1.5" />
+                      Iniciar
+                    </>
+                  )}
+                </Button>
               </div>
             </div>
 

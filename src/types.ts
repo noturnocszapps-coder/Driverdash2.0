@@ -244,6 +244,7 @@ export interface TrackingSession {
   idleDistance: number;
   isProductive: boolean;
   isManualOverride: boolean;
+  isPaused: boolean;
   manualOverrideTimestamp?: number;
   mode: TrackingMode;
   tripDetectionState: TripDetectionState;
@@ -381,6 +382,8 @@ export interface DriverState {
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   updateTracking: (tracking: Partial<TrackingSession>) => void;
   startTracking: () => void;
+  pauseTracking: () => void;
+  resumeTracking: () => void;
   stopTracking: () => Promise<void>;
   startTrip: () => void;
   endTrip: () => void;

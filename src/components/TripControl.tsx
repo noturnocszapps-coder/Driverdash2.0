@@ -8,7 +8,7 @@ export const TripControl = () => {
   const { tracking, startTrip, endTrip, startTracking, cycles } = useDriverStore();
   const openCycle = cycles.find(c => c.status === 'open');
 
-  if (!openCycle || !tracking.isActive) return null;
+  if (!openCycle) return null;
 
   const getStatusConfig = () => {
     switch (tracking.mode) {

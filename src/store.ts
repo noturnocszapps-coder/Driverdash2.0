@@ -51,6 +51,7 @@ const INITIAL_TRACKING = {
   idleDistance: 0,
   isProductive: false,
   isManualOverride: false,
+  isPaused: false,
   manualOverrideTimestamp: undefined,
   avgSpeed: 0,
   currentSmoothedSpeed: 0,
@@ -1247,9 +1248,29 @@ export const useDriverStore = create<DriverState>()(
         if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
       },
 
+      pauseTracking: () => {
+        const { tracking } = get();
+        if (!tracking.isActive || tracking.isPaused) return;
+        
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
+        }
+        
+        set({ tracking: { ...tracking, isPaused: true } });
+        console.log('[TRACKING] pausado');
+      },
+
+      resumeTracking: () => {
+        const { startTracking } = get();
+        startTracking();
+      },
+
       startTracking: () => {
         const { tracking, cycles, activeVehicleId } = get();
-        if (tracking.isActive) return;
+        
+        // Se já estiver ativo e NÃO estiver pausado, não faz nada
+        if (tracking.isActive && !tracking.isPaused) return;
 
         if (!activeVehicleId) {
           throw new Error('Selecione um veículo ativo antes de iniciar o rastreamento.');
@@ -1263,37 +1284,29 @@ export const useDriverStore = create<DriverState>()(
           return;
         }
 
-        set({ tracking: { ...get().tracking, isLoading: true } });
-        const startTime = Date.now();
-        console.log('[TRACKING] iniciado');
-        set({
-          tracking: {
-            isActive: true,
-            isLoading: false,
-            startTime,
-            distance: 0,
-            avgSpeed: 0,
-            currentSmoothedSpeed: 0,
-            speedBuffer: [],
-            duration: 0,
-            movingTime: 0,
-            stoppedTime: 0,
-            productiveDistance: 0,
-            idleDistance: 0,
-            isProductive: false,
-            isManualOverride: false,
-            manualOverrideTimestamp: undefined,
-            isWarmingUp: true,
-            points: [],
-            segments: [],
-            consecutiveMovingPoints: 0,
-            consecutiveStoppedPoints: 0,
-            mode: 'stopped',
-            tripDetectionState: 'idle',
-            lastPoint: undefined,
-            lastStopLocation: undefined
-          }
-        });
+        // Se estiver retomando de um pause
+        if (tracking.isActive && tracking.isPaused) {
+          set({ tracking: { ...tracking, isPaused: false, isLoading: false } });
+          console.log('[TRACKING] retomado');
+        } else {
+          // Início do zero
+          set({ tracking: { ...get().tracking, isLoading: true } });
+          const startTime = Date.now();
+          console.log('[TRACKING] iniciado');
+          set({
+            tracking: {
+              ...INITIAL_TRACKING,
+              isActive: true,
+              isLoading: false,
+              startTime,
+              isWarmingUp: true,
+            }
+          });
+        }
+
+        if (watchId !== null) {
+          navigator.geolocation.clearWatch(watchId);
+        }
 
         watchId = navigator.geolocation.watchPosition(
           (position) => {
@@ -1652,6 +1665,7 @@ export const useDriverStore = create<DriverState>()(
             idleDistance: 0,
             isProductive: false,
             isManualOverride: false,
+            isPaused: false,
             manualOverrideTimestamp: undefined,
             mode: 'stopped',
             tripDetectionState: 'idle',
@@ -2150,6 +2164,7 @@ export const useDriverStore = create<DriverState>()(
         tracking: {
           isActive: false,
           isLoading: false,
+          isPaused: false,
           distance: 0,
           productiveDistance: 0,
           idleDistance: 0,
