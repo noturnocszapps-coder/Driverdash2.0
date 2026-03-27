@@ -107,6 +107,30 @@ export const TripControl = () => {
                 </span>
               </div>
             )}
+
+            {/* Zone Intelligence Status Dot */}
+            {tracking.isActive && tracking.zoneIntelligence && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/5">
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  tracking.zoneIntelligence.status === 'good_zone' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
+                  tracking.zoneIntelligence.status === 'neutral_zone' ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" :
+                  tracking.zoneIntelligence.status === 'bad_zone' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
+                  "bg-zinc-500 animate-pulse"
+                )} />
+                <span className={cn(
+                  "text-[8px] font-black uppercase tracking-widest",
+                  tracking.zoneIntelligence.status === 'good_zone' ? "text-emerald-500" :
+                  tracking.zoneIntelligence.status === 'neutral_zone' ? "text-amber-500" :
+                  tracking.zoneIntelligence.status === 'bad_zone' ? "text-red-500" :
+                  "text-zinc-500"
+                )}>
+                  {tracking.zoneIntelligence.status === 'monitoring' ? 'Zona' : 
+                   tracking.zoneIntelligence.status === 'good_zone' ? 'Boa' :
+                   tracking.zoneIntelligence.status === 'neutral_zone' ? 'Atenção' : 'Ruim'}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Right Section: Action Button */}

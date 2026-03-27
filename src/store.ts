@@ -5,6 +5,7 @@ import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
 import { evaluateCurrentTrip } from './lib/tripIntelligence';
+import { evaluateZoneQuality } from './lib/zoneIntelligence';
 
 let watchId: number | null = null;
 
@@ -69,6 +70,7 @@ const INITIAL_TRACKING = {
   tripDetectionState: 'idle' as const,
   lastStopLocation: undefined,
   tripIntelligence: undefined,
+  zoneIntelligence: undefined,
 };
 
 const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
@@ -1230,6 +1232,10 @@ export const useDriverStore = create<DriverState>()(
           const openCycle = state.cycles.find(c => c.status === 'open');
           const intelligence = evaluateCurrentTrip(updatedTracking, openCycle, state.settings);
           updatedTracking.tripIntelligence = intelligence;
+
+          // Evaluate Zone Quality
+          const zoneIntelligence = evaluateZoneQuality(updatedTracking, openCycle);
+          updatedTracking.zoneIntelligence = zoneIntelligence;
         }
         
         return { tracking: updatedTracking };

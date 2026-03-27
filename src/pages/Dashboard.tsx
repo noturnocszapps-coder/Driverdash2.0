@@ -85,6 +85,7 @@ export const Dashboard = () => {
       stoppedTime: 0,
       isProductive: false,
       tripIntelligence: undefined,
+      zoneIntelligence: undefined,
     },
     startTracking,
     pauseTracking,
@@ -98,6 +99,7 @@ export const Dashboard = () => {
   } = useDriverStore();
 
   const tripIntelligence = tracking?.tripIntelligence;
+  const zoneIntelligence = tracking?.zoneIntelligence;
 
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
@@ -546,6 +548,94 @@ export const Dashboard = () => {
                   <Info size={12} className="text-zinc-400" />
                   <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
                     {tripIntelligence?.maturity.reason}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Real-time Zone Quality Card */}
+      {tracking?.isActive && zoneIntelligence && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3, delay: 0.1 }}
+        >
+          <Card className={cn(
+            "border-none shadow-lg overflow-hidden transition-all duration-500",
+            zoneIntelligence.status === 'good_zone' ? "bg-emerald-500/10 border border-emerald-500/20" :
+            zoneIntelligence.status === 'neutral_zone' ? "bg-amber-500/10 border border-amber-500/20" :
+            zoneIntelligence.status === 'bad_zone' ? "bg-red-500/10 border border-red-500/20" :
+            "bg-zinc-500/10 border border-zinc-500/20"
+          )}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    zoneIntelligence.status === 'good_zone' ? "bg-emerald-500 text-zinc-950" :
+                    zoneIntelligence.status === 'neutral_zone' ? "bg-amber-500 text-zinc-950" :
+                    zoneIntelligence.status === 'bad_zone' ? "bg-red-500 text-zinc-950" :
+                    "bg-zinc-500 text-zinc-950"
+                  )}>
+                    <MapIcon size={16} className={cn(zoneIntelligence.status === 'monitoring' && "animate-pulse")} />
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest opacity-70">Inteligência de Região</h3>
+                    <p className={cn(
+                      "text-sm font-black uppercase tracking-tight",
+                      zoneIntelligence.status === 'good_zone' ? "text-emerald-500" :
+                      zoneIntelligence.status === 'neutral_zone' ? "text-amber-500" :
+                      zoneIntelligence.status === 'bad_zone' ? "text-red-500" :
+                      "text-zinc-500"
+                    )}>
+                      {zoneIntelligence.label}
+                    </p>
+                  </div>
+                </div>
+                
+                {zoneIntelligence.maturity.isMature && (
+                  <div className={cn(
+                    "px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest",
+                    zoneIntelligence.severity === 'high' ? "bg-red-500 text-white" :
+                    zoneIntelligence.severity === 'medium' ? "bg-amber-500 text-zinc-950" :
+                    "bg-emerald-500 text-zinc-950"
+                  )}>
+                    {zoneIntelligence.severity === 'high' ? 'Crítico' : zoneIntelligence.severity === 'medium' ? 'Médio' : 'Baixo'}
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
+                {zoneIntelligence.message}
+              </p>
+
+              {zoneIntelligence.maturity.isMature ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">KM Ocioso</p>
+                    <p className="text-xs font-black">{zoneIntelligence.metrics.idleKm.toFixed(1)} km</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Tempo de Busca</p>
+                    <p className="text-xs font-black">{Math.floor(zoneIntelligence.metrics.searchingMinutes)} min</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Eficiência Atual</p>
+                    <p className="text-xs font-black">{zoneIntelligence.metrics.currentEfficiency.toFixed(1)}%</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganhos Recentes</p>
+                    <p className="text-xs font-black">{formatCurrency(zoneIntelligence.metrics.recentRevenue)}</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                  <Info size={12} className="text-zinc-400" />
+                  <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                    {zoneIntelligence.maturity.reason}
                   </p>
                 </div>
               )}

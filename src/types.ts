@@ -259,6 +259,7 @@ export interface TrackingSession {
   lastLocation?: { lat: number; lng: number };
   lastTimestamp?: number;
   tripIntelligence?: TripIntelligence;
+  zoneIntelligence?: ZoneIntelligence;
 }
 
 export type TripStatus = 'good' | 'acceptable' | 'bad' | 'analyzing';
@@ -278,6 +279,26 @@ export interface TripIntelligence {
     perHour: number;
     efficiency: number;
     profitPerKm: number;
+  };
+}
+
+export type ZoneStatus = 'good_zone' | 'neutral_zone' | 'bad_zone' | 'monitoring';
+export type ZoneSeverity = 'low' | 'medium' | 'high';
+
+export interface ZoneIntelligence {
+  status: ZoneStatus;
+  severity: ZoneSeverity;
+  label: string;
+  message: string;
+  metrics: {
+    idleKm: number;
+    searchingMinutes: number;
+    currentEfficiency: number;
+    recentRevenue: number;
+  };
+  maturity: {
+    isMature: boolean;
+    reason?: string;
   };
 }
 
