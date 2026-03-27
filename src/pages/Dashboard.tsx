@@ -20,6 +20,7 @@ import {
   Clock,
   Target,
   Zap,
+  Car,
   LayoutGrid,
   Plus,
   ChevronRight,
@@ -462,9 +463,40 @@ export const Dashboard = () => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 pb-48 md:pb-8"
+      className="space-y-4 pb-24 md:pb-8"
     >
       <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
+
+      {/* Active Vehicle Card - Prominent at the top */}
+      {currentVehicle && (
+        <Card 
+          onClick={() => navigate('/settings')}
+          className="border-none bg-white dark:bg-zinc-900 shadow-lg overflow-hidden cursor-pointer active:scale-[0.98] transition-all"
+        >
+          <CardContent className="p-3 flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                "w-10 h-10 rounded-xl flex items-center justify-center",
+                "bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20"
+              )}>
+                {currentVehicle.category === 'motorcycle' ? <Zap size={20} /> : <Car size={20} />}
+              </div>
+              <div>
+                <div className="flex items-center gap-2">
+                  <p className="text-sm font-black tracking-tight">{currentVehicle.name}</p>
+                  <div className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 text-[8px] font-black uppercase rounded-md tracking-widest">
+                    Ativo
+                  </div>
+                </div>
+                <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">
+                  {currentVehicle.brand} {currentVehicle.model} • {currentVehicle.year}
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={16} className="text-zinc-400" />
+          </CardContent>
+        </Card>
+      )}
 
       {!activeVehicleId && (
         <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-4 flex items-center gap-3">
@@ -555,8 +587,8 @@ export const Dashboard = () => {
       </div>
 
       <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
-        <CardContent className="p-6">
-          <div className="flex items-center justify-between mb-6">
+        <CardContent className="p-4">
+          <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
                 <Award size={16} className="text-emerald-500" />
@@ -575,7 +607,7 @@ export const Dashboard = () => {
           </div>
 
           <div className="flex items-end gap-4">
-            <div className="text-5xl font-black tracking-tighter text-zinc-900 dark:text-white">
+            <div className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-white">
               {driverScore?.label === 'Em formação' ? '--' : safeNumber(driverScore?.score)}
             </div>
             <div className="pb-1 space-y-1">
@@ -683,7 +715,7 @@ export const Dashboard = () => {
 
       {openCycle && (
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
-          <CardContent className="p-6">
+          <CardContent className="p-4">
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
                 <div
@@ -941,70 +973,70 @@ export const Dashboard = () => {
       )}
 
       <Card className="relative overflow-hidden border-none bg-zinc-900 text-white shadow-2xl shadow-zinc-900/40">
-        <div className="absolute top-0 right-0 p-8 opacity-5">
-          <Navigation size={120} className="rotate-45" />
+        <div className="absolute top-0 right-0 p-4 opacity-5">
+          <Navigation size={80} className="rotate-45" />
         </div>
 
-        <CardContent className="p-8 space-y-8 relative z-10">
+        <CardContent className="p-4 space-y-4 relative z-10">
           <div className="flex justify-between items-start gap-4">
             <div className="space-y-1 min-w-0">
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">
                 {safeNumber(openCycle?.total_amount) > 0 ? 'Faturamento do Ciclo' : 'Ciclo iniciado, aguardando lançamentos'}
               </p>
-              <h2 className="text-5xl font-black tracking-tighter break-words text-white">
-                {safeNumber(openCycle?.total_amount) > 0 ? formatCurrency(safeNumber(openCycle?.total_amount), settings.isPrivacyMode) : 'R$ 0,00'}
+              <h2 className="text-4xl font-black tracking-tighter break-words text-white">
+                {safeNumber(openCycle?.total_amount) > 0 ? formatCurrency(safeNumber(openCycle?.total_amount), settings.isPrivacyMode) : formatCurrency(0, settings.isPrivacyMode)}
               </h2>
             </div>
 
             {openCycle && cycleProgress && (
-              <div className="bg-white/5 backdrop-blur-md px-3 py-1.5 rounded-full flex items-center gap-2 border border-white/5 shrink-0">
-                <Clock size={14} className="text-emerald-400" />
-                <span className="text-[10px] font-bold uppercase tracking-wider text-zinc-300">
-                  Fecha em {safeNumber(cycleProgress?.remainingHours)}h {safeNumber(cycleProgress?.remainingMinutes)}m
+              <div className="bg-white/5 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1.5 border border-white/5 shrink-0">
+                <Clock size={12} className="text-emerald-400" />
+                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-300">
+                  {safeNumber(cycleProgress?.remainingHours)}h {safeNumber(cycleProgress?.remainingMinutes)}m
                 </span>
               </div>
             )}
           </div>
 
           {profitStats && (
-            <div className="grid grid-cols-3 gap-4 pt-6 border-t border-white/5">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Despesas</p>
-                <p className="text-sm font-black text-red-400">
+            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/5">
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Despesas</p>
+                <p className="text-xs font-black text-red-400">
                   {formatCurrency(safeNumber(profitStats.expenses) + safeNumber(profitStats.dailyFixed), settings.isPrivacyMode)}
                 </p>
               </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">R$ Perdido</p>
-                <p className="text-sm font-black text-amber-400">
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">R$ Perdido</p>
+                <p className="text-xs font-black text-amber-400">
                   {formatCurrency(safeNumber(efficiencyStats?.lostRevenue), settings.isPrivacyMode)}
                 </p>
               </div>
-              <div className="text-right space-y-1">
-                <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Lucro Estimado</p>
-                <p className="text-2xl font-black text-emerald-400 leading-none">
+              <div className="text-right space-y-0.5">
+                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Lucro Estimado</p>
+                <p className="text-xl font-black text-emerald-400 leading-none">
                   {formatCurrency(safeNumber(profitStats.profit), settings.isPrivacyMode)}
                 </p>
               </div>
             </div>
           )}
 
-          <div className="space-y-6">
+          <div className="space-y-4">
             {openCycle ? (
-              <div className="space-y-3">
+              <div className="space-y-2">
                 <div className="flex justify-between items-end">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-zinc-500" />
-                    <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={12} className="text-zinc-500" />
+                    <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
                       Iniciado às {openCycle?.start_time ? format(new Date(openCycle.start_time), 'HH:mm') : '--:--'}
                     </span>
                   </div>
-                  <span className="text-xs font-black text-emerald-400">
+                  <span className="text-[10px] font-black text-emerald-400">
                     {safeNumber(cycleProgress?.percent).toFixed(0)}%
                   </span>
                 </div>
 
-                <div className="h-2 bg-white/5 rounded-full overflow-hidden">
+                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${safeNumber(cycleProgress?.percent)}%` }}
@@ -1193,8 +1225,8 @@ export const Dashboard = () => {
       )}
 
       <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-visible">
-        <CardContent className="p-6">
-          <div className="flex justify-between items-center mb-6">
+        <CardContent className="p-4">
+          <div className="flex justify-between items-center mb-4">
             <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
               <TrendingUp size={16} className="text-emerald-500" />
               Desempenho Semanal

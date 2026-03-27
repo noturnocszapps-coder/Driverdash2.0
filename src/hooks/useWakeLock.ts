@@ -7,7 +7,7 @@ export function useWakeLock() {
 
   const requestWakeLock = async () => {
     if (!('wakeLock' in navigator)) {
-      console.log('[WAKELOCK] unsupported by browser');
+      console.log('[WAKELOCK] unsupported');
       return;
     }
     
@@ -15,19 +15,17 @@ export function useWakeLock() {
       if (settings.keepScreenOn) {
         if (!wakeLockRef.current) {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-          console.log('[WAKELOCK] requested successfully');
+          console.log('[WAKELOCK] requested');
           
           wakeLockRef.current.addEventListener('release', () => {
-            console.log('[WAKELOCK] released automatically (system or visibility)');
+            console.log('[WAKELOCK] released');
             wakeLockRef.current = null;
           });
-        } else {
-          console.log('[WAKELOCK] already active');
         }
       } else {
         if (wakeLockRef.current) {
           await wakeLockRef.current.release();
-          console.log('[WAKELOCK] released manually');
+          console.log('[WAKELOCK] released');
           wakeLockRef.current = null;
         }
       }
@@ -41,7 +39,7 @@ export function useWakeLock() {
 
     const handleVisibilityChange = () => {
       if (settings.keepScreenOn && document.visibilityState === 'visible') {
-        console.log('[WAKELOCK] reacquired on visibility change');
+        console.log('[WAKELOCK] reacquired');
         requestWakeLock();
       }
     };
