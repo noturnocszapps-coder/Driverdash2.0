@@ -12,14 +12,14 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
     const cyclesByDate: Record<string, any[]> = {};
     const reportsByDate: Record<string, any[]> = {};
 
-    // Filter by active vehicle if selected
+    // Filter by active vehicle if selected, otherwise show all
     const filteredCycles = activeVehicleId 
       ? cycles.filter(c => c.vehicle_id === activeVehicleId)
-      : [];
+      : cycles;
       
     const filteredReports = activeVehicleId
       ? importedReports.filter(r => r.vehicle_id === activeVehicleId)
-      : [];
+      : importedReports;
 
     filteredCycles.forEach(cycle => {
       try {

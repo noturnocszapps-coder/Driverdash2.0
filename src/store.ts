@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware';
 import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
+import { toast } from 'sonner';
 
 let watchId: number | null = null;
 
@@ -19,7 +20,7 @@ const TRACKING_CONFIG = {
   MAX_ACCURACY: 35, // metros mais rigoroso
   SPEED_BUFFER_SIZE: 5,
   MIN_TRIP_DISPLACEMENT: 0.03, // 30 metros para confirmar fim
-  MANUAL_OVERRIDE_TIMEOUT: 60000, // 60 segundos de bloqueio auto após manual
+  MANUAL_OVERRIDE_TIMEOUT: 300000, // 5 minutos de bloqueio auto após manual
 };
 
 const INITIAL_SETTINGS: UserSettings = {
@@ -189,7 +190,7 @@ export const useDriverStore = create<DriverState>()(
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('cycles').insert(newCycle);
-            if (error) console.error('[Store] Sync error (start cycle):', error);
+            if (error) console.error('[SYNC] Error (start cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             
             // Force refresh to ensure data integrity
@@ -233,7 +234,7 @@ export const useDriverStore = create<DriverState>()(
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('cycles').insert(newCycle);
-            if (error) console.error('[Store] Sync error (add cycle):', error);
+            if (error) console.error('[SYNC] Error (add cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             
             // Force refresh to ensure data integrity
@@ -271,7 +272,7 @@ export const useDriverStore = create<DriverState>()(
               .update({ status: 'closed', end_time: endTime })
               .eq('id', id)
               .eq('user_id', user.id);
-            if (error) console.error('[Store] Sync error (close cycle):', error);
+            if (error) console.error('[SYNC] Error (close cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             
             // Force refresh to ensure data integrity
@@ -374,7 +375,7 @@ export const useDriverStore = create<DriverState>()(
               })
               .eq('id', id)
               .eq('user_id', user.id);
-            if (error) console.error('[Store] Sync error (update cycle):', error);
+            if (error) console.error('[SYNC] Error (update cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             
             // Force refresh to ensure data integrity
@@ -418,7 +419,7 @@ export const useDriverStore = create<DriverState>()(
             set({ financialEntries: data });
           }
         } catch (error) {
-          console.error('[Store] loadFinancialEntries error:', error);
+          console.error('[FINANCIAL] loadFinancialEntries error:', error);
         }
       },
 
@@ -451,7 +452,7 @@ export const useDriverStore = create<DriverState>()(
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('financial_entries').insert(newEntry);
-            if (error) console.error('[Store] Sync error (add financial entry):', error);
+            if (error) console.error('[SYNC] Error (add financial entry):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -505,7 +506,7 @@ export const useDriverStore = create<DriverState>()(
               .update({ ...data, updated_at: now })
               .eq('id', id)
               .eq('user_id', user.id);
-            if (error) console.error('[Store] Sync error (update financial entry):', error);
+            if (error) console.error('[SYNC] Error (update financial entry):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -544,7 +545,7 @@ export const useDriverStore = create<DriverState>()(
               .delete()
               .eq('id', id)
               .eq('user_id', user.id);
-            if (error) console.error('[Store] Sync error (delete financial entry):', error);
+            if (error) console.error('[SYNC] Error (delete financial entry):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -590,7 +591,7 @@ export const useDriverStore = create<DriverState>()(
               value: expense.value,
               description: expense.description
             });
-            if (error) console.error('[Store] Sync error (expense):', error);
+            if (error) console.error('[SYNC] Error (expense):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -621,7 +622,7 @@ export const useDriverStore = create<DriverState>()(
               cost: fueling.value,
               odometer: fueling.odometer
             });
-            if (error) console.error('[Store] Sync error (fueling):', error);
+            if (error) console.error('[SYNC] Error (fueling):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -653,7 +654,7 @@ export const useDriverStore = create<DriverState>()(
               odometer: maintenance.currentKm,
               next_change_km: maintenance.nextChangeKm
             });
-            if (error) console.error('[Store] Sync error (maintenance):', error);
+            if (error) console.error('[SYNC] Error (maintenance):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -706,7 +707,7 @@ export const useDriverStore = create<DriverState>()(
                 }
               }
             } catch (e) {
-              console.error('[Store] Error parsing report date:', e);
+              console.error('[REPORTS] Error parsing report date:', e);
             }
 
             const platformKey = report.platform.toLowerCase() === 'uber' ? 'uber_amount' :
@@ -729,7 +730,7 @@ export const useDriverStore = create<DriverState>()(
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('imported_reports').insert(newReport);
-            if (error) console.error('[Store] Sync error (imported report):', error);
+            if (error) console.error('[SYNC] Error (imported report):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -763,7 +764,7 @@ export const useDriverStore = create<DriverState>()(
               ...newLog,
               user_id: user.id
             });
-            if (error) console.error('[Store] Sync error (faturamento_log):', error);
+            if (error) console.error('[SYNC] Error (faturamento_log):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -787,7 +788,7 @@ export const useDriverStore = create<DriverState>()(
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('cycles').delete().eq('id', id).eq('user_id', user.id);
-            if (error) console.error('[Store] Sync error (delete cycle):', error);
+            if (error) console.error('[SYNC] Error (delete cycle):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -811,7 +812,7 @@ export const useDriverStore = create<DriverState>()(
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('imported_reports').delete().eq('id', id).eq('user_id', user.id);
-            if (error) console.error('[Store] Sync error (delete imported report):', error);
+            if (error) console.error('[SYNC] Error (delete imported report):', error);
             set({ syncStatus: error ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
@@ -862,7 +863,7 @@ export const useDriverStore = create<DriverState>()(
             set({ vehicles: mappedVehicles });
           }
         } catch (error) {
-          console.error('[Vehicle Error] loadVehicles:', error);
+          console.error('[VEHICLE] loadVehicles error:', error);
         }
       },
 
@@ -906,7 +907,7 @@ export const useDriverStore = create<DriverState>()(
             await get().setActiveVehicle(id);
           }
         } catch (error: any) {
-          console.error('[Vehicle Error] addVehicle:', error);
+          console.error('[VEHICLE] addVehicle error:', error);
           throw error;
         } finally {
           set({ isSaving: false });
@@ -947,7 +948,7 @@ export const useDriverStore = create<DriverState>()(
             vehicles: state.vehicles.map(v => v.id === id ? { ...v, ...updates, updated_at: now } : v)
           }));
         } catch (error: any) {
-          console.error('[Vehicle Error] updateVehicle:', error);
+          console.error('[VEHICLE] updateVehicle error:', error);
           throw error;
         } finally {
           set({ isSaving: false });
@@ -976,7 +977,7 @@ export const useDriverStore = create<DriverState>()(
             }
           }
         } catch (error: any) {
-          console.error('[Vehicle Error] deleteVehicle:', error);
+          console.error('[VEHICLE] deleteVehicle error:', error);
           throw error;
         } finally {
           set({ isSaving: false });
@@ -1042,7 +1043,7 @@ export const useDriverStore = create<DriverState>()(
             fixedCosts: activeVehicle.fixedCosts
           });
         } catch (error: any) {
-          console.error('[Vehicle Error] setActiveVehicle:', error);
+          console.error('[VEHICLE] setActiveVehicle error:', error);
           // Force sync to restore consistency on error
           await get().syncData();
           throw error;
@@ -1151,7 +1152,7 @@ export const useDriverStore = create<DriverState>()(
             const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
             
             if (error) {
-              console.error('[Store] Error updating settings in Supabase:', error);
+              console.error('[SETTINGS] Error updating settings in Supabase:', error);
               set({ syncStatus: 'offline' });
               throw error; // Throw to let UI handle it
             }
@@ -1193,7 +1194,7 @@ export const useDriverStore = create<DriverState>()(
             });
           }
         } catch (err) {
-          console.error('[Store] updateSettings error:', err);
+          console.error('[SETTINGS] updateSettings error:', err);
           throw err;
         } finally {
           set({ isSaving: false });
@@ -1231,7 +1232,7 @@ export const useDriverStore = create<DriverState>()(
           isManualOverride: true,
           manualOverrideTimestamp: Date.now()
         });
-        console.log('[TRACK] Trip iniciada (manual)');
+        console.log('[TRIP] Iniciada (manual)');
         if (navigator.vibrate) navigator.vibrate(50);
       },
 
@@ -1244,7 +1245,7 @@ export const useDriverStore = create<DriverState>()(
           isManualOverride: true,
           manualOverrideTimestamp: Date.now()
         });
-        console.log('[TRACK] Trip encerrada (manual)');
+        console.log('[TRIP] Encerrada (manual)');
         if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
       },
 
@@ -1266,7 +1267,7 @@ export const useDriverStore = create<DriverState>()(
         startTracking();
       },
 
-      startTracking: () => {
+      startTracking: async () => {
         const { tracking, cycles, activeVehicleId } = get();
         
         // Se já estiver ativo e NÃO estiver pausado, não faz nada
@@ -1277,22 +1278,32 @@ export const useDriverStore = create<DriverState>()(
         }
         
         const openCycle = cycles.find(c => c.status === 'open');
-        if (!openCycle) return;
+        if (!openCycle) {
+          console.warn('[TRACKING] No open cycle found, cannot start tracking');
+          return;
+        }
 
         if (!navigator.geolocation) {
-          console.error('Geolocation not supported');
-          return;
+          console.error('[TRACKING] Geolocation not supported');
+          throw new Error('Geolocalização não suportada');
+        }
+
+        // Cleanup existing watch if any
+        if (watchId !== null) {
+          console.log('[TRACKING] Cleaning up existing watch before start');
+          navigator.geolocation.clearWatch(watchId);
+          watchId = null;
         }
 
         // Se estiver retomando de um pause
         if (tracking.isActive && tracking.isPaused) {
           set({ tracking: { ...tracking, isPaused: false, isLoading: false } });
-          console.log('[TRACKING] retomado');
+          console.log('[TRACKING] Retomado');
         } else {
           // Início do zero
           set({ tracking: { ...get().tracking, isLoading: true } });
           const startTime = Date.now();
-          console.log('[TRACKING] iniciado');
+          console.log('[TRACKING] Iniciado');
           set({
             tracking: {
               ...INITIAL_TRACKING,
@@ -1304,24 +1315,21 @@ export const useDriverStore = create<DriverState>()(
           });
         }
 
-        if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
-        }
+        try {
+          watchId = navigator.geolocation.watchPosition(
+            (position) => {
+              const { tracking: currentTracking } = get();
+              if (!currentTracking.isActive) return;
 
-        watchId = navigator.geolocation.watchPosition(
-          (position) => {
-            const { tracking: currentTracking } = get();
-            if (!currentTracking.isActive) return;
+              const { latitude, longitude, accuracy } = position.coords;
+              const timestamp = position.timestamp || Date.now();
+              const lastPoint = currentTracking.lastPoint;
 
-            const { latitude, longitude, accuracy } = position.coords;
-            const timestamp = position.timestamp || Date.now();
-            const lastPoint = currentTracking.lastPoint;
-
-            // 1. FILTRO DE PONTO GPS MAIS RIGOROSO
-            if (accuracy && accuracy > TRACKING_CONFIG.MAX_ACCURACY) {
-              console.log('[TRACKING] ponto ignorado: accuracy alta', accuracy);
-              return;
-            }
+              // 1. FILTRO DE PONTO GPS MAIS RIGOROSO
+              if (accuracy && accuracy > TRACKING_CONFIG.MAX_ACCURACY) {
+                console.log('[TRACKING] Ponto ignorado: accuracy alta', accuracy);
+                return;
+              }
 
             let speedKmh = 0;
             const rawSpeed = position.coords.speed;
@@ -1597,30 +1605,38 @@ export const useDriverStore = create<DriverState>()(
               }
             });
           },
-          (error) => {
-            console.error('Geolocation error:', error);
-          },
-          {
-            enableHighAccuracy: true,
-            timeout: 10000,
-            maximumAge: 0
-          }
-        );
+            (error) => {
+              console.error('[TRACKING] Geolocation error:', error);
+              toast.error(`Erro de GPS: ${error.message}`);
+            },
+            {
+              enableHighAccuracy: true,
+              timeout: 10000,
+              maximumAge: 0
+            }
+          );
+        } catch (err) {
+          console.error('[TRACKING] Failed to start watchPosition:', err);
+          set((state) => ({
+            tracking: { ...state.tracking, isActive: false, isLoading: false },
+          }));
+          throw err;
+        }
       },
 
       stopTracking: async () => {
-        console.log('[TRACKING] encerrado');
+        if (!get().tracking.isActive) {
+          console.log('[TRACKING] stopTracking: tracking is not active, returning');
+          return;
+        }
+
+        console.log('[TRACKING] Encerrado');
         if (watchId !== null) {
           navigator.geolocation.clearWatch(watchId);
           watchId = null;
         }
 
         const { tracking, cycles, updateCycle } = get();
-        if (!tracking.isActive) {
-          console.log('[Store] stopTracking: tracking is not active, returning');
-          return;
-        }
-
         const openCycle = cycles.find(c => c.status === 'open');
         
         // Fecha o último segmento se estiver aberto
@@ -1681,10 +1697,14 @@ export const useDriverStore = create<DriverState>()(
 
         // 3. Persist the data to the cycle
         if (openCycle && persistedData) {
-          console.log('[Store] stopTracking: updating cycle', openCycle.id);
-          await updateCycle(openCycle.id, persistedData);
+          try {
+            console.log('[TRACKING] Persisting data to cycle:', openCycle.id);
+            await updateCycle(openCycle.id, persistedData);
+          } catch (error) {
+            console.error('[TRACKING] Error persisting data:', error);
+          }
         }
-        console.log('[Store] stopTracking completed');
+        console.log('[TRACKING] stopTracking completed');
       },
 
       importData: (data) => set((state) => {
@@ -2201,7 +2221,7 @@ export const useDriverStore = create<DriverState>()(
           
           return { success: true };
         } catch (error) {
-          console.error('[Store] Error clearing cloud data:', error);
+          console.error('[SYNC] Error clearing cloud data:', error);
           set({ syncStatus: 'offline' });
           return { success: false, error };
         }

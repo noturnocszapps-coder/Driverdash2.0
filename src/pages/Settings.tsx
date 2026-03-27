@@ -15,6 +15,9 @@ import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 import { VehicleProfile } from '../types';
 
+import { toast } from 'sonner';
+import { ConfirmationModal } from '../components/ConfirmationModal';
+
 export const Settings = () => {
   const navigate = useNavigate();
   const { 
@@ -42,8 +45,9 @@ export const Settings = () => {
     try {
       await setActiveVehicle(id);
       setShowVehicleSelector(false);
+      toast.success('Veículo alterado com sucesso');
     } catch (error: any) {
-      alert(`Erro ao trocar veículo: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao trocar veículo: ${error.message || 'Verifique sua conexão'}`);
     }
   };
 
@@ -51,7 +55,7 @@ export const Settings = () => {
     if (!currentVehicle) return;
     
     if (!currentVehicle.name.trim()) {
-      alert('O nome do veículo não pode estar vazio.');
+      toast.error('O nome do veículo não pode estar vazio.');
       return;
     }
 
@@ -68,25 +72,33 @@ export const Settings = () => {
       });
 
       setSaveSuccess(true);
+      toast.success('Veículo salvo com sucesso');
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error: any) {
       console.error('[Settings] Error saving vehicle:', error);
-      alert(`Erro ao salvar veículo: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao salvar veículo: ${error.message || 'Verifique sua conexão'}`);
     }
   };
 
+  const [deletingVehicleId, setDeletingVehicleId] = useState<string | null>(null);
+
   const handleDeleteVehicle = async (id: string) => {
     if (vehicles.length <= 1) {
-      alert('Você precisa ter pelo menos um veículo cadastrado.');
+      toast.error('Você precisa ter pelo menos um veículo cadastrado.');
       return;
     }
+    setDeletingVehicleId(id);
+  };
 
-    if (confirm('Tem certeza que deseja excluir este veículo?')) {
-      try {
-        await deleteVehicle(id);
-      } catch (error: any) {
-        alert(`Erro ao excluir veículo: ${error.message || 'Verifique sua conexão'}`);
-      }
+  const confirmDeleteVehicle = async () => {
+    if (!deletingVehicleId) return;
+    try {
+      await deleteVehicle(deletingVehicleId);
+      toast.success('Veículo excluído com sucesso');
+    } catch (error: any) {
+      toast.error(`Erro ao excluir veículo: ${error.message || 'Verifique sua conexão'}`);
+    } finally {
+      setDeletingVehicleId(null);
     }
   };
 
@@ -116,8 +128,9 @@ export const Settings = () => {
     try {
       await addVehicle(vehicleData);
       setIsAddingVehicle(false);
+      toast.success('Veículo adicionado com sucesso');
     } catch (error: any) {
-      alert(`Erro ao adicionar veículo: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao adicionar veículo: ${error.message || 'Verifique sua conexão'}`);
     }
   };
 
@@ -128,8 +141,9 @@ export const Settings = () => {
       await updateVehicle(currentVehicle.id, {
         fixedCosts: { ...currentVehicle.fixedCosts, ...newFixedCosts }
       });
+      toast.success('Custos atualizados');
     } catch (error: any) {
-      alert(`Erro ao atualizar custos: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao atualizar custos: ${error.message || 'Verifique sua conexão'}`);
     }
   };
 
@@ -139,17 +153,17 @@ export const Settings = () => {
       if (user) {
         const result = await clearCloudData();
         if (!result.success) {
-          alert('Erro ao apagar dados da nuvem. Verifique sua conexão e tente novamente.');
+          toast.error('Erro ao apagar dados da nuvem. Verifique sua conexão e tente novamente.');
           setIsDeleting(false);
           return;
         }
       }
       clearData();
       setShowDeleteConfirm(false);
-      alert('Todos os seus dados foram apagados com sucesso.');
+      toast.success('Todos os seus dados foram apagados com sucesso.');
     } catch (error) {
       console.error('[Settings] Error clearing data:', error);
-      alert('Ocorreu um erro ao apagar os dados.');
+      toast.error('Ocorreu um erro ao apagar os dados.');
     } finally {
       setIsDeleting(false);
     }
@@ -170,12 +184,12 @@ export const Settings = () => {
         const data = JSON.parse(event.target?.result as string);
         if (data.cycles || data.settings) {
           importData(data);
-          alert('Backup importado com sucesso!');
+          toast.success('Backup importado com sucesso!');
         } else {
-          alert('Arquivo de backup inválido.');
+          toast.error('Arquivo de backup inválido.');
         }
       } catch (err) {
-        alert('Erro ao ler o arquivo de backup.');
+        toast.error('Erro ao ler o arquivo de backup.');
       }
     };
     reader.readAsText(file);
@@ -186,7 +200,7 @@ export const Settings = () => {
     if (!file) return;
 
     if (file.size > 2 * 1024 * 1024) {
-      alert('A foto deve ter no máximo 2MB.');
+      toast.error('A foto deve ter no máximo 2MB.');
       return;
     }
 
@@ -977,59 +991,25 @@ export const Settings = () => {
       </AnimatePresence>
 
       {/* Delete Confirmation Modal */}
-      <AnimatePresence>
-        {showDeleteConfirm && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setShowDeleteConfirm(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
-            />
-            <motion.div 
-              initial={{ scale: 0.9, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.9, opacity: 0 }}
-              className="fixed inset-0 m-auto w-full max-w-xs h-fit z-[110] p-6"
-            >
-              <Card className="border-none bg-white dark:bg-zinc-900 shadow-2xl rounded-[2.5rem] overflow-hidden">
-                <CardContent className="p-8 space-y-6">
-                  <div className="w-20 h-20 bg-red-100 dark:bg-red-500/10 rounded-[2rem] flex items-center justify-center text-red-500 mx-auto">
-                    <AlertCircle size={40} />
-                  </div>
-                  
-                  <div className="text-center space-y-2">
-                    <h3 className="text-2xl font-black tracking-tighter">Apagar tudo?</h3>
-                    <p className="text-sm text-zinc-500 font-medium leading-relaxed">
-                      Essa ação é irreversível. Todos os seus ciclos e configurações serão removidos.
-                    </p>
-                  </div>
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleClearData}
+        title="Apagar tudo?"
+        message="Essa ação é irreversível. Todos os seus ciclos e configurações serão removidos. Tem certeza?"
+        confirmText={isDeleting ? 'Apagando...' : 'Confirmar'}
+        variant="danger"
+      />
 
-                  <div className="flex flex-col gap-3">
-                    <Button 
-                      variant="danger" 
-                      onClick={handleClearData}
-                      disabled={isDeleting}
-                      className="w-full h-16 text-lg font-black rounded-2xl shadow-xl shadow-red-500/20"
-                    >
-                      {isDeleting ? 'Apagando...' : 'Confirmar'}
-                    </Button>
-                    <Button 
-                      variant="ghost" 
-                      onClick={() => setShowDeleteConfirm(false)}
-                      disabled={isDeleting}
-                      className="w-full h-12 text-sm font-bold text-zinc-400"
-                    >
-                      Cancelar
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+      <ConfirmationModal
+        isOpen={!!deletingVehicleId}
+        onClose={() => setDeletingVehicleId(null)}
+        onConfirm={confirmDeleteVehicle}
+        title="Excluir Veículo"
+        message="Tem certeza que deseja excluir este veículo? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
+        variant="danger"
+      />
     </motion.div>
   );
 };

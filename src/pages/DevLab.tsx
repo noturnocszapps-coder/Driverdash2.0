@@ -7,10 +7,13 @@ import { toast } from 'sonner';
 import { motion } from 'motion/react';
 import { cn } from '../utils';
 
+import { ConfirmationModal } from '../components/ConfirmationModal';
+
 const DevLab = () => {
   const navigate = useNavigate();
   const { clearData, syncData, cycles, tracking, lastSyncTime, syncError, syncStatus } = useDriverStore();
   const [isProcessing, setIsProcessing] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   const formatLastSync = (time: string | null) => {
     if (!time) return 'Nunca';
@@ -19,8 +22,6 @@ const DevLab = () => {
   };
 
   const handleResetData = async () => {
-    if (!window.confirm('Isso apagará TODOS os seus dados locais e na nuvem. Tem certeza?')) return;
-    
     setIsProcessing(true);
     try {
       await clearData();
@@ -116,7 +117,7 @@ const DevLab = () => {
                   </div>
                 </div>
                 <Button 
-                  onClick={handleResetData} 
+                  onClick={() => setShowResetConfirm(true)} 
                   disabled={isProcessing}
                   variant="secondary"
                   className="w-full border-red-500/20 text-red-500 hover:bg-red-500/10 font-black uppercase text-[10px]"
@@ -127,6 +128,16 @@ const DevLab = () => {
             </Card>
           </div>
         </section>
+
+        <ConfirmationModal
+          isOpen={showResetConfirm}
+          onClose={() => setShowResetConfirm(false)}
+          onConfirm={handleResetData}
+          title="Resetar Todos os Dados"
+          message="Isso apagará TODOS os seus dados locais e na nuvem. Esta ação não pode ser desfeita. Tem certeza?"
+          confirmText="Resetar Tudo"
+          variant="danger"
+        />
 
         <section className="space-y-4">
           <h2 className="text-xs font-black uppercase tracking-widest text-zinc-500 px-1">Estado Interno</h2>

@@ -4,6 +4,7 @@ import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useDriverStore } from '../store';
 import { Card, CardContent, Button, Input } from '../components/UI';
 import { UserPlus, Mail, Lock, User, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
+import { toast } from 'sonner';
 
 export const Register = () => {
   const navigate = useNavigate();
@@ -44,7 +45,7 @@ export const Register = () => {
           email: data.user.email!,
           name: name,
         });
-        alert('Conta criada com sucesso! Verifique seu e-mail para confirmar.');
+        toast.success('Conta criada com sucesso! Verifique seu e-mail para confirmar.');
         navigate('/dashboard');
       }
     } catch (err: any) {

@@ -102,7 +102,7 @@ export const Dashboard = () => {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [filter, setFilter] = useState<'all' | 'manual' | 'imported'>('all');
 
-  const today = useMemo(() => startOfDay(new Date()), []);
+  const today = useMemo(() => startOfDay(now), [now]);
   const last7DaysStart = useMemo(() => subDays(today, 6), [today]);
 
   const {
@@ -1284,7 +1284,7 @@ export const Dashboard = () => {
                             <>
                               {payload.map((p, i) =>
                                 safeNumber(p?.value) > 0 ? (
-                                  <div key={i} className="flex justify-between gap-4">
+                                  <div key={`${p?.name}-${p?.value}-${i}`} className="flex justify-between gap-4">
                                     <span className="text-zinc-400">{p?.name}:</span>
                                     <span>{formatCurrency(safeNumber(p?.value), settings.isPrivacyMode)}</span>
                                   </div>

@@ -5,6 +5,7 @@ import { SyncManager } from './components/SyncManager';
 import { ReloadPrompt } from './ReloadPrompt';
 import { Footer } from './components/Footer';
 import { supabase, isSupabaseConfigured, clearInvalidSessionData } from './lib/supabase';
+import { AlertCircle } from 'lucide-react';
 import { useDriverStore } from './store';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { lazyWithRetry } from './lib/lazyWithRetry';
@@ -87,35 +88,61 @@ class RouteErrorBoundary extends React.Component<RouteErrorBoundaryProps, RouteE
   }
 
   componentDidCatch(error: any, errorInfo: any) {
-    console.error(`[RouteErrorBoundary] Erro na rota ${this.props.routeName}:`, error);
-    console.error('[RouteErrorBoundary] Stack:', errorInfo);
+    console.error(`[ROUTE] Error in ${this.props.routeName}:`, error);
+    console.error('[ROUTE] Stack:', errorInfo);
   }
 
   render() {
     if (this.state.hasError) {
       return (
         <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
-          <div className="w-full max-w-xl rounded-3xl border border-red-500/20 bg-zinc-900 p-6 shadow-2xl">
-            <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-400 mb-2">
-              Erro de Rota
-            </p>
-            <h1 className="text-2xl font-black tracking-tight mb-3">
-              Falha ao abrir: {this.props.routeName}
-            </h1>
-            <p className="text-sm text-zinc-400 mb-4">
-              A navegação funcionou, mas esta página quebrou ao renderizar.
-            </p>
-            <div className="rounded-2xl bg-zinc-950 border border-zinc-800 p-4 overflow-auto">
-              <pre className="text-xs text-zinc-300 whitespace-pre-wrap break-words">
-                {this.state.errorMessage}
-              </pre>
+          <div className="w-full max-w-xl rounded-[2.5rem] border border-red-500/20 bg-zinc-900/50 backdrop-blur-xl p-8 shadow-2xl relative overflow-hidden">
+            {/* Background Glow */}
+            <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-500/10 rounded-full blur-[100px]" />
+            
+            <div className="relative z-10">
+              <div className="flex items-center gap-3 mb-6">
+                <div className="w-12 h-12 rounded-2xl bg-red-500/10 flex items-center justify-center border border-red-500/20">
+                  <AlertCircle className="text-red-500" size={24} />
+                </div>
+                <div>
+                  <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-500/70 leading-none mb-1">
+                    System Failure
+                  </p>
+                  <h1 className="text-2xl font-black tracking-tight">
+                    {this.props.routeName}
+                  </h1>
+                </div>
+              </div>
+
+              <div className="space-y-4 mb-8">
+                <p className="text-sm text-zinc-400 leading-relaxed">
+                  Ocorreu um erro crítico ao renderizar esta página. Isso pode ser causado por dados corrompidos ou uma falha temporária.
+                </p>
+                
+                <div className="rounded-2xl bg-zinc-950/50 border border-zinc-800 p-4 font-mono">
+                  <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2 font-black">Error Log</p>
+                  <pre className="text-xs text-red-400/80 whitespace-pre-wrap break-words leading-relaxed">
+                    {this.state.errorMessage}
+                  </pre>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => window.history.back()}
+                  className="rounded-2xl bg-zinc-800 hover:bg-zinc-700 px-4 py-4 text-xs font-black text-white transition-all active:scale-95"
+                >
+                  Voltar
+                </button>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="rounded-2xl bg-emerald-500 hover:bg-emerald-400 px-4 py-4 text-xs font-black text-zinc-950 transition-all active:scale-95 shadow-lg shadow-emerald-500/20"
+                >
+                  Recarregar
+                </button>
+              </div>
             </div>
-            <button
-              onClick={() => window.location.reload()}
-              className="mt-5 w-full rounded-2xl bg-emerald-500 px-4 py-3 text-sm font-black text-zinc-950"
-            >
-              Recarregar página
-            </button>
           </div>
         </div>
       );
@@ -349,12 +376,14 @@ export default function App() {
             name: session.user.user_metadata?.name || 'User',
           });
           setSyncStatus('online');
+          console.log('[AUTH] Session restored:', session.user.email);
         } else {
           setUser(null);
           setSyncStatus('offline');
+          console.log('[AUTH] No active session');
         }
       } catch (err) {
-        console.error('[App] Auth error:', err);
+        console.error('[AUTH] Initialization error:', err);
       } finally {
         setIsAuthReady(true);
       }
@@ -365,7 +394,10 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      console.log('[AUTH] Event:', event);
+      
       if (event === 'SIGNED_OUT') {
+        console.log('[AUTH] User signed out, clearing store');
         useDriverStore.getState().resetStore();
       }
 

@@ -7,7 +7,7 @@ export function useWakeLock() {
 
   const requestWakeLock = async () => {
     if (!('wakeLock' in navigator)) {
-      console.log('[WAKELOCK] unsupported');
+      console.log('[WAKELOCK] Unsupported');
       return;
     }
     
@@ -15,22 +15,22 @@ export function useWakeLock() {
       if (settings.keepScreenOn) {
         if (!wakeLockRef.current) {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-          console.log('[WAKELOCK] requested');
+          console.log('[WAKELOCK] Requested');
           
           wakeLockRef.current.addEventListener('release', () => {
-            console.log('[WAKELOCK] released');
+            console.log('[WAKELOCK] Released');
             wakeLockRef.current = null;
           });
         }
       } else {
         if (wakeLockRef.current) {
           await wakeLockRef.current.release();
-          console.log('[WAKELOCK] released');
+          console.log('[WAKELOCK] Released');
           wakeLockRef.current = null;
         }
       }
     } catch (err: any) {
-      console.error(`[WAKELOCK] error: ${err.name}, ${err.message}`);
+      console.error(`[WAKELOCK] Error: ${err.name}, ${err.message}`);
     }
   };
 
@@ -39,7 +39,7 @@ export function useWakeLock() {
 
     const handleVisibilityChange = () => {
       if (settings.keepScreenOn && document.visibilityState === 'visible') {
-        console.log('[WAKELOCK] reacquired');
+        console.log('[WAKELOCK] Reacquired');
         requestWakeLock();
       }
     };
@@ -49,7 +49,11 @@ export function useWakeLock() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (wakeLockRef.current) {
-        wakeLockRef.current.release();
+        try {
+          wakeLockRef.current.release();
+        } catch (e) {
+          console.error('[WAKELOCK] Cleanup error:', e);
+        }
       }
     };
   }, [settings.keepScreenOn]);

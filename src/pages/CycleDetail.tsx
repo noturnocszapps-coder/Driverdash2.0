@@ -23,10 +23,13 @@ import { motion } from 'motion/react';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { ConfirmationModal } from '../components/ConfirmationModal';
+
 export const CycleDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { cycles, deleteCycle } = useDriverStore();
+  const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
   const cycle = useMemo(() => cycles.find(c => c.id === id), [cycles, id]);
 
@@ -48,10 +51,8 @@ export const CycleDetail = () => {
   }
 
   const handleDelete = async () => {
-    if (window.confirm('Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.')) {
-      await deleteCycle(cycle.id);
-      navigate('/reports');
-    }
+    await deleteCycle(cycle.id);
+    navigate('/reports');
   };
 
   const platforms = [
@@ -104,12 +105,22 @@ export const CycleDetail = () => {
           </div>
         </div>
         <button 
-          onClick={handleDelete}
+          onClick={() => setShowDeleteConfirm(true)}
           className="w-10 h-10 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-colors"
         >
           <Trash2 size={18} />
         </button>
       </div>
+
+      <ConfirmationModal
+        isOpen={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Excluir Ciclo"
+        message="Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
+        variant="danger"
+      />
 
       {hasOtherData && (
         <Card className="border-none bg-blue-500/5 border border-blue-500/10">

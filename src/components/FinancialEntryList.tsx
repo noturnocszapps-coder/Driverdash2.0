@@ -7,6 +7,7 @@ import { Edit2, Trash2, Zap, Navigation, Circle, Plus, MoreVertical } from 'luci
 import { cn } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { QuickEntryModal } from './QuickEntryModal';
+import { ConfirmationModal } from './ConfirmationModal';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -17,6 +18,7 @@ import {
 export const FinancialEntryList = () => {
   const { financialEntries, cycles, deleteFinancialEntry, settings } = useDriverStore();
   const [editingEntry, setEditingEntry] = useState<FinancialEntry | null>(null);
+  const [deletingEntryId, setDeletingEntryId] = useState<string | null>(null);
 
   const openCycle = cycles.find(c => c.status === 'open');
   
@@ -123,7 +125,7 @@ export const FinancialEntryList = () => {
                       Editar
                     </DropdownMenuItem>
                     <DropdownMenuItem 
-                      onClick={() => deleteFinancialEntry(entry.id)}
+                      onClick={() => setDeletingEntryId(entry.id)}
                       className="gap-2 font-bold text-xs uppercase tracking-widest text-red-500 focus:text-red-500"
                     >
                       <Trash2 size={14} />
@@ -136,6 +138,21 @@ export const FinancialEntryList = () => {
           ))}
         </AnimatePresence>
       </div>
+
+      <ConfirmationModal
+        isOpen={!!deletingEntryId}
+        onClose={() => setDeletingEntryId(null)}
+        onConfirm={() => {
+          if (deletingEntryId) {
+            deleteFinancialEntry(deletingEntryId);
+            setDeletingEntryId(null);
+          }
+        }}
+        title="Excluir Lançamento"
+        message="Tem certeza que deseja excluir este lançamento? Esta ação não pode ser desfeita."
+        confirmText="Excluir"
+        variant="danger"
+      />
 
       {editingEntry && (
         <QuickEntryModal 
