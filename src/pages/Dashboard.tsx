@@ -84,6 +84,7 @@ export const Dashboard = () => {
       duration: 0,
       stoppedTime: 0,
       isProductive: false,
+      tripIntelligence: undefined,
     },
     startTracking,
     pauseTracking,
@@ -95,6 +96,8 @@ export const Dashboard = () => {
     activeVehicleId,
     updateSettings,
   } = useDriverStore();
+
+  const tripIntelligence = tracking?.tripIntelligence;
 
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
@@ -466,6 +469,90 @@ export const Dashboard = () => {
       className="space-y-4 pb-24 md:pb-8"
     >
       <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
+
+      {/* Real-time Trip Evaluation Card */}
+      {tracking?.isActive && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className={cn(
+            "border-none shadow-lg overflow-hidden transition-all duration-500",
+            tripIntelligence?.status === 'good' ? "bg-emerald-500/10 border border-emerald-500/20" :
+            tripIntelligence?.status === 'acceptable' ? "bg-blue-500/10 border border-blue-500/20" :
+            tripIntelligence?.status === 'bad' ? "bg-red-500/10 border border-red-500/20" :
+            "bg-zinc-500/10 border border-zinc-500/20"
+          )}>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <div className={cn(
+                    "w-8 h-8 rounded-lg flex items-center justify-center",
+                    tripIntelligence?.status === 'good' ? "bg-emerald-500 text-zinc-950" :
+                    tripIntelligence?.status === 'acceptable' ? "bg-blue-500 text-zinc-950" :
+                    tripIntelligence?.status === 'bad' ? "bg-red-500 text-zinc-950" :
+                    "bg-zinc-500 text-zinc-950"
+                  )}>
+                    <Zap size={16} className={cn(tripIntelligence?.status === 'analyzing' && "animate-pulse")} />
+                  </div>
+                  <div>
+                    <h3 className="text-[10px] font-black uppercase tracking-widest opacity-70">Assistente de Decisão</h3>
+                    <p className={cn(
+                      "text-sm font-black uppercase tracking-tight",
+                      tripIntelligence?.status === 'good' ? "text-emerald-500" :
+                      tripIntelligence?.status === 'acceptable' ? "text-blue-500" :
+                      tripIntelligence?.status === 'bad' ? "text-red-500" :
+                      "text-zinc-500"
+                    )}>
+                      {tripIntelligence?.label || 'Analisando corrida...'}
+                    </p>
+                  </div>
+                </div>
+                
+                {tripIntelligence?.status !== 'analyzing' && (
+                  <div className="text-right">
+                    <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Score</p>
+                    <p className="text-lg font-black tracking-tighter">{tripIntelligence?.score}%</p>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
+                {tripIntelligence?.message}
+              </p>
+
+              {tripIntelligence?.status !== 'analyzing' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganho Bruto/km</p>
+                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.grossPerKm || 0)}/km</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganho Líquido/km</p>
+                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.netPerKm || 0)}/km</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">R$/Hora</p>
+                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.perHour || 0)}/h</p>
+                  </div>
+                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Eficiência</p>
+                    <p className="text-xs font-black">{(tripIntelligence?.metrics.efficiency || 0).toFixed(1)}%</p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
+                  <Info size={12} className="text-zinc-400" />
+                  <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                    {tripIntelligence?.maturity.reason}
+                  </p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* Active Vehicle Card - Prominent at the top */}
       {currentVehicle && (

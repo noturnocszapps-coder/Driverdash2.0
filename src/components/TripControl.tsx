@@ -85,6 +85,28 @@ export const TripControl = () => {
                 <span className="text-[8px] font-black text-zinc-500 uppercase tracking-tighter">km/h</span>
               </div>
             </div>
+
+            {/* Trip Intelligence Status Dot */}
+            {tracking.isActive && tracking.tripIntelligence && (
+              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/5">
+                <div className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  tracking.tripIntelligence.status === 'good' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
+                  tracking.tripIntelligence.status === 'acceptable' ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" :
+                  tracking.tripIntelligence.status === 'bad' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
+                  "bg-zinc-500 animate-pulse"
+                )} />
+                <span className={cn(
+                  "text-[8px] font-black uppercase tracking-widest",
+                  tracking.tripIntelligence.status === 'good' ? "text-emerald-500" :
+                  tracking.tripIntelligence.status === 'acceptable' ? "text-blue-500" :
+                  tracking.tripIntelligence.status === 'bad' ? "text-red-500" :
+                  "text-zinc-500"
+                )}>
+                  {tracking.tripIntelligence.status === 'analyzing' ? 'IA' : tracking.tripIntelligence.status}
+                </span>
+              </div>
+            )}
           </div>
 
           {/* Right Section: Action Button */}

@@ -1,9 +1,10 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
+import { evaluateCurrentTrip } from './lib/tripIntelligence';
 
 let watchId: number | null = null;
 
@@ -67,6 +68,7 @@ const INITIAL_TRACKING = {
   mode: 'stopped' as const,
   tripDetectionState: 'idle' as const,
   lastStopLocation: undefined,
+  tripIntelligence: undefined,
 };
 
 const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
@@ -458,6 +460,9 @@ export const useDriverStore = create<DriverState>()(
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
           }
+          
+          // Recalculate trip intelligence
+          get().updateTracking({});
         } finally {
           set({ isSaving: false });
         }
@@ -512,6 +517,9 @@ export const useDriverStore = create<DriverState>()(
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
           }
+          
+          // Recalculate trip intelligence
+          get().updateTracking({});
         } finally {
           set({ isSaving: false });
         }
@@ -1215,6 +1223,13 @@ export const useDriverStore = create<DriverState>()(
             updatedTracking.tripDetectionState = 'idle';
             updatedTracking.mode = 'searching';
           }
+        }
+
+        // Auto-evaluate trip intelligence if tracking is active
+        if (updatedTracking.isActive) {
+          const openCycle = state.cycles.find(c => c.status === 'open');
+          const intelligence = evaluateCurrentTrip(updatedTracking, openCycle, state.settings);
+          updatedTracking.tripIntelligence = intelligence;
         }
         
         return { tracking: updatedTracking };

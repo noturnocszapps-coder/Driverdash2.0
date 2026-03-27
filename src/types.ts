@@ -258,6 +258,27 @@ export interface TrackingSession {
   consecutiveStoppedPoints: number;
   lastLocation?: { lat: number; lng: number };
   lastTimestamp?: number;
+  tripIntelligence?: TripIntelligence;
+}
+
+export type TripStatus = 'good' | 'acceptable' | 'bad' | 'analyzing';
+
+export interface TripIntelligence {
+  score: number;
+  status: TripStatus;
+  label: string;
+  message: string;
+  maturity: {
+    isMature: boolean;
+    reason?: string;
+  };
+  metrics: {
+    grossPerKm: number;
+    netPerKm: number;
+    perHour: number;
+    efficiency: number;
+    profitPerKm: number;
+  };
 }
 
 export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced';
