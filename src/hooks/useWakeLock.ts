@@ -7,7 +7,7 @@ export function useWakeLock() {
 
   const requestWakeLock = async () => {
     if (!('wakeLock' in navigator)) {
-      console.log('[WAKELOCK] unsupported');
+      console.log('[WAKELOCK] unsupported by browser');
       return;
     }
     
@@ -15,16 +15,19 @@ export function useWakeLock() {
       if (settings.keepScreenOn) {
         if (!wakeLockRef.current) {
           wakeLockRef.current = await (navigator as any).wakeLock.request('screen');
-          console.log('[WAKELOCK] requested');
+          console.log('[WAKELOCK] requested successfully');
           
           wakeLockRef.current.addEventListener('release', () => {
-            console.log('[WAKELOCK] released');
+            console.log('[WAKELOCK] released automatically (system or visibility)');
             wakeLockRef.current = null;
           });
+        } else {
+          console.log('[WAKELOCK] already active');
         }
       } else {
         if (wakeLockRef.current) {
           await wakeLockRef.current.release();
+          console.log('[WAKELOCK] released manually');
           wakeLockRef.current = null;
         }
       }

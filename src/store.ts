@@ -1142,7 +1142,10 @@ export const useDriverStore = create<DriverState>()(
               updateObj.is_privacy_mode = newSettings.isPrivacyMode;
               console.log(`[SETTINGS] privacy mode ${newSettings.isPrivacyMode ? 'enabled' : 'disabled'}`);
             }
-            if (newSettings.keepScreenOn !== undefined) updateObj.keep_screen_on = newSettings.keepScreenOn;
+            if (newSettings.keepScreenOn !== undefined) {
+              updateObj.keep_screen_on = newSettings.keepScreenOn;
+              console.log(`[SETTINGS] keep screen on ${newSettings.keepScreenOn ? 'enabled' : 'disabled'}`);
+            }
 
             const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
             
@@ -1174,6 +1177,9 @@ export const useDriverStore = create<DriverState>()(
             // Guest mode - update local only
             if (newSettings.isPrivacyMode !== undefined) {
               console.log(`[SETTINGS] privacy mode ${newSettings.isPrivacyMode ? 'enabled' : 'disabled'}`);
+            }
+            if (newSettings.keepScreenOn !== undefined) {
+              console.log(`[SETTINGS] keep screen on ${newSettings.keepScreenOn ? 'enabled' : 'disabled'}`);
             }
             set((state) => {
               if (newSettings.currentVehicleProfileId) {
