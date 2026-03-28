@@ -1234,7 +1234,7 @@ export const useDriverStore = create<DriverState>()(
           updatedTracking.tripIntelligence = intelligence;
 
           // Evaluate Zone Quality
-          const zoneIntelligence = evaluateZoneQuality(updatedTracking, openCycle);
+          const zoneIntelligence = evaluateZoneQuality(updatedTracking, openCycle, state.tracking.zoneIntelligence, intelligence);
           updatedTracking.zoneIntelligence = zoneIntelligence;
         }
         

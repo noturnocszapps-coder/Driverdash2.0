@@ -36,6 +36,8 @@ import {
   Pause,
   Square,
   Play,
+  AlertTriangle,
+  CheckCircle2,
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfDay, isSameDay, subDays, format, differenceInMinutes, getDay } from 'date-fns';
@@ -304,6 +306,7 @@ export const Dashboard = () => {
     const productiveDistance = safeNumber(tracking?.productiveDistance);
     const idleDistance = safeNumber(tracking?.idleDistance);
     const stoppedTime = safeNumber(tracking?.stoppedTime);
+    const currentSpeed = safeNumber(tracking?.currentSmoothedSpeed);
     const efficiency = distance > 0 ? (productiveDistance / distance) * 100 : 0;
 
     if (idleDistance > 5 && efficiency < 30) {
@@ -322,7 +325,8 @@ export const Dashboard = () => {
       });
     }
 
-    if (stoppedTime > 900000 && !tracking?.isProductive) {
+    // BUG FIX: Only alert "stopped" if speed is actually low
+    if (stoppedTime > 900000 && !tracking?.isProductive && currentSpeed < 5) {
       alerts.push({
         id: 'long-idle',
         message: 'Muito tempo parado. Considere se movimentar.',
@@ -468,11 +472,43 @@ export const Dashboard = () => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-4 pb-24 md:pb-8"
+      className="space-y-4 pb-40 md:pb-8"
     >
       <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
 
-      {/* Real-time Trip Evaluation Card */}
+      {/* Priority 1: Smart Alerts (Critical Tracking) */}
+      {tracking?.isActive && smartAlerts.length > 0 && (
+        <div className="space-y-2">
+          {smartAlerts.slice(0, 2).map((alert) => (
+            <motion.div
+              key={alert.id}
+              initial={{ opacity: 0, x: -10 }}
+              animate={{ opacity: 1, x: 0 }}
+              className={cn(
+                'p-3 rounded-2xl flex items-center gap-3 border shadow-sm',
+                alert.type === 'warning'
+                  ? 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+                  : alert.type === 'success'
+                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
+                  : 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400'
+              )}
+            >
+              {alert.type === 'warning' ? (
+                <AlertTriangle size={18} />
+              ) : alert.type === 'success' ? (
+                <CheckCircle2 size={18} />
+              ) : (
+                <Info size={18} />
+              )}
+              <p className="text-xs font-black uppercase tracking-widest flex-1">
+                {alert.message}
+              </p>
+            </motion.div>
+          ))}
+        </div>
+      )}
+
+      {/* Priority 2: Real-time Trip Evaluation Card */}
       {tracking?.isActive && (
         <motion.div
           initial={{ opacity: 0, scale: 0.95 }}
@@ -597,20 +633,42 @@ export const Dashboard = () => {
                 </div>
                 
                 {zoneIntelligence.maturity.isMature && (
-                  <div className={cn(
-                    "px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest",
-                    zoneIntelligence.severity === 'high' ? "bg-red-500 text-white" :
-                    zoneIntelligence.severity === 'medium' ? "bg-amber-500 text-zinc-950" :
-                    "bg-emerald-500 text-zinc-950"
-                  )}>
-                    {zoneIntelligence.severity === 'high' ? 'Crítico' : zoneIntelligence.severity === 'medium' ? 'Médio' : 'Baixo'}
+                  <div className="flex items-center gap-2">
+                    <div className="text-right">
+                      <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Score</p>
+                      <p className="text-lg font-black tracking-tighter">{zoneIntelligence.score}%</p>
+                    </div>
+                    <div className={cn(
+                      "px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest",
+                      zoneIntelligence.severity === 'high' ? "bg-red-500 text-white" :
+                      zoneIntelligence.severity === 'medium' ? "bg-amber-500 text-zinc-950" :
+                      "bg-emerald-500 text-zinc-950"
+                    )}>
+                      {zoneIntelligence.severity === 'high' ? 'SEVERIDADE ALTA' : 
+                       zoneIntelligence.severity === 'medium' ? 'ALERTA MÉDIO' : 
+                       'RISCO BAIXO'}
+                    </div>
                   </div>
                 )}
               </div>
 
-              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
+              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2 leading-relaxed">
                 {zoneIntelligence.message}
               </p>
+
+              {zoneIntelligence.maturity.isMature && zoneIntelligence.reason !== 'none' && (
+                <div className="flex items-center gap-1.5 mb-4">
+                  <div className="w-1 h-1 rounded-full bg-zinc-400" />
+                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                    Motivo: {
+                      zoneIntelligence.reason === 'high_idle_km' ? 'KM ocioso elevado' :
+                      zoneIntelligence.reason === 'long_wait_time' ? 'Tempo de espera alto' :
+                      zoneIntelligence.reason === 'low_efficiency' ? 'Baixa eficiência' :
+                      zoneIntelligence.reason === 'low_demand' ? 'Baixa demanda' : ''
+                    }
+                  </p>
+                </div>
+              )}
 
               {zoneIntelligence.maturity.isMature ? (
                 <div className="grid grid-cols-2 gap-2">
@@ -976,29 +1034,6 @@ export const Dashboard = () => {
 
             {tracking?.isActive && (
               <>
-                {smartAlerts.length > 0 && (
-                  <div className="mt-4 space-y-2">
-                    {smartAlerts.map((alert) => (
-                      <motion.div
-                        key={alert.id}
-                        initial={{ opacity: 0, y: -5 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        className={cn(
-                          'p-2 rounded-xl flex items-center gap-2 text-[10px] font-black uppercase tracking-wider',
-                          alert.type === 'warning'
-                            ? 'bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20'
-                            : alert.type === 'success'
-                              ? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20'
-                              : 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20'
-                        )}
-                      >
-                        <Info size={12} />
-                        {alert.message}
-                      </motion.div>
-                    ))}
-                  </div>
-                )}
-
                 <div className="grid grid-cols-2 gap-6 pt-6 mt-6 border-t border-zinc-200 dark:border-zinc-800">
                   <div className="space-y-1">
                     <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 dark:text-zinc-400">

@@ -73,17 +73,17 @@ export function evaluateCurrentTrip(
   const perHour = cycleDurationHours > 0 ? totalRevenue / cycleDurationHours : 0;
 
   // 3. Calculate Score (0-100)
-  // Weights: Gross/KM (30%), Net/KM (30%), Per Hour (20%), Efficiency (20%)
+  // Rebalanced Weights: Gross/KM (25%), Net/KM (35%), Per Hour (30%), Efficiency (10%)
   const grossScore = Math.min(100, (grossPerKm / TRIP_EVALUATION_THRESHOLDS.TARGET_GROSS_KM) * 100);
   const netScore = Math.min(100, (netPerKm / TRIP_EVALUATION_THRESHOLDS.TARGET_NET_KM) * 100);
   const hourScore = Math.min(100, (perHour / TRIP_EVALUATION_THRESHOLDS.TARGET_PER_HOUR) * 100);
   const efficiencyScore = Math.min(100, (efficiency / TRIP_EVALUATION_THRESHOLDS.TARGET_EFFICIENCY) * 100);
   
   const score = Math.round(
-    (grossScore * 0.3) + 
-    (netScore * 0.3) + 
-    (hourScore * 0.2) + 
-    (efficiencyScore * 0.2)
+    (grossScore * 0.25) + 
+    (netScore * 0.35) + 
+    (hourScore * 0.3) + 
+    (efficiencyScore * 0.1)
   );
 
   // 4. Determine Status and Message

@@ -284,12 +284,15 @@ export interface TripIntelligence {
 
 export type ZoneStatus = 'good_zone' | 'neutral_zone' | 'bad_zone' | 'monitoring';
 export type ZoneSeverity = 'low' | 'medium' | 'high';
+export type ZoneReason = 'high_idle_km' | 'long_wait_time' | 'low_efficiency' | 'low_demand' | 'none';
 
 export interface ZoneIntelligence {
   status: ZoneStatus;
   severity: ZoneSeverity;
   label: string;
   message: string;
+  reason: ZoneReason;
+  score: number;
   metrics: {
     idleKm: number;
     searchingMinutes: number;
@@ -300,6 +303,11 @@ export interface ZoneIntelligence {
     isMature: boolean;
     reason?: string;
   };
+  // Internal state for persistence and cooldown
+  lastAlertTime?: number;
+  lastZoneState?: ZoneStatus;
+  badZoneCandidateStartTime?: number;
+  lastStateChangeTime?: number;
 }
 
 export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced';
