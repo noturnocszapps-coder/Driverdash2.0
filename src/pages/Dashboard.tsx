@@ -69,6 +69,8 @@ export const Dashboard = () => {
       transportMode: 'car' as const,
       dashboardMode: 'merged' as const,
       theme: 'dark' as const,
+      isPrivacyMode: false,
+      keepScreenOn: false,
       fixedCosts: {
         vehicleType: 'owned' as const,
       },
@@ -564,15 +566,15 @@ export const Dashboard = () => {
                 <div className="grid grid-cols-2 gap-2">
                   <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
                     <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganho Bruto/km</p>
-                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.grossPerKm || 0)}/km</p>
+                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.grossPerKm || 0, settings.isPrivacyMode)}/km</p>
                   </div>
                   <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
                     <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganho Líquido/km</p>
-                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.netPerKm || 0)}/km</p>
+                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.netPerKm || 0, settings.isPrivacyMode)}/km</p>
                   </div>
                   <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
                     <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">R$/Hora</p>
-                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.perHour || 0)}/h</p>
+                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.perHour || 0, settings.isPrivacyMode)}/h</p>
                   </div>
                   <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
                     <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Eficiência</p>
@@ -686,7 +688,7 @@ export const Dashboard = () => {
                   </div>
                   <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
                     <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganhos Recentes</p>
-                    <p className="text-xs font-black">{formatCurrency(zoneIntelligence.metrics.recentRevenue)}</p>
+                    <p className="text-xs font-black">{formatCurrency(zoneIntelligence.metrics.recentRevenue, settings.isPrivacyMode)}</p>
                   </div>
                 </div>
               ) : (
