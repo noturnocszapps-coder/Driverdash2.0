@@ -287,6 +287,17 @@ export const Settings = () => {
               <div>
                 <h3 className="font-black text-lg tracking-tight">{settings.name || 'Motorista'}</h3>
                 <p className="text-xs text-zinc-500 font-medium">{user?.email}</p>
+                <div className="flex items-center gap-2 mt-1">
+                  <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-[9px] font-black uppercase rounded-full tracking-widest text-zinc-500">
+                    {settings.role}
+                  </span>
+                  <span className={cn(
+                    "px-2 py-0.5 text-[9px] font-black uppercase rounded-full tracking-widest",
+                    settings.status === 'active' ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
+                  )}>
+                    {settings.status}
+                  </span>
+                </div>
                 <div className="mt-2">
                   <SyncIndicator />
                 </div>

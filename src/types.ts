@@ -196,6 +196,8 @@ export interface UserSettings {
   currentVehicleProfileId?: string;
   isPrivacyMode?: boolean;
   keepScreenOn?: boolean;
+  role?: UserRole;
+  status?: UserStatus;
   updated_at?: string;
 }
 
@@ -312,10 +314,27 @@ export interface ZoneIntelligence {
 
 export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced';
 
+export enum UserRole {
+  ADMIN = 'admin',
+  DRIVER = 'driver',
+  PASSENGER = 'passenger',
+  RETAILER = 'retailer',
+  SUPPLIER = 'supplier'
+}
+
+export enum UserStatus {
+  ACTIVE = 'active',
+  PENDING = 'pending',
+  BLOCKED = 'blocked',
+  SUSPENDED = 'suspended'
+}
+
 export interface AuthUser {
   id: string;
   email: string;
   name?: string;
+  role?: UserRole;
+  status?: UserStatus;
 }
 
 export interface FaturamentoLog {

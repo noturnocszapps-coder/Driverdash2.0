@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
@@ -44,6 +44,8 @@ const INITIAL_SETTINGS: UserSettings = {
     vehicleType: 'owned',
   },
   currentVehicleProfileId: undefined,
+  role: UserRole.DRIVER,
+  status: UserStatus.ACTIVE,
 };
 
 const INITIAL_TRACKING = {
@@ -1158,6 +1160,8 @@ export const useDriverStore = create<DriverState>()(
               updateObj.keep_screen_on = newSettings.keepScreenOn;
               console.log(`[SETTINGS] keep screen on ${newSettings.keepScreenOn ? 'enabled' : 'disabled'}`);
             }
+            if (newSettings.role !== undefined) updateObj.role = newSettings.role;
+            if (newSettings.status !== undefined) updateObj.status = newSettings.status;
 
             const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
             
@@ -1842,6 +1846,8 @@ export const useDriverStore = create<DriverState>()(
               photoUrl: profile.photo_url,
               fixedCosts: profile.fixed_costs,
               currentVehicleProfileId: profile.current_vehicle_profile_id,
+              role: profile.role || UserRole.DRIVER,
+              status: profile.status || UserStatus.ACTIVE,
               updated_at: profile.updated_at
             };
           }
@@ -2151,6 +2157,8 @@ export const useDriverStore = create<DriverState>()(
             photo_url: currentStore.settings.photoUrl || '',
             fixed_costs: currentStore.settings.fixedCosts || {},
             current_vehicle_profile_id: currentStore.settings.currentVehicleProfileId || null,
+            role: currentStore.settings.role || UserRole.DRIVER,
+            status: currentStore.settings.status || UserStatus.ACTIVE,
             updated_at: new Date().toISOString()
           }).then(res => ({ ...res, table: 'profiles' })));
 

@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase, isSupabaseConfigured } from '../lib/supabase';
 import { useDriverStore } from '../store';
+import { UserRole, UserStatus } from '../types';
 import { Card, CardContent, Button, Input } from '../components/UI';
 import { UserPlus, Mail, Lock, User, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
@@ -44,6 +45,8 @@ export const Register = () => {
           id: data.user.id,
           email: data.user.email!,
           name: name,
+          role: UserRole.DRIVER,
+          status: UserStatus.ACTIVE,
         });
         toast.success('Conta criada com sucesso! Verifique seu e-mail para confirmar.');
         navigate('/dashboard');

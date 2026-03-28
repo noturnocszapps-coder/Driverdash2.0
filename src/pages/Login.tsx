@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { useDriverStore } from '../store';
+import { UserRole, UserStatus } from '../types';
 import { Card, CardContent, Button, Input } from '../components/UI';
 import { LogIn, Mail, Lock, AlertCircle, Loader2, ArrowLeft, ShieldCheck } from 'lucide-react';
 import { motion } from 'motion/react';
@@ -38,6 +39,8 @@ export const Login = () => {
           id: data.user.id,
           email: data.user.email!,
           name: data.user.user_metadata.name,
+          role: data.user.user_metadata.role || UserRole.DRIVER,
+          status: data.user.user_metadata.status || UserStatus.ACTIVE,
         });
         navigate('/dashboard');
       }

@@ -8,6 +8,7 @@ import { supabase, isSupabaseConfigured, clearInvalidSessionData } from './lib/s
 import { AlertCircle } from 'lucide-react';
 import { useDriverStore } from './store';
 import { ProtectedRoute } from './components/ProtectedRoute';
+import { UserRole, UserStatus } from './types';
 import { lazyWithRetry } from './lib/lazyWithRetry';
 
 // Lazy load pages with retry
@@ -374,6 +375,8 @@ export default function App() {
             id: session.user.id,
             email: session.user.email!,
             name: session.user.user_metadata?.name || 'User',
+            role: session.user.user_metadata?.role || UserRole.DRIVER,
+            status: session.user.user_metadata?.status || UserStatus.ACTIVE,
           });
           setSyncStatus('online');
           console.log('[AUTH] Session restored:', session.user.email);
@@ -406,6 +409,8 @@ export default function App() {
           id: session.user.id,
           email: session.user.email!,
           name: session.user.user_metadata?.name || 'User',
+          role: session.user.user_metadata?.role || UserRole.DRIVER,
+          status: session.user.user_metadata?.status || UserStatus.ACTIVE,
         });
         setSyncStatus('online');
       } else {
