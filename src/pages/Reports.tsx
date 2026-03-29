@@ -432,11 +432,11 @@ export const Reports = () => {
           </div>
           
           <div className="space-y-3">
-            {[...importedReports].reverse().map((report) => {
+            {[...importedReports].reverse().map((report, index) => {
               const linkedCycle = cycles.find(c => c.imported_report_id === report.id);
               return (
                 <Card 
-                  key={report.id} 
+                  key={`report-${report.id}-${index}`} 
                   className={cn(
                     "border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group transition-all border border-zinc-100 dark:border-zinc-800/50",
                     linkedCycle ? "cursor-pointer active:scale-[0.98]" : ""

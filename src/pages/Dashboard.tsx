@@ -481,9 +481,9 @@ export const Dashboard = () => {
       {/* Priority 1: Smart Alerts (Critical Tracking) */}
       {tracking?.isActive && smartAlerts.length > 0 && (
         <div className="space-y-2">
-          {smartAlerts.slice(0, 2).map((alert) => (
+          {smartAlerts.slice(0, 2).map((alert, index) => (
             <motion.div
-              key={alert.id}
+              key={`smart-alert-${alert.id}-${index}`}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               className={cn(
@@ -1105,9 +1105,9 @@ export const Dashboard = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {stats.alerts.length > 0 && (
             <div className="space-y-3">
-              {stats.alerts.map((alert) => (
+              {stats.alerts.map((alert, index) => (
                 <motion.div
-                  key={alert.id}
+                  key={`alert-${alert.id}-${index}`}
                   initial={{ opacity: 0, x: -10 }}
                   animate={{ opacity: 1, x: 0 }}
                   className={cn(

@@ -71,9 +71,9 @@ export const FinancialEntryList = () => {
 
       <div className="space-y-2">
         <AnimatePresence initial={false}>
-          {currentEntries.map((entry) => (
+          {currentEntries.map((entry, idx) => (
             <motion.div
-              key={entry.id}
+              key={`entry-${entry.id}-${idx}`}
               layout
               initial={{ opacity: 0, y: 10 }}
               animate={{ opacity: 1, y: 0 }}

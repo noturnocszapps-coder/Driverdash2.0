@@ -108,9 +108,9 @@ export const AIRealTimeAlerts: React.FC<AIRealTimeAlertsProps> = ({ todayData, a
   return (
     <div className="fixed top-20 left-4 right-4 z-[100] flex flex-col gap-3 pointer-events-none">
       <AnimatePresence mode="popLayout">
-        {alerts.map((alert) => (
+        {alerts.map((alert, index) => (
           <motion.div
-            key={alert.id}
+            key={`alert-${alert.id}-${index}`}
             layout
             initial={{ opacity: 0, y: -20, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
