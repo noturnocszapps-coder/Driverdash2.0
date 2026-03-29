@@ -164,6 +164,7 @@ const SafeRoute = ({
 };
 
 import { TripControl } from './components/TripControl';
+import { ManualTripFAB } from './components/ManualTripFAB';
 import { useWakeLock } from './hooks/useWakeLock';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
@@ -184,11 +185,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 px-4 py-6 md:px-8 max-w-5xl mx-auto w-full pb-40">
+        <main className="flex-1 px-4 py-6 md:px-8 max-w-5xl mx-auto w-full pb-24">
           {children}
         </main>
       </div>
-      <TripControl />
+      <div className="hidden md:block">
+        <TripControl />
+      </div>
+      <ManualTripFAB />
       <BottomNav />
     </div>
   );

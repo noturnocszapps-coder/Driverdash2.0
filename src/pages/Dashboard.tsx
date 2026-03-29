@@ -474,7 +474,7 @@ export const Dashboard = () => {
     <motion.div
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-4 pb-40 md:pb-8"
+      className="space-y-4 pb-24 md:pb-8"
     >
       <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
 

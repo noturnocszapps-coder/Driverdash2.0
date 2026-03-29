@@ -229,7 +229,7 @@ export const Settings = () => {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-8 pb-48 md:pb-8"
+      className="space-y-8 pb-24 md:pb-8"
     >
       <header className="px-1">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Configurações</p>

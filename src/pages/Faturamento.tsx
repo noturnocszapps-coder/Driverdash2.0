@@ -161,7 +161,7 @@ export const Faturamento = () => {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="min-h-screen overflow-y-auto space-y-4 max-w-lg mx-auto"
-      style={{ paddingBottom: 'calc(180px + env(safe-area-inset-bottom))' }}
+      style={{ paddingBottom: 'calc(120px + env(safe-area-inset-bottom))' }}
     >
       {/* HEADER PREMIUM & COMPACTO */}
       <header className="flex items-center justify-between px-2 pt-2">

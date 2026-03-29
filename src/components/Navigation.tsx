@@ -1,11 +1,12 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Car, BarChart3, Settings, LogOut, LogIn, User, DollarSign, Navigation as NavIcon } from 'lucide-react';
+import { LayoutDashboard, Car, BarChart3, Settings, LogOut, LogIn, User, DollarSign, Navigation as NavIcon, FlaskConical } from 'lucide-react';
 import { cn } from '../utils';
 import { useDriverStore } from '../store';
 import { supabase } from '../lib/supabase';
 import { SyncIndicator } from './SyncIndicator';
 import { motion } from 'motion/react';
+import { UserRole } from '../types';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
@@ -16,11 +17,19 @@ const navItems = [
 
 export const BottomNav = () => {
   const location = useLocation();
+  const { settings } = useDriverStore();
+  
+  const isAdmin = settings.role === UserRole.ADMIN;
+  const items = [...navItems];
+  
+  if (isAdmin) {
+    items.push({ icon: FlaskConical, label: 'Laboratório', path: '/dev-lab' });
+  }
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-200 dark:border-zinc-800 px-4 pb-safe pt-3 z-50 md:hidden">
       <div className="flex justify-between items-center max-w-lg mx-auto">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link 
@@ -52,6 +61,13 @@ export const Sidebar = () => {
   const navigate = useNavigate();
   const { user, setUser, settings } = useDriverStore();
 
+  const isAdmin = settings.role === UserRole.ADMIN;
+  const items = [...navItems];
+  
+  if (isAdmin) {
+    items.push({ icon: FlaskConical, label: 'Laboratório', path: '/dev-lab' });
+  }
+
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUser(null);
@@ -71,7 +87,7 @@ export const Sidebar = () => {
       </div>
 
       <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
-        {navItems.map((item) => {
+        {items.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link 
@@ -99,7 +115,14 @@ export const Sidebar = () => {
                 {settings.name?.charAt(0) || '?'}
               </div>
               <div className="flex flex-col overflow-hidden">
-                <span className="text-sm font-black tracking-tight truncate">{settings.name || 'Motorista'}</span>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-black tracking-tight truncate">{settings.name || 'Motorista'}</span>
+                  {isAdmin && (
+                    <span className="text-[8px] font-black bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded-md uppercase tracking-widest border border-emerald-500/20">
+                      Admin
+                    </span>
+                  )}
+                </div>
                 <span className="text-[10px] font-bold text-zinc-400 truncate uppercase tracking-wider">{user.email}</span>
               </div>
             </div>

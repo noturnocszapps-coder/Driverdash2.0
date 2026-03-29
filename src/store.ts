@@ -21,8 +21,10 @@ const TRACKING_CONFIG = {
   WARMUP_POINTS_REQUIRED: 5,
   MAX_ACCURACY: 35, // metros mais rigoroso
   SPEED_BUFFER_SIZE: 5,
-  MIN_TRIP_DISPLACEMENT: 0.03, // 30 metros para confirmar fim
+  MIN_TRIP_DISPLACEMENT: 0.15, // 150 metros para confirmar fim (evita semáforos)
   MANUAL_OVERRIDE_TIMEOUT: 300000, // 5 minutos de bloqueio auto após manual
+  TRANSITION_WINDOW_MS: 45000, // 45 segundos para handoff de corrida sequencial
+  TRAFFIC_LIGHT_MAX_MS: 90000, // 90 segundos max para um semáforo
 };
 
 const INITIAL_SETTINGS: UserSettings = {
@@ -1460,7 +1462,7 @@ export const useDriverStore = create<DriverState>()(
                 }
                 newConsecutiveStoppedPoints = 0;
 
-                // 2. DETECÇÃO AUTOMÁTICA DE INÍCIO
+                // 2. DETECÇÃO AUTOMÁTICA DE INÍCIO / TRANSIÇÃO
                 if (!newIsManualOverride) {
                   if (newMode !== 'on_trip') {
                     // Só inicia se vier de searching e tiver passado um tempo mínimo desde a última parada total
@@ -1478,6 +1480,11 @@ export const useDriverStore = create<DriverState>()(
                         newTripDetectionState = 'pickup_candidate';
                       }
                     }
+                  } else if (newMode === 'on_trip' && newTripDetectionState === 'transition_window') {
+                    // Se estava em janela de transição e voltou a mover, confirma nova corrida
+                    console.log('[TRACK] sequential trip confirmed (auto)');
+                    newTripDetectionState = 'trip_started';
+                    if (navigator.vibrate) navigator.vibrate(100);
                   }
                 }
 
@@ -1505,7 +1512,7 @@ export const useDriverStore = create<DriverState>()(
                   }
                 }
 
-                // 4. DETECÇÃO AUTOMÁTICA DE FIM
+                // 4. DETECÇÃO AUTOMÁTICA DE FIM / TRANSIÇÃO
                 if (!newIsManualOverride && newMode === 'on_trip') {
                   const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
                   
@@ -1513,13 +1520,30 @@ export const useDriverStore = create<DriverState>()(
                   const lastStopLoc = get().tracking.lastStopLocation;
                   const displacementSinceStop = lastStopLoc ? calculateDistance(lastStopLoc.lat, lastStopLoc.lng, latitude, longitude) : 0;
 
+                  // Lógica refinada: se parou por muito tempo mas o deslocamento foi pequeno, pode ser fim de corrida
+                  // Mas se for menos que TRAFFIC_LIGHT_MAX_MS, ignoramos como semáforo
                   if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS && displacementSinceStop < TRACKING_CONFIG.MIN_TRIP_DISPLACEMENT) {
-                    console.log('[TRACK] end trip detected (auto) - duration:', stopDuration, 'displacement:', displacementSinceStop);
-                    newIsProductive = false;
-                    newMode = 'searching';
-                    newTripDetectionState = 'idle';
-                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                  } else if (stopDuration > 60000) {
+                    console.log('[TRACK] end trip detected (auto) - transition window started');
+                    newTripDetectionState = 'transition_window';
+                    
+                    // Iniciamos um timer interno para fechar a corrida se não houver movimento
+                    setTimeout(() => {
+                      const latestTracking = get().tracking;
+                      if (latestTracking.tripDetectionState === 'transition_window' && !latestTracking.isManualOverride) {
+                        console.log('[TRACK] transition window expired, ending trip');
+                        set({ 
+                          tracking: { 
+                            ...latestTracking, 
+                            isProductive: false, 
+                            mode: 'searching', 
+                            tripDetectionState: 'idle' 
+                          } 
+                        });
+                        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                      }
+                    }, TRACKING_CONFIG.TRANSITION_WINDOW_MS);
+
+                  } else if (stopDuration > 60000 && stopDuration < TRACKING_CONFIG.STOP_BUFFER_MS) {
                     if (newTripDetectionState !== 'dropoff_candidate') {
                       console.log('[TRACK] dropoff candidate detected');
                       newTripDetectionState = 'dropoff_candidate';
