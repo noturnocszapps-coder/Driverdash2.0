@@ -337,9 +337,9 @@ export const Reports = () => {
       {/* Smart Alerts */}
       {stats.alerts.length > 0 && (
         <div className="space-y-3">
-          {stats.alerts.map((alert) => (
+          {stats.alerts.map((alert, index) => (
             <motion.div 
-              key={alert.id}
+              key={`report-alert-${alert.id}-${index}`}
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               className={cn(
@@ -367,8 +367,8 @@ export const Reports = () => {
             Sugestões de Correção
           </h3>
           <div className="space-y-3">
-            {stats.mismatches.map((day) => (
-              <Card key={day.id} className="border-none bg-amber-500/5 border border-amber-500/20 shadow-sm">
+            {stats.mismatches.map((day, index) => (
+              <Card key={`mismatch-${day.id}-${index}`} className="border-none bg-amber-500/5 border border-amber-500/20 shadow-sm">
                 <CardContent className="p-4 flex items-center justify-between">
                   <div className="space-y-1">
                     <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">{day.fullName}</p>
