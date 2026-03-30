@@ -5,17 +5,34 @@ import { useDriverStore } from '../store';
 import { cn } from '../utils';
 
 export const ManualTripFAB = () => {
-  const { tracking, startTracking, stopTracking, isSaving } = useDriverStore();
+  const { tracking, startTrip, endTrip, isSaving } = useDriverStore();
   const isActive = tracking.isActive;
-  const isTransitioning = tracking.mode === 'transition';
+  const mode = tracking.mode;
 
-  const handleAction = async () => {
+  const handleAction = () => {
     if (isSaving) return;
     
-    if (isActive) {
-      await stopTracking();
+    if (tracking.isProductive) {
+      endTrip();
     } else {
-      await startTracking();
+      startTrip();
+    }
+  };
+
+  // Map tracking mode to visual style
+  const getFABStyle = () => {
+    switch (mode) {
+      case 'in_trip':
+        return "bg-red-600 text-white shadow-red-600/50 ring-4 ring-red-600/20";
+      case 'searching':
+        return "bg-amber-500 text-zinc-950 shadow-amber-500/40 animate-pulse";
+      case 'waiting_passenger':
+        return "bg-blue-500 text-white shadow-blue-500/40";
+      case 'transition':
+        return "bg-purple-500 text-white shadow-purple-500/40";
+      case 'idle':
+      default:
+        return "bg-emerald-500 text-zinc-950 shadow-emerald-500/40";
     }
   };
 
@@ -23,7 +40,10 @@ export const ManualTripFAB = () => {
     <div className="fixed bottom-24 right-6 z-50 md:hidden">
       <AnimatePresence mode="wait">
         <motion.button
-          key={isActive ? 'active' : 'inactive'}
+          key={mode}
+          drag="x"
+          dragConstraints={{ left: -20, right: 20 }}
+          dragElastic={0.1}
           initial={{ scale: 0, rotate: -45 }}
           animate={{ scale: 1, rotate: 0 }}
           exit={{ scale: 0, rotate: 45 }}
@@ -31,20 +51,21 @@ export const ManualTripFAB = () => {
           onClick={handleAction}
           disabled={isSaving}
           className={cn(
-            "w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 relative overflow-hidden",
-            isActive 
-              ? "bg-red-500 text-white shadow-red-500/40" 
-              : "bg-emerald-500 text-zinc-950 shadow-emerald-500/40"
+            "w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500 relative overflow-hidden",
+            getFABStyle()
           )}
         >
-          {/* Subtle Glow */}
-          <div className={cn(
-            "absolute inset-0 opacity-20 animate-pulse",
-            isActive ? "bg-white" : "bg-zinc-950"
-          )} />
+          {/* Dynamic Glow for Active Trip */}
+          {mode === 'in_trip' && (
+            <motion.div 
+              animate={{ opacity: [0.2, 0.5, 0.2] }}
+              transition={{ duration: 2, repeat: Infinity }}
+              className="absolute inset-0 bg-white" 
+            />
+          )}
           
           <div className="relative z-10 flex flex-col items-center">
-            {isActive ? (
+            {tracking.isProductive ? (
               <>
                 <Square size={24} fill="currentColor" />
                 <span className="text-[8px] font-black uppercase tracking-tighter mt-0.5">Parar</span>
@@ -57,8 +78,8 @@ export const ManualTripFAB = () => {
             )}
           </div>
 
-          {/* Status Ring */}
-          {isTransitioning && (
+          {/* Status Ring for Transition */}
+          {mode === 'transition' && (
             <svg className="absolute inset-0 w-full h-full -rotate-90">
               <circle
                 cx="32"
@@ -94,9 +115,17 @@ export const ManualTripFAB = () => {
           animate={{ opacity: 1, y: 0 }}
           className="absolute -top-10 right-0 bg-zinc-900/90 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-2 whitespace-nowrap"
         >
-          <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+          <div className={cn(
+            "w-1.5 h-1.5 rounded-full animate-pulse",
+            mode === 'in_trip' ? 'bg-red-500' : 
+            mode === 'searching' ? 'bg-amber-500' : 
+            'bg-emerald-500'
+          )} />
           <span className="text-[10px] font-black text-white uppercase tracking-widest">
-            {tracking.mode === 'on_trip' ? 'Em Corrida' : 'Aguardando'}
+            {mode === 'in_trip' ? 'Em Corrida' : 
+             mode === 'searching' ? 'Buscando' : 
+             mode === 'waiting_passenger' ? 'Aguardando' :
+             mode === 'transition' ? 'Transição' : 'Ativo'}
           </span>
           <span className="text-[10px] font-bold text-zinc-400">
             {tracking.duration > 0 ? `${Math.floor(tracking.duration / 60)}m` : ''}

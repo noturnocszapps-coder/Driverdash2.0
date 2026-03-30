@@ -12,7 +12,7 @@ export const TripControl = () => {
 
   const getStatusConfig = () => {
     switch (tracking.mode) {
-      case 'on_trip':
+      case 'in_trip':
         return {
           label: '🚕 Em Corrida',
           subLabel: 'KM Produtivo',
@@ -32,6 +32,27 @@ export const TripControl = () => {
           shadow: 'shadow-amber-500/20',
           pulse: 'bg-amber-500/20'
         };
+      case 'waiting_passenger':
+        return {
+          label: '⏳ Aguardando',
+          subLabel: 'Passageiro',
+          icon: CircleStop,
+          color: 'bg-blue-500',
+          textColor: 'text-blue-500',
+          shadow: 'shadow-blue-500/20',
+          pulse: 'bg-blue-500/20'
+        };
+      case 'transition':
+        return {
+          label: '🔄 Transição',
+          subLabel: 'Próxima Corrida',
+          icon: Navigation,
+          color: 'bg-purple-500',
+          textColor: 'text-purple-500',
+          shadow: 'shadow-purple-500/20',
+          pulse: 'bg-purple-500/20'
+        };
+      case 'idle':
       default:
         return {
           label: '⛔ Parado',
@@ -138,7 +159,7 @@ export const TripControl = () => {
             whileHover={{ scale: 1.02 }}
             whileTap={{ scale: 0.95 }}
             onClick={() => {
-              if (tracking.mode === 'on_trip') {
+              if (tracking.mode === 'in_trip' || tracking.mode === 'waiting_passenger' || tracking.mode === 'transition') {
                 endTrip();
               } else {
                 startTrip();
@@ -146,26 +167,26 @@ export const TripControl = () => {
             }}
             className={cn(
               "h-14 px-6 rounded-[2rem] flex items-center gap-3 transition-all duration-500 shadow-lg group overflow-hidden relative",
-              tracking.mode === 'on_trip' 
+              (tracking.mode === 'in_trip' || tracking.mode === 'waiting_passenger' || tracking.mode === 'transition')
                 ? "bg-red-500 text-white shadow-red-500/20" 
                 : "bg-emerald-500 text-zinc-950 shadow-emerald-500/20"
             )}
           >
             <div className="flex flex-col items-start relative z-10">
               <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-70 leading-none">
-                {tracking.mode === 'on_trip' ? 'Encerrar' : 'Iniciar'}
+                {(tracking.mode === 'in_trip' || tracking.mode === 'waiting_passenger' || tracking.mode === 'transition') ? 'Encerrar' : 'Iniciar'}
               </span>
               <span className="text-xs font-black tracking-tight mt-0.5">
-                {tracking.mode === 'on_trip' ? 'Corrida' : 'Nova Corrida'}
+                {(tracking.mode === 'in_trip' || tracking.mode === 'waiting_passenger' || tracking.mode === 'transition') ? 'Corrida' : 'Nova Corrida'}
               </span>
             </div>
             
             <div className={cn(
               "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 relative z-10",
-              tracking.mode === 'on_trip' ? "bg-white/20" : "bg-zinc-950/10"
+              (tracking.mode === 'in_trip' || tracking.mode === 'waiting_passenger' || tracking.mode === 'transition') ? "bg-white/20" : "bg-zinc-950/10"
             )}>
               <AnimatePresence mode="wait">
-                {tracking.mode === 'on_trip' ? (
+                {(tracking.mode === 'in_trip' || tracking.mode === 'waiting_passenger' || tracking.mode === 'transition') ? (
                   <motion.div
                     key="stop"
                     initial={{ rotate: -90, opacity: 0 }}

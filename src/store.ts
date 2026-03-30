@@ -11,20 +11,22 @@ let watchId: number | null = null;
 
 const TRACKING_CONFIG = {
   MIN_POINTS_SEARCHING: 3,
-  MIN_POINTS_TRIP: 6, // 6 pontos consecutivos > 10km/h
-  MIN_SPEED_START: 10, // km/h
+  MIN_POINTS_TRIP: 6,
+  MIN_SPEED_START: 12, // km/h (Início automático)
   MIN_SPEED_STOP: 3, // km/h
-  STOP_BUFFER_MS: 120000, // 120 segundos parado
+  STOP_BUFFER_MS: 180000, // 180 segundos para fim real
   MIN_DIST_PRECISION: 0.01, // 10 metros
   MAX_SPEED_NOISE: 160, // km/h
   DRIFT_SPEED_THRESHOLD: 2.5, // km/h
   WARMUP_POINTS_REQUIRED: 5,
-  MAX_ACCURACY: 35, // metros mais rigoroso
+  MAX_ACCURACY: 35, // metros
   SPEED_BUFFER_SIZE: 5,
-  MIN_TRIP_DISPLACEMENT: 0.15, // 150 metros para confirmar fim (evita semáforos)
-  MANUAL_OVERRIDE_TIMEOUT: 300000, // 5 minutos de bloqueio auto após manual
-  TRANSITION_WINDOW_MS: 45000, // 45 segundos para handoff de corrida sequencial
-  TRAFFIC_LIGHT_MAX_MS: 90000, // 90 segundos max para um semáforo
+  MIN_TRIP_DISPLACEMENT: 0.20, // 200 metros para confirmar transição
+  MANUAL_OVERRIDE_TIMEOUT: 300000, // 5 minutos
+  TRANSITION_WINDOW_MS: 70000, // 70 segundos para corridas seguidas
+  TRAFFIC_LIGHT_MAX_MS: 90000, // 90 segundos
+  WAITING_PASSENGER_MS: 120000, // 120 segundos
+  WAITING_PASSENGER_DIST: 0.08, // 80 metros
 };
 
 const INITIAL_SETTINGS: UserSettings = {
@@ -70,7 +72,7 @@ const INITIAL_TRACKING = {
   segments: [],
   consecutiveMovingPoints: 0,
   consecutiveStoppedPoints: 0,
-  mode: 'stopped' as const,
+  mode: 'idle' as const,
   tripDetectionState: 'idle' as const,
   lastStopLocation: undefined,
   tripIntelligence: undefined,
@@ -1226,7 +1228,7 @@ export const useDriverStore = create<DriverState>()(
           // If manually starting a trip, reset detection state
           if (newTracking.isProductive) {
             updatedTracking.tripDetectionState = 'trip_started';
-            updatedTracking.mode = 'on_trip';
+            updatedTracking.mode = 'in_trip';
           } else {
             updatedTracking.tripDetectionState = 'idle';
             updatedTracking.mode = 'searching';
@@ -1254,7 +1256,7 @@ export const useDriverStore = create<DriverState>()(
         }
         updateTracking({ 
           isProductive: true, 
-          mode: 'on_trip', 
+          mode: 'in_trip', 
           tripDetectionState: 'trip_started', 
           isManualOverride: true,
           manualOverrideTimestamp: Date.now()
@@ -1457,41 +1459,40 @@ export const useDriverStore = create<DriverState>()(
                 if (smoothedSpeed > TRACKING_CONFIG.MIN_SPEED_START) {
                   newConsecutiveMovingPoints++;
                 } else {
-                  // Se a velocidade cair mas ainda estiver movendo, não reseta totalmente para evitar ruído em trânsito
                   newConsecutiveMovingPoints = Math.max(0, newConsecutiveMovingPoints - 1);
                 }
                 newConsecutiveStoppedPoints = 0;
 
                 // 2. DETECÇÃO AUTOMÁTICA DE INÍCIO / TRANSIÇÃO
                 if (!newIsManualOverride) {
-                  if (newMode !== 'on_trip') {
-                    // Só inicia se vier de searching e tiver passado um tempo mínimo desde a última parada total
-                    const timeSinceStop = currentTracking.lastStopTimestamp ? (timestamp - currentTracking.lastStopTimestamp) : 999999;
-                    
-                    if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP && timeSinceStop > 10000) {
-                      console.log('[TRACK] start trip detected (auto)');
+                  if (newMode !== 'in_trip') {
+                    // INÍCIO AUTOMÁTICO DE CORRIDA
+                    if (smoothedSpeed > TRACKING_CONFIG.MIN_SPEED_START && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP) {
+                      console.log('[TRIP] Início automático detectado');
                       newIsProductive = true;
-                      newMode = 'on_trip';
+                      newMode = 'in_trip';
                       newTripDetectionState = 'trip_started';
                       if (navigator.vibrate) navigator.vibrate(100);
                     } else if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
-                      if (newTripDetectionState !== 'pickup_candidate') {
-                        console.log('[TRACK] pickup candidate detected');
-                        newTripDetectionState = 'pickup_candidate';
-                      }
+                      newMode = 'searching';
+                      newTripDetectionState = 'pickup_candidate';
                     }
-                  } else if (newMode === 'on_trip' && newTripDetectionState === 'transition_window') {
-                    // Se estava em janela de transição e voltou a mover, confirma nova corrida
-                    console.log('[TRACK] sequential trip confirmed (auto)');
-                    newTripDetectionState = 'trip_started';
-                    if (navigator.vibrate) navigator.vibrate(100);
+                  } else if (newMode === 'in_trip' && newTripDetectionState === 'transition_window') {
+                    // CORRIDAS SEGUIDAS (CRÍTICO)
+                    if (dist > 0.20) { // Se moveu mais de 200m após a parada curta
+                      console.log('[TRIP] Corrida sequencial confirmada');
+                      newMode = 'transition';
+                      newTripDetectionState = 'trip_started';
+                      setTimeout(() => { newMode = 'in_trip'; }, 5000); // Volta para in_trip após sinalizar transição
+                      if (navigator.vibrate) navigator.vibrate(100);
+                    }
                   }
                 }
 
                 // 3. CLASSIFICAÇÃO DE DISTÂNCIA E MODO
                 if (newIsProductive) {
                   newProductiveDistance += dist;
-                  newMode = 'on_trip';
+                  newMode = 'in_trip';
                 } else {
                   newIdleDistance += dist;
                   newMode = 'searching';
@@ -1507,52 +1508,54 @@ export const useDriverStore = create<DriverState>()(
                   newConsecutiveStoppedPoints++;
                   if (!newLastStopTimestamp) {
                     newLastStopTimestamp = timestamp;
-                    // Salva posição de parada para checar deslocamento
                     set({ tracking: { ...get().tracking, lastStopLocation: { lat: latitude, lng: longitude } } });
                   }
                 }
 
-                // 4. DETECÇÃO AUTOMÁTICA DE FIM / TRANSIÇÃO
-                if (!newIsManualOverride && newMode === 'on_trip') {
-                  const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
-                  
-                  // Checa deslocamento desde que parou
-                  const lastStopLoc = get().tracking.lastStopLocation;
-                  const displacementSinceStop = lastStopLoc ? calculateDistance(lastStopLoc.lat, lastStopLoc.lng, latitude, longitude) : 0;
+                const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
+                const lastStopLoc = get().tracking.lastStopLocation;
+                const displacementSinceStop = lastStopLoc ? calculateDistance(lastStopLoc.lat, lastStopLoc.lng, latitude, longitude) : 0;
 
-                  // Lógica refinada: se parou por muito tempo mas o deslocamento foi pequeno, pode ser fim de corrida
-                  // Mas se for menos que TRAFFIC_LIGHT_MAX_MS, ignoramos como semáforo
-                  if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS && displacementSinceStop < TRACKING_CONFIG.MIN_TRIP_DISPLACEMENT) {
-                    console.log('[TRACK] end trip detected (auto) - transition window started');
-                    newTripDetectionState = 'transition_window';
-                    
-                    // Iniciamos um timer interno para fechar a corrida se não houver movimento
-                    setTimeout(() => {
-                      const latestTracking = get().tracking;
-                      if (latestTracking.tripDetectionState === 'transition_window' && !latestTracking.isManualOverride) {
-                        console.log('[TRACK] transition window expired, ending trip');
-                        set({ 
-                          tracking: { 
-                            ...latestTracking, 
-                            isProductive: false, 
-                            mode: 'searching', 
-                            tripDetectionState: 'idle' 
-                          } 
-                        });
-                        if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                      }
-                    }, TRACKING_CONFIG.TRANSITION_WINDOW_MS);
-
-                  } else if (stopDuration > 60000 && stopDuration < TRACKING_CONFIG.STOP_BUFFER_MS) {
-                    if (newTripDetectionState !== 'dropoff_candidate') {
-                      console.log('[TRACK] dropoff candidate detected');
-                      newTripDetectionState = 'dropoff_candidate';
+                // 4. DETECÇÃO AUTOMÁTICA DE ESTADOS DE PARADA
+                if (!newIsManualOverride) {
+                  if (newMode === 'in_trip') {
+                    // SEMÁFORO (IGNORAR)
+                    if (smoothedSpeed < 5 && stopDuration < TRACKING_CONFIG.TRAFFIC_LIGHT_MAX_MS) {
+                      newTripDetectionState = 'traffic_stop';
                     }
-                  }
-                } else if (!newIsManualOverride && newMode === 'searching') {
-                  const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
-                  if (stopDuration > 30000) {
-                    newMode = 'stopped';
+                    
+                    // PORTARIA / ESPERA PASSAGEIRO
+                    if (smoothedSpeed < 5 && stopDuration > TRACKING_CONFIG.WAITING_PASSENGER_MS && displacementSinceStop < TRACKING_CONFIG.WAITING_PASSENGER_DIST) {
+                      newMode = 'waiting_passenger';
+                      newTripDetectionState = 'waiting_passenger';
+                    }
+
+                    // FIM DE CORRIDA REAL / TRANSIÇÃO
+                    if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS && displacementSinceStop < TRACKING_CONFIG.MIN_TRIP_DISPLACEMENT) {
+                      console.log('[TRIP] Fim de corrida detectado');
+                      newTripDetectionState = 'transition_window';
+                      
+                      // Janela de transição para corridas seguidas
+                      setTimeout(() => {
+                        const latestTracking = get().tracking;
+                        if (latestTracking.tripDetectionState === 'transition_window' && !latestTracking.isManualOverride) {
+                          console.log('[TRIP] Janela expirada, encerrando');
+                          set({ 
+                            tracking: { 
+                              ...latestTracking, 
+                              isProductive: false, 
+                              mode: 'searching', 
+                              tripDetectionState: 'idle' 
+                            } 
+                          });
+                          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                        }
+                      }, TRACKING_CONFIG.TRANSITION_WINDOW_MS);
+                    }
+                  } else if (newMode === 'searching' || newMode === 'idle') {
+                    if (stopDuration > 30000) {
+                      newMode = 'idle';
+                    }
                   }
                 }
               }
@@ -1732,7 +1735,7 @@ export const useDriverStore = create<DriverState>()(
             isManualOverride: false,
             isPaused: false,
             manualOverrideTimestamp: undefined,
-            mode: 'stopped',
+            mode: 'idle',
             tripDetectionState: 'idle',
             points: [],
             segments: [],
@@ -2243,7 +2246,7 @@ export const useDriverStore = create<DriverState>()(
           idleDistance: 0,
           isProductive: false,
           isManualOverride: false,
-          mode: 'stopped',
+          mode: 'idle',
           tripDetectionState: 'idle',
           avgSpeed: 0,
           currentSmoothedSpeed: 0,

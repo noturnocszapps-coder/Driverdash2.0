@@ -10,6 +10,7 @@ import { useDriverStore } from './store';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole, UserStatus } from './types';
 import { lazyWithRetry } from './lib/lazyWithRetry';
+import { cn } from './utils';
 
 // Lazy load pages with retry
 const LandingPage = React.lazy(() => import('./LandingPage'));
@@ -169,6 +170,7 @@ import { useWakeLock } from './hooks/useWakeLock';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
+  const { tracking } = useDriverStore();
   const isLanding = location.pathname === '/';
   const isAuth = ['/login', '/register', '/forgot-password'].includes(location.pathname);
 
@@ -185,7 +187,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
     <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 px-4 py-6 md:px-8 max-w-5xl mx-auto w-full pb-24">
+        <main className={cn(
+          "flex-1 px-4 py-6 md:px-8 max-w-5xl mx-auto w-full transition-all duration-500",
+          tracking.isActive ? "pb-32" : "pb-24"
+        )}>
           {children}
         </main>
       </div>

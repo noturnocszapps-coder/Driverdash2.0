@@ -206,16 +206,20 @@ export function evaluateZoneQuality(
   if (tripIntelligence?.maturity.isMature) {
     if (tripIntelligence.status === 'good' && finalStatus === 'bad_zone') {
       severity = 'medium';
-      label = 'Atenção (Zona)';
-      message = 'Sua corrida atual está boa, mas a região mostra sinais de queda de demanda.';
+      label = 'Corrida Boa / Zona em Queda';
+      message = 'Sua corrida atual está performando bem, mas a região mostra sinais de baixa demanda. Considere reposicionar-se após o desembarque.';
     } else if (tripIntelligence.status === 'bad' && finalStatus === 'good_zone') {
       severity = 'medium';
-      label = 'Região Boa / Corrida Ruim';
-      message = 'A região está boa, mas sua corrida atual está abaixo do ideal. Considere selecionar melhor.';
+      label = 'Região Aquecida / Corrida Abaixo';
+      message = 'A região está com boa demanda, mas sua corrida atual está abaixo da média ideal. Finalize e aguarde uma oferta melhor nesta área.';
     } else if (tripIntelligence.status === 'bad' && finalStatus === 'bad_zone') {
       severity = 'high';
-      label = 'Crítico: Zona & Corrida';
-      message = 'Desempenho crítico: tanto a corrida quanto a região estão ruins. Reposicione-se agora.';
+      label = 'Alerta Crítico: Zona & Corrida';
+      message = 'Desempenho crítico detectado: tanto a corrida quanto a região estão ruins. Recomendamos reposicionamento imediato para áreas de maior fluxo.';
+    } else if (tripIntelligence.status === 'good' && finalStatus === 'good_zone') {
+      severity = 'low';
+      label = 'Alta Performance';
+      message = 'Excelente! Você está em uma região lucrativa com uma corrida de alta eficiência. Mantenha o ritmo.';
     }
   }
 

@@ -210,9 +210,9 @@ export interface TrackingPoint {
   isProductive?: boolean;
 }
 
-export type TripDetectionState = 'idle' | 'pickup_candidate' | 'trip_started' | 'dropoff_candidate' | 'transition_window';
+export type TripDetectionState = 'idle' | 'pickup_candidate' | 'trip_started' | 'dropoff_candidate' | 'transition_window' | 'waiting_passenger' | 'traffic_stop';
 
-export type TrackingMode = 'stopped' | 'waiting' | 'searching' | 'on_trip' | 'transition';
+export type TrackingMode = 'idle' | 'searching' | 'in_trip' | 'waiting_passenger' | 'dropoff' | 'transition';
 
 export interface TrackingSegment {
   id: string;
