@@ -404,6 +404,39 @@ export interface FinancialEntry {
   updated_at?: string;
 }
 
+export interface DriverPerformanceRecord {
+  id: string;
+  user_id: string;
+  startTime: string;
+  endTime: string;
+  duration: number; // minutes
+  earnings: number;
+  distance: number;
+  profitPerKm: number;
+  profitPerHour: number;
+  region: string;
+  dayOfWeek: number; // 0-6
+  hour: number; // 0-23
+  created_at?: string;
+}
+
+export interface DriverProfile {
+  avgProfitPerHour: number;
+  avgProfitPerKm: number;
+  bestHours: number[];
+  worstHours: number[];
+  bestRegions: string[];
+  worstRegions: string[];
+  totalRides: number;
+  lastUpdated: string;
+}
+
+export interface PerformanceInsight {
+  type: 'positive' | 'negative' | 'neutral';
+  message: string;
+  value?: string;
+}
+
 export interface DriverState {
   user: AuthUser | null;
   syncStatus: SyncStatus;
@@ -424,6 +457,8 @@ export interface DriverState {
   activeVehicleId: string | undefined;
   isSaving: boolean;
   financialEntries: FinancialEntry[];
+  performanceRecords: DriverPerformanceRecord[];
+  driverProfile: DriverProfile;
   addFinancialEntry: (entry: Omit<FinancialEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateFinancialEntry: (id: string, data: Partial<FinancialEntry>) => Promise<void>;
   deleteFinancialEntry: (id: string) => Promise<void>;
@@ -479,4 +514,9 @@ export interface DriverState {
   resetStore: () => void;
   clearData: () => void;
   clearCloudData: () => Promise<{ success: boolean; error?: any }>;
+  
+  // Performance methods
+  loadPerformanceData: () => Promise<void>;
+  addPerformanceRecord: (record: Omit<DriverPerformanceRecord, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
+  updateDriverProfile: () => void;
 }

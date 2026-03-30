@@ -100,6 +100,7 @@ export const Dashboard = () => {
     vehicles = [],
     activeVehicleId,
     updateSettings,
+    driverProfile,
   } = useDriverStore();
 
   const tripIntelligence = tracking?.tripIntelligence;
@@ -527,6 +528,19 @@ export const Dashboard = () => {
       const { direction, label, distance } = zoneIntelligence.bestZone;
       return `MOVA ${direction} ${label} ${distance}km`;
     }
+
+    // NEW: Profile-based insights
+    const currentHour = new Date().getHours();
+    const isBestHour = driverProfile.bestHours.includes(currentHour);
+    const isWorstHour = driverProfile.worstHours.includes(currentHour);
+    const currentRegion = zoneIntelligence?.label;
+    const isBestRegion = currentRegion && driverProfile.bestRegions.includes(currentRegion);
+    const isWorstRegion = currentRegion && driverProfile.worstRegions.includes(currentRegion);
+
+    if (isBestHour && !tracking.isProductive) return 'HORÁRIO DE PICO PARA VOCÊ';
+    if (isBestRegion && !tracking.isProductive) return 'VOCÊ RENDE BEM AQUI';
+    if (isWorstHour && !tracking.isProductive) return 'HORA FRACA. DESCANSE?';
+    if (isWorstRegion && !tracking.isProductive) return 'ZONA FRACA PARA VOCÊ';
 
     // 2. Contexto de Parada
     if (tracking.stopReason === 'traffic_light') return 'AGUARDE O VERDE';
@@ -1583,7 +1597,74 @@ export const Dashboard = () => {
 
       {openCycle && (
         <div className="grid grid-cols-1 gap-4">
-          <FinancialEntryList />
+          {/* Driver Pattern Section */}
+      {driverProfile.totalRides > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.2 }}
+        >
+          <Card className="border-none bg-white dark:bg-zinc-900 shadow-lg overflow-hidden">
+            <CardContent className="p-4">
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-8 h-8 rounded-lg bg-indigo-500/10 text-indigo-500 flex items-center justify-center">
+                  <TrendingUp size={16} />
+                </div>
+                <div>
+                  <h3 className="text-[10px] font-black uppercase tracking-widest opacity-70">Seu Padrão de Performance</h3>
+                  <p className="text-sm font-black uppercase tracking-tight text-indigo-500">IA Adaptativa</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-50">Melhor Horário</p>
+                  <div className="flex items-center gap-2">
+                    <Clock size={14} className="text-emerald-500" />
+                    <p className="text-sm font-black">
+                      {driverProfile.bestHours.length > 0 ? `${driverProfile.bestHours[0]}h` : '--'}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-50">Melhor Região</p>
+                  <div className="flex items-center gap-2">
+                    <MapIcon size={14} className="text-emerald-500" />
+                    <p className="text-sm font-black truncate">
+                      {driverProfile.bestRegions.length > 0 ? driverProfile.bestRegions[0] : '--'}
+                    </p>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-50">Média R$/Hora</p>
+                  <p className="text-sm font-black text-emerald-500">
+                    {formatCurrency(driverProfile.avgProfitPerHour, settings.isPrivacyMode)}/h
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black uppercase tracking-widest opacity-50">Média R$/Km</p>
+                  <p className="text-sm font-black text-emerald-500">
+                    {formatCurrency(driverProfile.avgProfitPerKm, settings.isPrivacyMode)}/km
+                  </p>
+                </div>
+              </div>
+
+              {driverProfile.worstHours.length > 0 && (
+                <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-2">
+                    <AlertTriangle size={12} className="text-amber-500" />
+                    <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
+                      Atenção: Seu rendimento cai às {driverProfile.worstHours[0]}h
+                    </p>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
+
+      <FinancialEntryList />
           <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-hidden">
             <CardContent className="p-0">
               <div className="p-5 border-b border-zinc-50 dark:border-zinc-800/50 flex justify-between items-center gap-3">

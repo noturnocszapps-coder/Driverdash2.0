@@ -227,6 +227,32 @@ CREATE POLICY "Users can insert own faturamento_logs" ON faturamento_logs FOR IN
 CREATE POLICY "Users can update own faturamento_logs" ON faturamento_logs FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own faturamento_logs" ON faturamento_logs FOR DELETE USING (auth.uid() = user_id);
 
+-- 9. Performance Records Table
+CREATE TABLE IF NOT EXISTS performance_records (
+  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id UUID REFERENCES auth.users ON DELETE CASCADE NOT NULL,
+  start_time TIMESTAMPTZ NOT NULL,
+  end_time TIMESTAMPTZ NOT NULL,
+  duration NUMERIC NOT NULL,
+  earnings NUMERIC NOT NULL,
+  distance NUMERIC NOT NULL,
+  profit_per_km NUMERIC NOT NULL,
+  profit_per_hour NUMERIC NOT NULL,
+  region TEXT,
+  day_of_week INTEGER NOT NULL,
+  hour INTEGER NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- RLS
+ALTER TABLE performance_records ENABLE ROW LEVEL SECURITY;
+
+-- Policies
+CREATE POLICY "Users can view own performance_records" ON performance_records FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own performance_records" ON performance_records FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own performance_records" ON performance_records FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own performance_records" ON performance_records FOR DELETE USING (auth.uid() = user_id);
+
 -- Trigger for profiles
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$

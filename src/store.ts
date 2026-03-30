@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
@@ -81,6 +81,17 @@ const INITIAL_TRACKING: TrackingSession = {
   zoneIntelligence: undefined,
 };
 
+const INITIAL_DRIVER_PROFILE: DriverProfile = {
+  avgProfitPerHour: 0,
+  avgProfitPerKm: 0,
+  bestHours: [],
+  worstHours: [],
+  bestRegions: [],
+  worstRegions: [],
+  totalRides: 0,
+  lastUpdated: new Date().toISOString()
+};
+
 const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
 
 export const useDriverStore = create<DriverState>()(
@@ -100,6 +111,8 @@ export const useDriverStore = create<DriverState>()(
       maintenances: [],
       importedReports: [],
       vehicles: [],
+      performanceRecords: [],
+      driverProfile: INITIAL_DRIVER_PROFILE,
       activeVehicleId: undefined,
       settings: INITIAL_SETTINGS,
       tracking: INITIAL_TRACKING,
@@ -140,6 +153,8 @@ export const useDriverStore = create<DriverState>()(
           maintenances: [],
           importedReports: [],
           vehicles: [],
+          performanceRecords: [],
+          driverProfile: INITIAL_DRIVER_PROFILE,
           activeVehicleId: undefined,
           settings: INITIAL_SETTINGS,
           tracking: INITIAL_TRACKING,
@@ -469,6 +484,27 @@ export const useDriverStore = create<DriverState>()(
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
+          }
+
+          // Record performance if tracking is active
+          const { tracking, addPerformanceRecord } = get();
+          if (tracking.isActive && tracking.distance > 0.1) {
+            const durationMin = tracking.duration / 60000;
+            const profitPerHour = durationMin > 0 ? (entry.value / durationMin) * 60 : 0;
+            const profitPerKm = tracking.distance > 0 ? entry.value / tracking.distance : 0;
+            
+            addPerformanceRecord({
+              startTime: new Date(Date.now() - tracking.duration).toISOString(),
+              endTime: new Date().toISOString(),
+              duration: Math.round(durationMin),
+              earnings: entry.value,
+              distance: tracking.distance,
+              profitPerKm,
+              profitPerHour,
+              region: tracking.zoneIntelligence?.label || 'Região Atual',
+              dayOfWeek: new Date().getDay(),
+              hour: new Date().getHours()
+            });
           }
           
           // Recalculate trip intelligence
@@ -1767,6 +1803,32 @@ export const useDriverStore = create<DriverState>()(
             console.error('[TRACKING] Error persisting data:', error);
           }
         }
+
+        // NEW: Record performance for the entire session if no entries were added recently
+        if (tracking.distance > 0.5) {
+          const earnings = openCycle ? (openCycle.total_amount || 0) : 0;
+          const lastRecord = get().performanceRecords[0];
+          const isNewSession = !lastRecord || (Date.now() - new Date(lastRecord.endTime).getTime() > 3600000);
+          
+          if (isNewSession) {
+            const durationMin = tracking.duration / 60000;
+            const profitPerHour = durationMin > 0 ? (earnings / durationMin) * 60 : 0;
+            const profitPerKm = tracking.distance > 0 ? earnings / tracking.distance : 0;
+            
+            get().addPerformanceRecord({
+              startTime: new Date(Date.now() - tracking.duration).toISOString(),
+              endTime: new Date().toISOString(),
+              duration: Math.round(durationMin),
+              earnings,
+              distance: tracking.distance,
+              profitPerKm,
+              profitPerHour,
+              region: tracking.zoneIntelligence?.label || 'Região Atual',
+              dayOfWeek: new Date().getDay(),
+              hour: new Date().getHours()
+            });
+          }
+        }
         console.log('[TRACKING] stopTracking completed');
       },
 
@@ -2293,6 +2355,121 @@ export const useDriverStore = create<DriverState>()(
           return { success: false, error };
         }
       },
+
+      // Performance methods
+      loadPerformanceData: async () => {
+        const { user } = get();
+        if (!user || !isSupabaseConfigured) return;
+
+        try {
+          const { data, error } = await supabase
+            .from('performance_records')
+            .select('*')
+            .eq('user_id', user.id)
+            .order('startTime', { ascending: false });
+
+          if (error) throw error;
+          if (data) {
+            set({ performanceRecords: data });
+            get().updateDriverProfile();
+          }
+        } catch (error) {
+          console.error('[PERFORMANCE] loadPerformanceData error:', error);
+        }
+      },
+
+      addPerformanceRecord: async (record) => {
+        const { user, performanceRecords, updateDriverProfile } = get();
+        
+        const id = crypto.randomUUID();
+        const newRecord = { 
+          ...record, 
+          id, 
+          user_id: user?.id || '',
+          created_at: new Date().toISOString()
+        };
+
+        set({ performanceRecords: [newRecord, ...performanceRecords] });
+        updateDriverProfile();
+
+        if (user && isSupabaseConfigured) {
+          try {
+            const { error } = await supabase
+              .from('performance_records')
+              .insert(newRecord);
+            if (error) throw error;
+          } catch (error) {
+            console.error('[PERFORMANCE] addPerformanceRecord error:', error);
+          }
+        }
+      },
+
+      updateDriverProfile: () => {
+        const { performanceRecords } = get();
+        if (performanceRecords.length === 0) return;
+
+        const totalRides = performanceRecords.length;
+        const totalProfitPerHour = performanceRecords.reduce((acc, r) => acc + safeNumber(r.profitPerHour), 0);
+        const totalProfitPerKm = performanceRecords.reduce((acc, r) => acc + safeNumber(r.profitPerKm), 0);
+
+        const avgProfitPerHour = totalProfitPerHour / totalRides;
+        const avgProfitPerKm = totalProfitPerKm / totalRides;
+
+        // Group by hour
+        const hourStats: Record<number, { total: number, count: number }> = {};
+        const regionStats: Record<string, { total: number, count: number }> = {};
+
+        performanceRecords.forEach(r => {
+          // Hour
+          if (!hourStats[r.hour]) hourStats[r.hour] = { total: 0, count: 0 };
+          hourStats[r.hour].total += safeNumber(r.profitPerHour);
+          hourStats[r.hour].count += 1;
+
+          // Region
+          if (r.region && r.region !== 'Monitorando região...') {
+            if (!regionStats[r.region]) regionStats[r.region] = { total: 0, count: 0 };
+            regionStats[r.region].total += safeNumber(r.profitPerHour);
+            regionStats[r.region].count += 1;
+          }
+        });
+
+        const bestHours = Object.entries(hourStats)
+          .map(([hour, stats]) => ({ hour: Number(hour), avg: stats.total / stats.count }))
+          .filter(h => h.avg > avgProfitPerHour)
+          .sort((a, b) => b.avg - a.avg)
+          .map(h => h.hour);
+
+        const worstHours = Object.entries(hourStats)
+          .map(([hour, stats]) => ({ hour: Number(hour), avg: stats.total / stats.count }))
+          .filter(h => h.avg < avgProfitPerHour * 0.8)
+          .sort((a, b) => a.avg - b.avg)
+          .map(h => h.hour);
+
+        const bestRegions = Object.entries(regionStats)
+          .map(([region, stats]) => ({ region, avg: stats.total / stats.count }))
+          .filter(r => r.avg > avgProfitPerHour)
+          .sort((a, b) => b.avg - a.avg)
+          .map(r => r.region);
+
+        const worstRegions = Object.entries(regionStats)
+          .map(([region, stats]) => ({ region, avg: stats.total / stats.count }))
+          .filter(r => r.avg < avgProfitPerHour * 0.8)
+          .sort((a, b) => a.avg - b.avg)
+          .map(r => r.region);
+
+        set({
+          driverProfile: {
+            avgProfitPerHour,
+            avgProfitPerKm,
+            bestHours,
+            worstHours,
+            bestRegions,
+            worstRegions,
+            totalRides,
+            lastUpdated: new Date().toISOString()
+          }
+        });
+      }
     }),
     {
       name: 'driver-dash-storage',
@@ -2308,6 +2485,8 @@ export const useDriverStore = create<DriverState>()(
         activeVehicleId: state.activeVehicleId,
         faturamentoLogs: state.faturamentoLogs,
         financialEntries: state.financialEntries,
+        performanceRecords: state.performanceRecords,
+        driverProfile: state.driverProfile
       }),
     }
   )
