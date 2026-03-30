@@ -79,6 +79,7 @@ const INITIAL_TRACKING: TrackingSession = {
   lastStopLocation: undefined,
   tripIntelligence: undefined,
   zoneIntelligence: undefined,
+  hasActiveInsight: false,
 };
 
 const INITIAL_DRIVER_PROFILE: DriverProfile = {
@@ -1286,6 +1287,12 @@ export const useDriverStore = create<DriverState>()(
         
         return { tracking: updatedTracking };
       }),
+
+      setHasActiveInsight: (hasActiveInsight) => {
+        set((state) => ({
+          tracking: { ...state.tracking, hasActiveInsight }
+        }));
+      },
 
       startTrip: () => {
         const { tracking, updateTracking } = get();

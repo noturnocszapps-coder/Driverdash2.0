@@ -38,54 +38,61 @@ export const ManualTripFAB = () => {
 
   return (
     <div className={cn(
-      "fixed z-[100] md:hidden transition-all duration-700 ease-in-out",
+      "fixed z-[100] md:hidden transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)]",
       isActive 
-        ? "bottom-[calc(3rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 scale-110" 
-        : "bottom-[calc(6rem+env(safe-area-inset-bottom))] right-6"
+        ? cn(
+            "left-1/2 -translate-x-1/2",
+            tracking.hasActiveInsight 
+              ? "bottom-[calc(18rem+env(safe-area-inset-bottom))]" 
+              : "bottom-[calc(4rem+env(safe-area-inset-bottom))]"
+          )
+        : "bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-6"
     )}>
       <AnimatePresence mode="wait">
         <motion.button
           key={mode}
-          drag="x"
-          dragConstraints={{ left: -30, right: 30 }}
-          dragElastic={0.2}
-          initial={{ scale: 0, rotate: -90, y: 50 }}
+          initial={{ scale: 0, y: 20, opacity: 0 }}
           animate={{ 
-            scale: isActive ? 1.15 : 1, 
-            rotate: 0,
+            scale: isActive ? 1.1 : 1, 
             y: 0,
-            transition: { type: "spring", stiffness: 300, damping: 20 }
+            opacity: 1,
+            transition: { type: "spring", stiffness: 400, damping: 30 }
           }}
-          exit={{ scale: 0, rotate: 90, y: 50 }}
-          whileTap={{ scale: 0.92 }}
+          exit={{ scale: 0, y: 20, opacity: 0 }}
+          whileTap={{ scale: 0.95 }}
           onClick={handleAction}
           disabled={isSaving}
           className={cn(
-            "rounded-full flex items-center justify-center transition-all duration-500 relative overflow-hidden",
-            "shadow-[0_15px_40px_rgba(0,0,0,0.4)] border-4 border-white/10",
-            isActive ? "w-24 h-24" : "w-16 h-16",
+            "rounded-full flex items-center justify-center transition-all duration-700 relative overflow-hidden",
+            "shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-[3px] border-white/10 backdrop-blur-md",
+            isActive ? "w-20 h-20 sm:w-24 sm:h-24" : "w-14 h-14 sm:w-16 sm:h-16",
             getFABStyle()
           )}
         >
-          {/* Dynamic Glow for Active Trip */}
-          {mode === 'in_trip' && (
-            <motion.div 
-              animate={{ opacity: [0.2, 0.5, 0.2] }}
-              transition={{ duration: 2, repeat: Infinity }}
-              className="absolute inset-0 bg-white" 
-            />
-          )}
+          {/* Refined Premium Glow */}
+          <motion.div 
+            animate={{ 
+              opacity: isActive ? [0.1, 0.3, 0.1] : 0,
+              scale: [1, 1.1, 1]
+            }}
+            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            className={cn(
+              "absolute inset-0 blur-2xl",
+              mode === 'in_trip' ? "bg-red-400" : 
+              mode === 'searching' ? "bg-amber-400" : "bg-emerald-400"
+            )}
+          />
           
           <div className="relative z-10 flex flex-col items-center">
             {tracking.isProductive ? (
               <>
-                <Square size={24} fill="currentColor" />
-                <span className="text-[8px] font-black uppercase tracking-tighter mt-0.5">Parar</span>
+                <Square size={isActive ? 28 : 20} fill="currentColor" className="transition-all duration-500" />
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-80">Parar</span>
               </>
             ) : (
               <>
-                <Play size={24} fill="currentColor" className="ml-1" />
-                <span className="text-[8px] font-black uppercase tracking-tighter mt-0.5">Iniciar</span>
+                <Play size={isActive ? 28 : 20} fill="currentColor" className="ml-1 transition-all duration-500" />
+                <span className="text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-80">Iniciar</span>
               </>
             )}
           </div>

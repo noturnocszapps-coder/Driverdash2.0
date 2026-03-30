@@ -265,6 +265,7 @@ export interface TrackingSession {
   lastTimestamp?: number;
   tripIntelligence?: TripIntelligence;
   zoneIntelligence?: ZoneIntelligence;
+  hasActiveInsight?: boolean;
 }
 
 export type TripStatus = 'good' | 'acceptable' | 'bad' | 'analyzing';
@@ -493,6 +494,7 @@ export interface DriverState {
 
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   updateTracking: (tracking: Partial<TrackingSession>) => void;
+  setHasActiveInsight: (hasInsight: boolean) => void;
   startTracking: () => void;
   pauseTracking: () => void;
   resumeTracking: () => void;
