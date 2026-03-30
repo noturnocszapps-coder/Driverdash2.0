@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
@@ -44,6 +44,7 @@ const INITIAL_SETTINGS: UserSettings = {
   photoUrl: undefined,
   isPrivacyMode: false,
   keepScreenOn: false,
+  voiceEnabled: true,
   fixedCosts: {
     vehicleType: 'owned',
   },
@@ -52,7 +53,7 @@ const INITIAL_SETTINGS: UserSettings = {
   status: UserStatus.ACTIVE,
 };
 
-const INITIAL_TRACKING = {
+const INITIAL_TRACKING: TrackingSession = {
   isActive: false,
   isLoading: false,
   distance: 0,
@@ -74,6 +75,7 @@ const INITIAL_TRACKING = {
   consecutiveStoppedPoints: 0,
   mode: 'idle' as const,
   tripDetectionState: 'idle' as const,
+  stopReason: 'none' as const,
   lastStopLocation: undefined,
   tripIntelligence: undefined,
   zoneIntelligence: undefined,
@@ -1421,6 +1423,8 @@ export const useDriverStore = create<DriverState>()(
               isProductive: currentTracking.isProductive 
             };
 
+            const points = [...(currentTracking.points || []), newPoint];
+
             let newDistance = currentTracking.distance;
             let newMovingTime = currentTracking.movingTime;
             let newStoppedTime = currentTracking.stoppedTime;
@@ -1432,6 +1436,7 @@ export const useDriverStore = create<DriverState>()(
             let newLastStopTimestamp = currentTracking.lastStopTimestamp;
             let newMode = currentTracking.mode;
             let newTripDetectionState = currentTracking.tripDetectionState;
+            let newStopReason = currentTracking.stopReason || 'none';
             let newConsecutiveMovingPoints = currentTracking.consecutiveMovingPoints;
             let newConsecutiveStoppedPoints = currentTracking.consecutiveStoppedPoints;
             let newSegments = [...(currentTracking.segments || [])];
@@ -1455,6 +1460,7 @@ export const useDriverStore = create<DriverState>()(
               if (isMoving) {
                 newMovingTime += timeDiff;
                 newLastStopTimestamp = undefined;
+                newStopReason = 'none';
                 
                 if (smoothedSpeed > TRACKING_CONFIG.MIN_SPEED_START) {
                   newConsecutiveMovingPoints++;
@@ -1518,22 +1524,31 @@ export const useDriverStore = create<DriverState>()(
 
                 // 4. DETECÇÃO AUTOMÁTICA DE ESTADOS DE PARADA
                 if (!newIsManualOverride) {
+                  const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
+                  const lastStopLoc = get().tracking.lastStopLocation;
+                  const displacementSinceStop = lastStopLoc ? calculateDistance(lastStopLoc.lat, lastStopLoc.lng, latitude, longitude) : 0;
+
                   if (newMode === 'in_trip') {
                     // SEMÁFORO (IGNORAR)
-                    if (smoothedSpeed < 5 && stopDuration < TRACKING_CONFIG.TRAFFIC_LIGHT_MAX_MS) {
+                    if (stopDuration < TRACKING_CONFIG.TRAFFIC_LIGHT_MAX_MS) {
                       newTripDetectionState = 'traffic_stop';
+                      newStopReason = 'traffic_light';
                     }
                     
                     // PORTARIA / ESPERA PASSAGEIRO
-                    if (smoothedSpeed < 5 && stopDuration > TRACKING_CONFIG.WAITING_PASSENGER_MS && displacementSinceStop < TRACKING_CONFIG.WAITING_PASSENGER_DIST) {
+                    if (stopDuration > TRACKING_CONFIG.WAITING_PASSENGER_MS && displacementSinceStop < TRACKING_CONFIG.WAITING_PASSENGER_DIST) {
+                      if (currentTracking.mode !== 'waiting_passenger' && navigator.vibrate) navigator.vibrate(50);
                       newMode = 'waiting_passenger';
                       newTripDetectionState = 'waiting_passenger';
+                      newStopReason = 'waiting';
                     }
 
                     // FIM DE CORRIDA REAL / TRANSIÇÃO
                     if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS && displacementSinceStop < TRACKING_CONFIG.MIN_TRIP_DISPLACEMENT) {
                       console.log('[TRIP] Fim de corrida detectado');
                       newTripDetectionState = 'transition_window';
+                      newStopReason = 'end_of_trip';
+                      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
                       
                       // Janela de transição para corridas seguidas
                       setTimeout(() => {
@@ -1545,30 +1560,24 @@ export const useDriverStore = create<DriverState>()(
                               ...latestTracking, 
                               isProductive: false, 
                               mode: 'searching', 
-                              tripDetectionState: 'idle' 
+                              tripDetectionState: 'idle',
+                              stopReason: 'none'
                             } 
                           });
-                          if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
                         }
                       }, TRACKING_CONFIG.TRANSITION_WINDOW_MS);
                     }
                   } else if (newMode === 'searching' || newMode === 'idle') {
                     if (stopDuration > 30000) {
                       newMode = 'idle';
+                      newStopReason = 'waiting';
                     }
                   }
                 }
               }
             }
 
-            // Warm-up logic
-            const points = [...currentTracking.points, newPoint];
-            if (newIsWarmingUp && points.length >= TRACKING_CONFIG.WARMUP_POINTS_REQUIRED) {
-              const movingPoints = points.filter(p => (p.speed || 0) > TRACKING_CONFIG.MIN_SPEED_START);
-              if (movingPoints.length >= 3) {
-                newIsWarmingUp = false;
-              }
-            }
+            // 5. ATUALIZAÇÃO DO ESTADO GLOBAL (Movido para o final)
 
             // 3. CLASSIFICAÇÃO POR SEGMENTO (Gerenciamento Robusto)
             if (newMode !== currentTracking.mode || newSegments.length === 0) {
@@ -1628,6 +1637,7 @@ export const useDriverStore = create<DriverState>()(
             
             newPoint.isProductive = newIsProductive;
 
+            // 5. ATUALIZAÇÃO DO ESTADO GLOBAL (ÚNICA)
             set({
               tracking: {
                 ...currentTracking,
@@ -1646,6 +1656,7 @@ export const useDriverStore = create<DriverState>()(
                 lastStopTimestamp: newLastStopTimestamp,
                 mode: newMode,
                 tripDetectionState: newTripDetectionState,
+                stopReason: newStopReason,
                 consecutiveMovingPoints: newConsecutiveMovingPoints,
                 consecutiveStoppedPoints: newConsecutiveStoppedPoints,
                 segments: newSegments,

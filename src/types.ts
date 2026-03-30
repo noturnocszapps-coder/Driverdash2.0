@@ -196,6 +196,7 @@ export interface UserSettings {
   currentVehicleProfileId?: string;
   isPrivacyMode?: boolean;
   keepScreenOn?: boolean;
+  voiceEnabled?: boolean;
   role?: UserRole;
   status?: UserStatus;
   updated_at?: string;
@@ -211,6 +212,7 @@ export interface TrackingPoint {
 }
 
 export type TripDetectionState = 'idle' | 'pickup_candidate' | 'trip_started' | 'dropoff_candidate' | 'transition_window' | 'waiting_passenger' | 'traffic_stop';
+export type StopReason = 'traffic_light' | 'waiting' | 'end_of_trip' | 'none';
 
 export type TrackingMode = 'idle' | 'searching' | 'in_trip' | 'waiting_passenger' | 'dropoff' | 'transition';
 
@@ -250,6 +252,7 @@ export interface TrackingSession {
   manualOverrideTimestamp?: number;
   mode: TrackingMode;
   tripDetectionState: TripDetectionState;
+  stopReason?: StopReason;
   lastStopTimestamp?: number;
   lastStopLocation?: { lat: number; lng: number };
   isWarmingUp?: boolean;
@@ -304,6 +307,11 @@ export interface ZoneIntelligence {
   maturity: {
     isMature: boolean;
     reason?: string;
+  };
+  bestZone?: {
+    label: string;
+    distance: number;
+    direction: string;
   };
   // Internal state for persistence and cooldown
   lastAlertTime?: number;

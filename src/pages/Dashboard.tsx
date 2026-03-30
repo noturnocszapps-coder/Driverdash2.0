@@ -45,7 +45,7 @@ import { ptBR } from 'date-fns/locale';
 import { isSupabaseConfigured } from '../lib/supabase';
 import { QuickEntryModal } from '../components/QuickEntryModal';
 import { FinancialEntryList } from '../components/FinancialEntryList';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 import { AIRealTimeAlerts } from '../components/AIRealTimeAlerts';
 
@@ -470,6 +470,258 @@ export const Dashboard = () => {
 
   const dashboardMode = settings?.dashboardMode || 'merged';
 
+  useEffect(() => {
+    if (tracking?.isActive && smartAlerts.length > 0) {
+      const lastAlert = smartAlerts[smartAlerts.length - 1];
+      toast(lastAlert.message, {
+        icon: lastAlert.type === 'warning' ? <AlertTriangle size={16} className="text-red-500" /> : 
+              lastAlert.type === 'success' ? <CheckCircle2 size={16} className="text-emerald-500" /> : 
+              <Info size={16} className="text-blue-500" />,
+        duration: 4000,
+      });
+    }
+  }, [smartAlerts, tracking?.isActive]);
+
+  const isDrivingMode = tracking?.isActive;
+
+  const currentStatus = useMemo(() => {
+    if (!isDrivingMode || !('stopReason' in tracking)) return '';
+    return tracking.isProductive 
+      ? 'EM CORRIDA' 
+      : tracking.stopReason === 'traffic_light'
+        ? 'SEMÁFORO'
+        : tracking.stopReason === 'waiting'
+          ? 'ESPERA'
+          : zoneIntelligence?.status === 'bad_zone' 
+            ? 'ZONA RUIM' 
+            : 'AGUARDANDO';
+  }, [isDrivingMode, tracking, zoneIntelligence?.status]);
+
+  const statusColor = useMemo(() => {
+    if (!isDrivingMode || !('stopReason' in tracking)) return '';
+    return tracking.isProductive 
+      ? 'text-emerald-500' 
+      : tracking.stopReason === 'traffic_light'
+        ? 'text-blue-400'
+        : zoneIntelligence?.status === 'bad_zone' 
+          ? 'text-red-500' 
+          : 'text-amber-500';
+  }, [isDrivingMode, tracking, zoneIntelligence?.status]);
+
+  const glowColor = useMemo(() => {
+    if (!isDrivingMode || !('stopReason' in tracking)) return '';
+    return tracking.isProductive 
+      ? 'rgba(16, 185, 129, 0.2)' 
+      : tracking.stopReason === 'traffic_light'
+        ? 'rgba(96, 165, 250, 0.2)'
+        : zoneIntelligence?.status === 'bad_zone' 
+          ? 'rgba(239, 68, 68, 0.2)' 
+          : 'rgba(245, 158, 11, 0.2)';
+  }, [isDrivingMode, tracking, zoneIntelligence?.status]);
+
+  const aiInsight = useMemo(() => {
+    if (!isDrivingMode || !('stopReason' in tracking)) return '';
+    
+    // 1. Prioridade: Direção Inteligente
+    if (zoneIntelligence?.bestZone && zoneIntelligence?.status !== 'productive_zone' && zoneIntelligence?.status !== 'good_trip') {
+      const { direction, label, distance } = zoneIntelligence.bestZone;
+      return `MOVA ${direction} ${label} ${distance}km`;
+    }
+
+    // 2. Contexto de Parada
+    if (tracking.stopReason === 'traffic_light') return 'AGUARDE O VERDE';
+    if (tracking.stopReason === 'waiting') return 'MOVA AGORA → CENTRO';
+    if (tracking.stopReason === 'end_of_trip') return 'ZONA RUIM? MUDE';
+
+    // 3. Contexto de Corrida
+    if (tracking.isProductive) return 'CONTINUE';
+    
+    // 4. Fallback
+    return zoneIntelligence?.status === 'bad_zone' ? 'MUDE DE ÁREA' : 'AGUARDE';
+  }, [isDrivingMode, zoneIntelligence, tracking]);
+
+  const isStableAndPositive = useMemo(() => {
+    if (!isDrivingMode || !('currentSmoothedSpeed' in tracking)) return false;
+    return (zoneIntelligence?.status === 'productive_zone' || zoneIntelligence?.status === 'good_trip') && 
+           tracking.isProductive && 
+           (tracking.currentSmoothedSpeed || 0) > 10;
+  }, [isDrivingMode, zoneIntelligence?.status, tracking]);
+
+  // Haptic Feedback on Status Change
+  useEffect(() => {
+    if (isDrivingMode && currentStatus) {
+      if (navigator.vibrate) {
+        // Subtle vibration for state changes
+        navigator.vibrate(15);
+      }
+    }
+  }, [currentStatus, isDrivingMode]);
+
+  // Voice Alert System (Preparation for TTS)
+  useEffect(() => {
+    if (isDrivingMode && aiInsight && !isStableAndPositive && settings.voiceEnabled) {
+      console.log(`[VOICE_ALERT] ${aiInsight}`);
+      // Future: window.speechSynthesis.speak(new SpeechSynthesisUtterance(aiInsight));
+    }
+  }, [aiInsight, isDrivingMode, isStableAndPositive, settings.voiceEnabled]);
+
+  if (isDrivingMode) {
+    const mainMetricValue = tripIntelligence?.metrics.perHour || efficiencyStats?.grossPerKm || 0;
+    const mainMetricLabel = tripIntelligence?.metrics.perHour ? 'R$/HORA' : 'R$/KM';
+
+    const contextInfo = tracking.isProductive 
+      ? `${formatDuration(tracking.duration)} • ${safeNumber(tracking.distance).toFixed(1)} km`
+      : `${formatDuration(tracking.duration)} • ${zoneIntelligence?.label || 'Monitorando'}`;
+
+    return (
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ 
+          opacity: 1, 
+          backgroundColor: 'rgba(9, 9, 11, 1)' // Zinc-950
+        }}
+        exit={{ opacity: 0 }}
+        transition={{ duration: 0.5 }}
+        className="fixed inset-0 bg-zinc-950 z-[40] flex flex-col items-center justify-center p-6 text-center overflow-hidden"
+      >
+        {/* Background Pulse Glow */}
+        <motion.div 
+          animate={{ 
+            scale: [1, 1.2, 1],
+            opacity: [0.1, 0.2, 0.1]
+          }}
+          transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+          className={cn(
+            "absolute inset-0 rounded-full blur-[120px] opacity-20",
+            tracking.isProductive ? "bg-emerald-500" : 
+            tracking.stopReason === 'traffic_light' ? "bg-blue-500" :
+            zoneIntelligence?.status === 'bad_zone' ? "bg-red-500" : "bg-amber-500"
+          )}
+          style={{ width: '150%', height: '150%', top: '-25%', left: '-25%' }}
+        />
+
+        <div className="relative z-10 space-y-16 w-full max-w-md">
+          {/* Status - Ultra Clean Mode Support */}
+          <AnimatePresence mode="wait">
+            <motion.div
+              key={currentStatus}
+              initial={{ y: -20, opacity: 0, scale: 0.8 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 20, opacity: 0, scale: 0.8 }}
+              transition={{ type: "spring", stiffness: 300, damping: 25 }}
+              className="space-y-3"
+            >
+              {!isStableAndPositive && (
+                <motion.p 
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="text-[14px] font-black uppercase tracking-[0.5em] text-zinc-600"
+                >
+                  Status Atual
+                </motion.p>
+              )}
+              <div className="flex flex-col items-center">
+                <h2 className={cn(
+                  "font-black tracking-tighter leading-none transition-all duration-700", 
+                  statusColor,
+                  isStableAndPositive ? "text-5xl mb-2" : "text-7xl mb-4"
+                )}>
+                  {currentStatus}
+                </h2>
+                {!isStableAndPositive && (
+                  <div className="flex items-center gap-2 px-6 py-2 bg-white/5 rounded-full border border-white/10 backdrop-blur-md">
+                    <div className={cn(
+                      "w-2 h-2 rounded-full animate-pulse", 
+                      tracking.isProductive ? "bg-emerald-500" : 
+                      tracking.stopReason === 'traffic_light' ? "bg-blue-500" : "bg-amber-500"
+                    )} />
+                    <span className="text-sm font-black text-zinc-300 uppercase tracking-[0.2em]">
+                      {contextInfo}
+                    </span>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </AnimatePresence>
+
+          {/* Main Metric */}
+          <motion.div
+            initial={{ scale: 0.9, opacity: 0 }}
+            animate={{ 
+              scale: 1, 
+              opacity: 1,
+              boxShadow: [
+                `0 0 0px ${glowColor}`,
+                `0 0 60px ${glowColor}`,
+                `0 0 0px ${glowColor}`
+              ]
+            }}
+            transition={{ 
+              delay: 0.1,
+              boxShadow: { duration: 3, repeat: Infinity, ease: "easeInOut" }
+            }}
+            className={cn(
+              "space-y-4 bg-white/5 py-12 rounded-[4rem] border border-white/10 shadow-inner backdrop-blur-sm transition-all duration-700",
+              isStableAndPositive ? "scale-125 py-20 bg-white/[0.02]" : ""
+            )}
+          >
+            <p className="text-[14px] font-black uppercase tracking-[0.5em] text-zinc-600">{mainMetricLabel}</p>
+            <div className={cn(
+              "font-black tracking-tighter text-white tabular-nums transition-all duration-700",
+              isStableAndPositive ? "text-9xl" : "text-8xl"
+            )}>
+              {formatCurrency(mainMetricValue, settings.isPrivacyMode).replace('R$', '')}
+            </div>
+          </motion.div>
+
+          {/* AI Insight - Intelligent Silence & Smart Direction */}
+          <AnimatePresence mode="wait">
+            {aiInsight && !isStableAndPositive && (
+              <motion.div
+                key={aiInsight}
+                initial={{ y: 20, opacity: 0, scale: 0.9 }}
+                animate={{ y: 0, opacity: 1, scale: 1 }}
+                exit={{ y: -20, opacity: 0, scale: 0.9 }}
+                transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                className="px-4"
+              >
+                <div className="inline-flex flex-col items-center gap-2 px-10 py-8 bg-zinc-900/80 border-2 border-zinc-800 shadow-2xl rounded-[3rem] backdrop-blur-xl">
+                  <div className="flex items-center gap-2 mb-1">
+                    <Zap size={20} className="text-emerald-500 fill-emerald-500" />
+                    <span className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-500">Comando IA</span>
+                  </div>
+                  <p className="text-3xl font-black text-white uppercase tracking-tight">
+                    {aiInsight}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </div>
+
+        {/* Floating Control Info - Hidden in Ultra Clean Mode */}
+        {!isStableAndPositive && (
+          <motion.div 
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="absolute bottom-44 left-0 right-0 flex justify-center gap-16 text-zinc-500"
+          >
+            <div className="text-center">
+              <p className="text-[11px] font-black uppercase tracking-widest mb-1 opacity-40">Ganhos Hoje</p>
+              <p className="text-2xl font-black text-white tracking-tighter">
+                {formatCurrency(todayData.totalRevenue, settings.isPrivacyMode)}
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-[11px] font-black uppercase tracking-widest mb-1 opacity-40">Velocidade</p>
+              <p className="text-2xl font-black text-white tracking-tighter">{Math.round(tracking.currentSmoothedSpeed || 0)}<span className="text-sm ml-0.5 opacity-40">km/h</span></p>
+            </div>
+          </motion.div>
+        )}
+      </motion.div>
+    );
+  }
+
   return (
     <motion.div
       initial={{ opacity: 0, y: 10 }}
@@ -477,38 +729,6 @@ export const Dashboard = () => {
       className="space-y-4 pb-24 md:pb-8"
     >
       <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
-
-      {/* Priority 1: Smart Alerts (Critical Tracking) */}
-      {tracking?.isActive && smartAlerts.length > 0 && (
-        <div className="space-y-2">
-          {smartAlerts.slice(0, 2).map((alert, index) => (
-            <motion.div
-              key={`smart-alert-${alert.id}-${index}`}
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              className={cn(
-                'p-3 rounded-2xl flex items-center gap-3 border shadow-sm',
-                alert.type === 'warning'
-                  ? 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
-                  : alert.type === 'success'
-                  ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400'
-                  : 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400'
-              )}
-            >
-              {alert.type === 'warning' ? (
-                <AlertTriangle size={18} />
-              ) : alert.type === 'success' ? (
-                <CheckCircle2 size={18} />
-              ) : (
-                <Info size={18} />
-              )}
-              <p className="text-xs font-black uppercase tracking-widest flex-1">
-                {alert.message}
-              </p>
-            </motion.div>
-          ))}
-        </div>
-      )}
 
       {/* Priority 2: Real-time Trip Evaluation Card */}
       {tracking?.isActive && (

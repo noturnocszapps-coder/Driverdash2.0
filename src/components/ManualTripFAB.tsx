@@ -2,7 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Play, Square, Navigation, Clock } from 'lucide-react';
 import { useDriverStore } from '../store';
-import { cn } from '../utils';
+import { cn, formatDuration } from '../utils';
 
 export const ManualTripFAB = () => {
   const { tracking, startTrip, endTrip, isSaving } = useDriverStore();
@@ -37,21 +37,33 @@ export const ManualTripFAB = () => {
   };
 
   return (
-    <div className="fixed bottom-24 right-6 z-50 md:hidden">
+    <div className={cn(
+      "fixed z-[100] md:hidden transition-all duration-700 ease-in-out",
+      isActive 
+        ? "bottom-[calc(3rem+env(safe-area-inset-bottom))] left-1/2 -translate-x-1/2 scale-110" 
+        : "bottom-[calc(6rem+env(safe-area-inset-bottom))] right-6"
+    )}>
       <AnimatePresence mode="wait">
         <motion.button
           key={mode}
           drag="x"
-          dragConstraints={{ left: -20, right: 20 }}
-          dragElastic={0.1}
-          initial={{ scale: 0, rotate: -45 }}
-          animate={{ scale: 1, rotate: 0 }}
-          exit={{ scale: 0, rotate: 45 }}
-          whileTap={{ scale: 0.9 }}
+          dragConstraints={{ left: -30, right: 30 }}
+          dragElastic={0.2}
+          initial={{ scale: 0, rotate: -90, y: 50 }}
+          animate={{ 
+            scale: isActive ? 1.15 : 1, 
+            rotate: 0,
+            y: 0,
+            transition: { type: "spring", stiffness: 300, damping: 20 }
+          }}
+          exit={{ scale: 0, rotate: 90, y: 50 }}
+          whileTap={{ scale: 0.92 }}
           onClick={handleAction}
           disabled={isSaving}
           className={cn(
-            "w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-500 relative overflow-hidden",
+            "rounded-full flex items-center justify-center transition-all duration-500 relative overflow-hidden",
+            "shadow-[0_15px_40px_rgba(0,0,0,0.4)] border-4 border-white/10",
+            isActive ? "w-24 h-24" : "w-16 h-16",
             getFABStyle()
           )}
         >
@@ -108,28 +120,30 @@ export const ManualTripFAB = () => {
         </motion.button>
       </AnimatePresence>
 
-      {/* Mini Status Indicator */}
+      {/* Mini Status Indicator - Refined for zero distraction */}
       {isActive && (
         <motion.div 
-          initial={{ opacity: 0, y: 10 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="absolute -top-10 right-0 bg-zinc-900/90 backdrop-blur-md border border-zinc-800 px-3 py-1.5 rounded-xl shadow-xl flex items-center gap-2 whitespace-nowrap"
+          initial={{ opacity: 0, y: 10, scale: 0.8 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          className="absolute -top-14 left-1/2 -translate-x-1/2 bg-zinc-900 border border-zinc-800 px-4 py-2 rounded-2xl shadow-2xl flex items-center gap-3 whitespace-nowrap"
         >
           <div className={cn(
-            "w-1.5 h-1.5 rounded-full animate-pulse",
-            mode === 'in_trip' ? 'bg-red-500' : 
-            mode === 'searching' ? 'bg-amber-500' : 
-            'bg-emerald-500'
+            "w-2 h-2 rounded-full animate-pulse shadow-[0_0_10px_currentColor]",
+            mode === 'in_trip' ? 'bg-red-500 text-red-500' : 
+            mode === 'searching' ? 'bg-amber-500 text-amber-500' : 
+            'bg-emerald-500 text-emerald-500'
           )} />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">
-            {mode === 'in_trip' ? 'Em Corrida' : 
-             mode === 'searching' ? 'Buscando' : 
-             mode === 'waiting_passenger' ? 'Aguardando' :
-             mode === 'transition' ? 'Transição' : 'Ativo'}
-          </span>
-          <span className="text-[10px] font-bold text-zinc-400">
-            {tracking.duration > 0 ? `${Math.floor(tracking.duration / 60)}m` : ''}
-          </span>
+          <div className="flex flex-col">
+            <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] leading-none mb-0.5">
+              {mode === 'in_trip' ? 'Em Corrida' : 
+               mode === 'searching' ? 'Buscando' : 
+               mode === 'waiting_passenger' ? 'Aguardando' :
+               mode === 'transition' ? 'Transição' : 'Ativo'}
+            </span>
+            <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest leading-none">
+              {tracking.duration > 0 ? formatDuration(tracking.duration) : 'Iniciando...'}
+            </span>
+          </div>
         </motion.div>
       )}
     </div>

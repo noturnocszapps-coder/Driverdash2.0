@@ -223,6 +223,18 @@ export function evaluateZoneQuality(
     }
   }
 
+  // 9. Best Zone Suggestion (Mock)
+  let bestZone;
+  if (finalStatus === 'bad_zone' || finalStatus === 'neutral_zone') {
+    const directions: ('N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT')[] = ['UP', 'RIGHT', 'LEFT', 'DOWN'];
+    const mockDirection = directions[Math.floor(now / 3600000) % directions.length]; // Changes every hour
+    bestZone = {
+      label: 'Centro',
+      distance: 2.4,
+      direction: mockDirection === 'UP' ? '↑' : mockDirection === 'RIGHT' ? '→' : mockDirection === 'LEFT' ? '←' : '↓'
+    };
+  }
+
   return {
     status: finalStatus,
     severity,
@@ -237,6 +249,7 @@ export function evaluateZoneQuality(
       recentRevenue
     },
     maturity: { isMature: true },
+    bestZone,
     lastAlertTime,
     lastZoneState: finalStatus,
     badZoneCandidateStartTime,
