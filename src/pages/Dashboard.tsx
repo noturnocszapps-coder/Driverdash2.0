@@ -604,15 +604,15 @@ export const Dashboard = () => {
         transition={{ duration: 0.5 }}
         className="fixed inset-0 bg-zinc-950 z-[40] flex flex-col items-center justify-center overflow-hidden"
       >
-        {/* Background Pulse Glow - Refined */}
+        {/* Background Pulse Glow - Very Subtle */}
         <motion.div 
           animate={{ 
-            scale: [1, 1.1, 1],
-            opacity: [0.05, 0.15, 0.05]
+            scale: [1, 1.05, 1],
+            opacity: [0.03, 0.08, 0.03]
           }}
-          transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
+          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
           className={cn(
-            "absolute inset-0 rounded-full blur-[150px]",
+            "absolute inset-0 rounded-full blur-[180px]",
             tracking.isProductive ? "bg-emerald-500" : 
             tracking.stopReason === 'traffic_light' ? "bg-blue-500" :
             zoneIntelligence?.status === 'bad_zone' ? "bg-red-500" : "bg-amber-500"
@@ -620,97 +620,94 @@ export const Dashboard = () => {
           style={{ width: '140%', height: '140%', top: '-20%', left: '-20%' }}
         />
 
-        <div className="relative z-10 w-full max-w-lg px-8 flex flex-col items-center justify-center space-y-12 sm:space-y-16">
-          {/* Status - Adaptive Typography */}
+        <div className="relative z-10 w-full max-w-lg px-6 flex flex-col items-center justify-center space-y-8 sm:space-y-12">
+          {/* 1. STATUS Principal */}
           <AnimatePresence mode="wait">
             <motion.div
               key={currentStatus}
-              initial={{ y: -20, opacity: 0, scale: 0.9 }}
-              animate={{ y: 0, opacity: 1, scale: 1 }}
-              exit={{ y: 20, opacity: 0, scale: 0.9 }}
-              transition={{ type: "spring", stiffness: 400, damping: 30 }}
-              className="space-y-4 w-full"
+              initial={{ y: -10, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 10, opacity: 0 }}
+              className="text-center w-full max-w-[90%]"
             >
-              {!isStableAndPositive && (
-                <motion.p 
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="text-[12px] sm:text-[14px] font-black uppercase tracking-[0.6em] text-zinc-600"
-                >
-                  Status Atual
-                </motion.p>
-              )}
-              <div className="flex flex-col items-center">
-                <h2 className={cn(
-                  "font-black tracking-tighter leading-none transition-all duration-700", 
-                  statusColor,
-                  isStableAndPositive ? "text-4xl sm:text-5xl mb-2" : "text-6xl sm:text-8xl mb-4"
-                )}>
-                  {currentStatus}
-                </h2>
-                {!isStableAndPositive && (
-                  <div className="flex items-center gap-2 px-5 py-2 bg-white/5 rounded-full border border-white/10 backdrop-blur-xl">
-                    <div className={cn(
-                      "w-2 h-2 rounded-full animate-pulse", 
-                      tracking.isProductive ? "bg-emerald-500" : 
-                      tracking.stopReason === 'traffic_light' ? "bg-blue-500" : "bg-amber-500"
-                    )} />
-                    <span className="text-[11px] sm:text-sm font-black text-zinc-300 uppercase tracking-[0.25em]">
-                      {contextInfo}
-                    </span>
-                  </div>
-                )}
-              </div>
+              <h2 className={cn(
+                "font-black tracking-tighter leading-[0.9] transition-all duration-700 uppercase", 
+                statusColor,
+                "text-[clamp(2.5rem,12vw,5rem)]"
+              )}>
+                {currentStatus}
+              </h2>
             </motion.div>
           </AnimatePresence>
 
-          {/* Main Metric - Premium Card */}
+          {/* 2. Contexto Curto (Pill) */}
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="flex items-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/10 backdrop-blur-md"
+          >
+            <div className={cn(
+              "w-1.5 h-1.5 rounded-full animate-pulse", 
+              tracking.isProductive ? "bg-emerald-500" : 
+              tracking.stopReason === 'traffic_light' ? "bg-blue-500" : "bg-amber-500"
+            )} />
+            <span className="text-[10px] sm:text-xs font-black text-zinc-400 uppercase tracking-[0.2em]">
+              {contextInfo}
+            </span>
+          </motion.div>
+
+          {/* 3. Métrica Principal (Center Focus) */}
           <motion.div
-            initial={{ scale: 0.95, opacity: 0 }}
+            initial={{ scale: 0.98, opacity: 0 }}
             animate={{ 
               scale: 1, 
               opacity: 1,
-              boxShadow: [
-                `0 0 0px ${glowColor}`,
-                `0 0 40px ${glowColor}`,
-                `0 0 0px ${glowColor}`
-              ]
-            }}
-            transition={{ 
-              delay: 0.1,
-              boxShadow: { duration: 4, repeat: Infinity, ease: "easeInOut" }
             }}
             className={cn(
-              "w-full space-y-4 bg-white/5 py-10 sm:py-14 rounded-[3rem] sm:rounded-[4rem] border border-white/10 shadow-2xl backdrop-blur-md transition-all duration-700",
-              isStableAndPositive ? "scale-110 py-16 sm:py-20 bg-white/[0.03]" : ""
+              "w-full flex flex-col items-center justify-center py-8 sm:py-12 rounded-[2.5rem] sm:rounded-[3.5rem] border border-white/5 bg-white/[0.02] backdrop-blur-sm transition-all duration-700 relative overflow-hidden",
+              isStableAndPositive ? "bg-white/[0.04] border-white/10" : ""
             )}
           >
-            <p className="text-[12px] sm:text-[14px] font-black uppercase tracking-[0.6em] text-zinc-600">{mainMetricLabel}</p>
+            {/* Subtle Inner Glow */}
             <div className={cn(
-              "font-black tracking-tighter text-white tabular-nums transition-all duration-700",
-              isStableAndPositive ? "text-8xl sm:text-9xl" : "text-7xl sm:text-8xl"
+              "absolute inset-0 opacity-10 blur-3xl",
+              tracking.isProductive ? "bg-emerald-500" : "bg-zinc-500"
+            )} />
+
+            <p className="relative z-10 text-[10px] sm:text-[12px] font-black uppercase tracking-[0.5em] text-zinc-600 mb-2">{mainMetricLabel}</p>
+            <div className={cn(
+              "relative z-10 font-black tracking-tighter text-white tabular-nums leading-none",
+              "text-[clamp(4rem,20vw,8rem)]"
             )}>
               {formatCurrency(mainMetricValue, settings.isPrivacyMode).replace('R$', '')}
             </div>
+
+            {/* Secondary Info below main metric - Ultra discrete */}
+            <div className="relative z-10 flex gap-12 mt-8 opacity-20 hover:opacity-40 transition-opacity duration-500">
+              <div className="text-center">
+                <p className="text-[7px] font-black uppercase tracking-[0.2em] mb-1 text-zinc-400">Ganhos Hoje</p>
+                <p className="text-xs font-black text-white">{formatCurrency(todayData.totalRevenue, settings.isPrivacyMode)}</p>
+              </div>
+              <div className="text-center">
+                <p className="text-[7px] font-black uppercase tracking-[0.2em] mb-1 text-zinc-400">Velocidade</p>
+                <p className="text-xs font-black text-white">{Math.round(tracking.currentSmoothedSpeed || 0)} <span className="text-[8px] opacity-50">km/h</span></p>
+              </div>
+            </div>
           </motion.div>
 
-          {/* AI Insight - Intelligent & Proportional */}
+          {/* 4. Comando IA Curto (Compact Pill) */}
           <AnimatePresence mode="wait">
             {aiInsight && !isStableAndPositive && (
               <motion.div
                 key={aiInsight}
-                initial={{ y: 20, opacity: 0, scale: 0.95 }}
-                animate={{ y: 0, opacity: 1, scale: 1 }}
-                exit={{ y: -20, opacity: 0, scale: 0.95 }}
-                transition={{ type: "spring", stiffness: 500, damping: 35 }}
-                className="px-4 w-full"
+                initial={{ y: 10, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -10, opacity: 0 }}
+                className="w-full flex justify-center"
               >
-                <div className="flex flex-col items-center gap-2 px-8 py-6 sm:px-10 sm:py-8 bg-zinc-900/90 border-2 border-zinc-800 shadow-2xl rounded-[2.5rem] sm:rounded-[3rem] backdrop-blur-2xl">
-                  <div className="flex items-center gap-2 mb-1">
-                    <Zap size={18} className="text-emerald-500 fill-emerald-500" />
-                    <span className="text-[10px] sm:text-[11px] font-black uppercase tracking-[0.4em] text-zinc-500">Comando IA</span>
-                  </div>
-                  <p className="text-2xl sm:text-3xl font-black text-white uppercase tracking-tight leading-tight">
+                <div className="flex items-center gap-3 px-6 py-3 bg-zinc-900 border border-zinc-800 shadow-xl rounded-2xl backdrop-blur-xl">
+                  <Zap size={14} className="text-emerald-500 fill-emerald-500" />
+                  <p className="text-sm sm:text-base font-black text-white uppercase tracking-tight">
                     {aiInsight}
                   </p>
                 </div>
@@ -718,29 +715,6 @@ export const Dashboard = () => {
             )}
           </AnimatePresence>
         </div>
-
-        {/* Floating Control Info - Safe Area & Proportional */}
-        {!isStableAndPositive && (
-          <motion.div 
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            className="absolute bottom-[calc(10rem+env(safe-area-inset-bottom))] left-0 right-0 flex justify-center gap-12 sm:gap-16 text-zinc-500"
-          >
-            <div className="text-center">
-              <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest mb-1 opacity-40">Ganhos Hoje</p>
-              <p className="text-xl sm:text-2xl font-black text-white tracking-tighter">
-                {formatCurrency(todayData.totalRevenue, settings.isPrivacyMode)}
-              </p>
-            </div>
-            <div className="text-center">
-              <p className="text-[10px] sm:text-[11px] font-black uppercase tracking-widest mb-1 opacity-40">Velocidade</p>
-              <p className="text-xl sm:text-2xl font-black text-white tracking-tighter">
-                {Math.round(tracking.currentSmoothedSpeed || 0)}
-                <span className="text-xs sm:text-sm ml-0.5 opacity-40">km/h</span>
-              </p>
-            </div>
-          </motion.div>
-        )}
       </motion.div>
     );
   }

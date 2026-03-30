@@ -38,22 +38,15 @@ export const ManualTripFAB = () => {
 
   return (
     <div className={cn(
-      "fixed z-[100] md:hidden transition-all duration-1000 ease-[cubic-bezier(0.23,1,0.32,1)]",
-      isActive 
-        ? cn(
-            "left-1/2 -translate-x-1/2",
-            tracking.hasActiveInsight 
-              ? "bottom-[calc(18rem+env(safe-area-inset-bottom))]" 
-              : "bottom-[calc(4rem+env(safe-area-inset-bottom))]"
-          )
-        : "bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-6"
+      "fixed z-[100] md:hidden transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
+      "bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-6"
     )}>
       <AnimatePresence mode="wait">
         <motion.button
           key={mode}
           initial={{ scale: 0, y: 20, opacity: 0 }}
           animate={{ 
-            scale: isActive ? 1.1 : 1, 
+            scale: 1, 
             y: 0,
             opacity: 1,
             transition: { type: "spring", stiffness: 400, damping: 30 }
@@ -64,20 +57,20 @@ export const ManualTripFAB = () => {
           disabled={isSaving}
           className={cn(
             "rounded-full flex items-center justify-center transition-all duration-700 relative overflow-hidden",
-            "shadow-[0_20px_50px_rgba(0,0,0,0.5)] border-[3px] border-white/10 backdrop-blur-md",
-            isActive ? "w-20 h-20 sm:w-24 sm:h-24" : "w-14 h-14 sm:w-16 sm:h-16",
+            "shadow-[0_15px_40px_rgba(0,0,0,0.4)] border-[2px] border-white/10 backdrop-blur-md",
+            isActive ? "w-16 h-16 sm:w-20 sm:h-20" : "w-14 h-14 sm:w-16 sm:h-16",
             getFABStyle()
           )}
         >
-          {/* Refined Premium Glow */}
+          {/* Refined Premium Glow - Subtle */}
           <motion.div 
             animate={{ 
-              opacity: isActive ? [0.1, 0.3, 0.1] : 0,
-              scale: [1, 1.1, 1]
+              opacity: isActive ? [0.05, 0.15, 0.05] : 0,
+              scale: [1, 1.05, 1]
             }}
-            transition={{ duration: 3, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             className={cn(
-              "absolute inset-0 blur-2xl",
+              "absolute inset-0 blur-xl",
               mode === 'in_trip' ? "bg-red-400" : 
               mode === 'searching' ? "bg-amber-400" : "bg-emerald-400"
             )}
@@ -86,13 +79,13 @@ export const ManualTripFAB = () => {
           <div className="relative z-10 flex flex-col items-center">
             {tracking.isProductive ? (
               <>
-                <Square size={isActive ? 28 : 20} fill="currentColor" className="transition-all duration-500" />
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-80">Parar</span>
+                <Square size={isActive ? 22 : 18} fill="currentColor" className="transition-all duration-500" />
+                <span className="text-[8px] font-black uppercase tracking-[0.15em] mt-1 opacity-80">Parar</span>
               </>
             ) : (
               <>
-                <Play size={isActive ? 28 : 20} fill="currentColor" className="ml-1 transition-all duration-500" />
-                <span className="text-[9px] font-black uppercase tracking-[0.2em] mt-1 opacity-80">Iniciar</span>
+                <Play size={isActive ? 22 : 18} fill="currentColor" className="ml-0.5 transition-all duration-500" />
+                <span className="text-[8px] font-black uppercase tracking-[0.15em] mt-1 opacity-80">Iniciar</span>
               </>
             )}
           </div>
