@@ -11,9 +11,11 @@ interface AIRealTimeAlertsProps {
 }
 
 export const AIRealTimeAlerts: React.FC<AIRealTimeAlertsProps> = ({ todayData, aiIntelligence, averages }) => {
-  const { tracking } = useDriverStore();
+  const { tracking, userLearning } = useDriverStore();
 
   const showToast = (type: string, message: string, icon: React.ReactNode) => {
+    if (userLearning.isSilentMode) return;
+    
     // Command-style messages (max 4 words)
     let command = message;
     if (type === 'idle') command = "MOVA-SE AGORA";

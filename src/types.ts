@@ -197,6 +197,9 @@ export interface UserSettings {
   isPrivacyMode?: boolean;
   keepScreenOn?: boolean;
   voiceEnabled?: boolean;
+  voiceCommandsEnabled?: boolean;
+  voiceVerbosity?: 'low' | 'normal' | 'high';
+  voiceVolume?: number;
   role?: UserRole;
   status?: UserStatus;
   updated_at?: string;
@@ -246,6 +249,8 @@ export interface TrackingSession {
   stoppedTime: number;
   productiveDistance: number;
   idleDistance: number;
+  productiveTime: number;
+  idleTime: number;
   isProductive: boolean;
   isManualOverride: boolean;
   isPaused: boolean;
@@ -269,6 +274,8 @@ export interface TrackingSession {
 }
 
 export type TripStatus = 'good' | 'acceptable' | 'bad' | 'analyzing';
+export type DecisionSource = 'realtime' | 'profile' | 'mixed';
+export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
 
 export interface TripIntelligence {
   score: number;
@@ -309,6 +316,9 @@ export interface ZoneIntelligence {
     isMature: boolean;
     reason?: string;
   };
+  regionName?: string;
+  confidence?: ConfidenceLevel;
+  decisionSource?: DecisionSource;
   bestZone?: {
     label: string;
     distance: number;
@@ -460,6 +470,47 @@ export interface DriverState {
   financialEntries: FinancialEntry[];
   performanceRecords: DriverPerformanceRecord[];
   driverProfile: DriverProfile;
+  
+  // HUD Interaction State
+  isQuickActionsOpen: boolean;
+  setQuickActionsOpen: (isOpen: boolean) => void;
+  postTripActionSheet: {
+    isOpen: boolean;
+    tripId?: string;
+    autoCloseTimer?: number;
+    suggestedValue?: number;
+    suggestedDistance?: number;
+  };
+  setPostTripActionSheet: (data: Partial<{
+    isOpen: boolean;
+    tripId?: string;
+    autoCloseTimer?: number;
+    suggestedValue?: number;
+    suggestedDistance?: number;
+  }>) => void;
+  
+  miniMapOpen: boolean;
+  setMiniMapOpen: (isOpen: boolean) => void;
+
+  // Voice State
+  voiceState: {
+    isListening: boolean;
+    lastSpokenMessage?: string;
+    lastSpokenAt?: number;
+  };
+  setVoiceListening: (isListening: boolean) => void;
+  setLastSpoken: (message: string) => void;
+
+  userLearning: {
+    consecutiveIgnores: number;
+    isSilentMode: boolean;
+    acceptedSuggestions: number;
+    ignoredSuggestions: number;
+    editedValues: number;
+    ignoredTypes: Record<string, number>;
+  };
+  updateUserLearning: (action: 'accept' | 'ignore' | 'edit', type?: string) => void;
+
   addFinancialEntry: (entry: Omit<FinancialEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateFinancialEntry: (id: string, data: Partial<FinancialEntry>) => Promise<void>;
   deleteFinancialEntry: (id: string) => Promise<void>;

@@ -38,6 +38,10 @@ import {
   Play,
   AlertTriangle,
   CheckCircle2,
+  X,
+  Mic,
+  MicOff,
+  Volume2
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfDay, isSameDay, subDays, format, differenceInMinutes, getDay } from 'date-fns';
@@ -48,10 +52,14 @@ import { FinancialEntryList } from '../components/FinancialEntryList';
 import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 import { AIRealTimeAlerts } from '../components/AIRealTimeAlerts';
+import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 
 const safeString = (value: any, fallback = ''): string => {
   return typeof value === 'string' && value.trim().length > 0 ? value : fallback;
 };
+
+import { QuickActionsMenu } from '../components/QuickActionsMenu';
+import { PostTripActionSheet } from '../components/PostTripActionSheet';
 
 export const Dashboard = () => {
   const {
@@ -84,12 +92,19 @@ export const Dashboard = () => {
       distance: 0,
       productiveDistance: 0,
       idleDistance: 0,
+      productiveTime: 0,
+      idleTime: 0,
       avgSpeed: 0,
       duration: 0,
       stoppedTime: 0,
       isProductive: false,
+      mode: 'idle' as const,
+      tripDetectionState: 'idle' as const,
       tripIntelligence: undefined,
       zoneIntelligence: undefined,
+      stopReason: 'none' as const,
+      lastStopTimestamp: undefined,
+      currentSmoothedSpeed: 0,
     },
     startTracking,
     pauseTracking,
@@ -102,16 +117,42 @@ export const Dashboard = () => {
     updateSettings,
     driverProfile,
     setHasActiveInsight,
+    miniMapOpen,
+    setMiniMapOpen,
+    userLearning,
+    updateUserLearning,
+    postTripActionSheet,
+    voiceState
   } = useDriverStore();
 
-  const tripIntelligence = tracking?.tripIntelligence;
-  const zoneIntelligence = tracking?.zoneIntelligence;
+  const { zoneIntelligence, tripIntelligence } = tracking;
+
+  const { speak, listen, isListening } = useVoiceAssistant();
 
   const navigate = useNavigate();
   const [now, setNow] = useState(new Date());
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const handleOpenQuickEntry = () => setIsQuickEntryOpen(true);
+    window.addEventListener('open-quick-entry', handleOpenQuickEntry);
+    return () => window.removeEventListener('open-quick-entry', handleOpenQuickEntry);
+  }, []);
+
   const [filter, setFilter] = useState<'all' | 'manual' | 'imported'>('all');
+
+  const isDrivingMode = tracking?.isActive;
+
+  useEffect(() => {
+    if (isDrivingMode && !miniMapOpen && !userLearning.isSilentMode) {
+      // Auto-open mini map if waiting too long (10 min = 600,000 ms)
+      if (tracking.mode === 'idle' && tracking.stoppedTime > 600000) {
+        setMiniMapOpen(true);
+        if (navigator.vibrate) navigator.vibrate([50, 100, 50]);
+      }
+    }
+  }, [isDrivingMode, miniMapOpen, tracking.mode, tracking.stoppedTime, userLearning.isSilentMode, setMiniMapOpen, updateUserLearning]);
 
   const today = useMemo(() => startOfDay(now), [now]);
   const last7DaysStart = useMemo(() => subDays(today, 6), [today]);
@@ -132,7 +173,8 @@ export const Dashboard = () => {
     aiIntelligence = {
       efficiencyTrend: 0,
       bestHourByDay: {},
-      maturity: { isMature: false, message: 'Carregando...', activeDays: 0, totalKm: 0 }
+      maturity: { isMature: false, message: 'Carregando...', activeDays: 0, totalKm: 0 },
+      hotZones: []
     },
   } = useConsolidatedAnalytics(last7DaysStart, today, filter);
 
@@ -484,8 +526,6 @@ export const Dashboard = () => {
     }
   }, [smartAlerts, tracking?.isActive]);
 
-  const isDrivingMode = tracking?.isActive;
-
   const currentStatus = useMemo(() => {
     if (!isDrivingMode || !('stopReason' in tracking)) return '';
     return tracking.isProductive 
@@ -524,36 +564,55 @@ export const Dashboard = () => {
   const aiInsight = useMemo(() => {
     if (!isDrivingMode || !('stopReason' in tracking)) return '';
     
-    // 1. Prioridade: Direção Inteligente
-    if (zoneIntelligence?.bestZone && zoneIntelligence?.status !== 'productive_zone' && zoneIntelligence?.status !== 'good_trip') {
-      const { direction, label, distance } = zoneIntelligence.bestZone;
-      return `MOVA ${direction} ${label} ${distance}km`;
+    // If in silent mode, only show critical insights
+    if (userLearning.isSilentMode) {
+      if (zoneIntelligence?.status !== 'bad_zone' && zoneIntelligence?.status !== 'good_trip') {
+        return '';
+      }
+    }
+    
+    // 1. PRIORIDADE: TEMPO REAL (BAD ZONE)
+    if (zoneIntelligence?.status === 'bad_zone') {
+      const confidenceLabel = zoneIntelligence.confidence === 'HIGH' ? '(ALTA CONFIANÇA)' : '(CONFIANÇA MÉDIA)';
+      if (zoneIntelligence?.bestZone) {
+        const { direction, label, distance, timeToArrival } = zoneIntelligence.bestZone;
+        const timeStr = timeToArrival ? ` (~${timeToArrival} min)` : '';
+        return `MOVA ${direction} ${label} ${distance.toFixed(1)}km${timeStr} ${confidenceLabel}`;
+      }
+      return `ZONA RUIM: MUDE DE ÁREA ${confidenceLabel}`;
     }
 
-    // NEW: Profile-based insights
-    const currentHour = new Date().getHours();
-    const isBestHour = driverProfile.bestHours.includes(currentHour);
-    const isWorstHour = driverProfile.worstHours.includes(currentHour);
-    const currentRegion = zoneIntelligence?.label;
-    const isBestRegion = currentRegion && driverProfile.bestRegions.includes(currentRegion);
-    const isWorstRegion = currentRegion && driverProfile.worstRegions.includes(currentRegion);
+    // 2. APOIO: HISTÓRICO (NEUTRAL ZONE)
+    if (zoneIntelligence?.status === 'neutral_zone') {
+      const currentRegion = zoneIntelligence?.regionName;
+      const isBestRegion = currentRegion && driverProfile.bestRegions.includes(currentRegion);
+      const isWorstRegion = currentRegion && driverProfile.worstRegions.includes(currentRegion);
 
-    if (isBestHour && !tracking.isProductive) return 'HORÁRIO DE PICO PARA VOCÊ';
-    if (isBestRegion && !tracking.isProductive) return 'VOCÊ RENDE BEM AQUI';
-    if (isWorstHour && !tracking.isProductive) return 'HORA FRACA. DESCANSE?';
-    if (isWorstRegion && !tracking.isProductive) return 'ZONA FRACA PARA VOCÊ';
+      if (isBestRegion) return 'ZONA MÉDIA (HISTÓRICO FAVORÁVEL)';
+      if (isWorstRegion) return 'ZONA MÉDIA (HISTÓRICO DESFAVORÁVEL)';
+      
+      const confidenceLabel = zoneIntelligence.confidence === 'HIGH' ? '(ALTA CONFIANÇA)' : 
+                             zoneIntelligence.confidence === 'MEDIUM' ? '(CONFIANÇA MÉDIA)' : '(BAIXA CONFIANÇA)';
+      return `ZONA NEUTRA ${confidenceLabel}`;
+    }
 
-    // 2. Contexto de Parada
+    // 3. REFORÇO: HISTÓRICO (GOOD ZONE)
+    if (zoneIntelligence?.status === 'good_zone' || zoneIntelligence?.status === 'good_trip') {
+      const currentRegion = zoneIntelligence?.regionName;
+      const isBestRegion = currentRegion && driverProfile.bestRegions.includes(currentRegion);
+      
+      if (isBestRegion) return 'ZONA EXCELENTE (HISTÓRICO + AGORA)';
+      return 'ZONA BOA (ALTA CONFIANÇA)';
+    }
+
+    // 4. CONTEXTO DE PARADA / CORRIDA
     if (tracking.stopReason === 'traffic_light') return 'AGUARDE O VERDE';
     if (tracking.stopReason === 'waiting') return 'MOVA AGORA → CENTRO';
-    if (tracking.stopReason === 'end_of_trip') return 'ZONA RUIM? MUDE';
-
-    // 3. Contexto de Corrida
     if (tracking.isProductive) return 'CONTINUE';
     
-    // 4. Fallback
-    return zoneIntelligence?.status === 'bad_zone' ? 'MUDE DE ÁREA' : 'AGUARDE';
-  }, [isDrivingMode, zoneIntelligence, tracking, driverProfile]);
+    // Fallback
+    return 'AGUARDE';
+  }, [isDrivingMode, zoneIntelligence, tracking, driverProfile, userLearning.isSilentMode]);
 
   // Update hasActiveInsight in store for FAB positioning
   useEffect(() => {
@@ -566,6 +625,46 @@ export const Dashboard = () => {
            tracking.isProductive && 
            (tracking.currentSmoothedSpeed || 0) > 10;
   }, [isDrivingMode, zoneIntelligence?.status, tracking]);
+
+  // Voice triggers
+  useEffect(() => {
+    if (!settings.voiceEnabled) return;
+
+    // Trip start
+    if (tracking.mode === 'in_trip' && tracking.tripDetectionState === 'trip_started') {
+      speak('Corrida iniciada', 'high');
+    }
+
+    // Trip end
+    if (tracking.mode === 'dropoff' || (tracking.mode === 'idle' && tracking.tripDetectionState === 'idle' && tracking.distance > 0.1)) {
+      // We use a small distance check to avoid false positives on app start
+      // The hook handles repetition and cooldown
+      if (tracking.mode === 'dropoff') {
+        speak('Corrida finalizada. Não esqueça de lançar o valor.', 'high');
+      }
+    }
+
+    // Zone Alert
+    if (zoneIntelligence?.status === 'bad_zone' && !userLearning.isSilentMode) {
+      speak('Zona fraca detectada. Considere mudar de região.', 'normal');
+    }
+
+    // Best Zone
+    if (zoneIntelligence?.bestZone && zoneIntelligence.status === 'bad_zone') {
+      speak(`Melhor região detectada em ${zoneIntelligence.bestZone.label}`, 'normal');
+    }
+
+    // Idle too long
+    if (tracking.mode === 'idle' && tracking.stoppedTime > 600000 && !miniMapOpen) {
+      speak('Muito tempo parado. Sugestão de nova zona disponível.', 'normal');
+    }
+
+    // AI Insight
+    if (aiInsight && !isStableAndPositive && settings.voiceVerbosity === 'high') {
+      speak(aiInsight, 'low');
+    }
+
+  }, [tracking.mode, tracking.tripDetectionState, zoneIntelligence?.status, zoneIntelligence?.bestZone, tracking.stoppedTime, settings.voiceEnabled, userLearning.isSilentMode, speak, miniMapOpen, aiInsight, isStableAndPositive, settings.voiceVerbosity, tracking.distance]);
 
   // Haptic Feedback on Status Change
   useEffect(() => {
@@ -585,147 +684,25 @@ export const Dashboard = () => {
     }
   }, [aiInsight, isDrivingMode, isStableAndPositive, settings.voiceEnabled]);
 
-  if (isDrivingMode) {
-    const mainMetricValue = tripIntelligence?.metrics.perHour || efficiencyStats?.grossPerKm || 0;
-    const mainMetricLabel = tripIntelligence?.metrics.perHour ? 'R$/HORA' : 'R$/KM';
+  const mainMetricValue = tripIntelligence?.metrics.perHour || efficiencyStats?.grossPerKm || 0;
+  const mainMetricLabel = tripIntelligence?.metrics.perHour ? 'R$/HORA' : 'R$/KM';
 
-    const contextInfo = tracking.isProductive 
-      ? `${formatDuration(tracking.duration)} • ${safeNumber(tracking.distance).toFixed(1)} km`
-      : `${formatDuration(tracking.duration)} • ${zoneIntelligence?.label || 'Monitorando'}`;
-
-    return (
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ 
-          opacity: 1, 
-          backgroundColor: 'rgba(9, 9, 11, 1)' // Zinc-950
-        }}
-        exit={{ opacity: 0 }}
-        transition={{ duration: 0.5 }}
-        className="fixed inset-0 bg-zinc-950 z-[40] flex flex-col items-center justify-center overflow-hidden"
-      >
-        {/* Background Pulse Glow - Very Subtle */}
-        <motion.div 
-          animate={{ 
-            scale: [1, 1.05, 1],
-            opacity: [0.03, 0.08, 0.03]
-          }}
-          transition={{ duration: 6, repeat: Infinity, ease: "easeInOut" }}
-          className={cn(
-            "absolute inset-0 rounded-full blur-[180px]",
-            tracking.isProductive ? "bg-emerald-500" : 
-            tracking.stopReason === 'traffic_light' ? "bg-blue-500" :
-            zoneIntelligence?.status === 'bad_zone' ? "bg-red-500" : "bg-amber-500"
-          )}
-          style={{ width: '140%', height: '140%', top: '-20%', left: '-20%' }}
-        />
-
-        <div className="relative z-10 w-full max-w-lg px-6 flex flex-col items-center justify-center space-y-8 sm:space-y-12">
-          {/* 1. STATUS Principal */}
-          <AnimatePresence mode="wait">
-            <motion.div
-              key={currentStatus}
-              initial={{ y: -10, opacity: 0 }}
-              animate={{ y: 0, opacity: 1 }}
-              exit={{ y: 10, opacity: 0 }}
-              className="text-center w-full max-w-[90%]"
-            >
-              <h2 className={cn(
-                "font-black tracking-tighter leading-[0.9] transition-all duration-700 uppercase", 
-                statusColor,
-                "text-[clamp(2.5rem,12vw,5rem)]"
-              )}>
-                {currentStatus}
-              </h2>
-            </motion.div>
-          </AnimatePresence>
-
-          {/* 2. Contexto Curto (Pill) */}
-          <motion.div 
-            initial={{ opacity: 0, scale: 0.9 }}
-            animate={{ opacity: 1, scale: 1 }}
-            className="flex items-center gap-2 px-4 py-1.5 bg-white/5 rounded-full border border-white/10 backdrop-blur-md"
-          >
-            <div className={cn(
-              "w-1.5 h-1.5 rounded-full animate-pulse", 
-              tracking.isProductive ? "bg-emerald-500" : 
-              tracking.stopReason === 'traffic_light' ? "bg-blue-500" : "bg-amber-500"
-            )} />
-            <span className="text-[10px] sm:text-xs font-black text-zinc-400 uppercase tracking-[0.2em]">
-              {contextInfo}
-            </span>
-          </motion.div>
-
-          {/* 3. Métrica Principal (Center Focus) */}
-          <motion.div
-            initial={{ scale: 0.98, opacity: 0 }}
-            animate={{ 
-              scale: 1, 
-              opacity: 1,
-            }}
-            className={cn(
-              "w-full flex flex-col items-center justify-center py-8 sm:py-12 rounded-[2.5rem] sm:rounded-[3.5rem] border border-white/5 bg-white/[0.02] backdrop-blur-sm transition-all duration-700 relative overflow-hidden",
-              isStableAndPositive ? "bg-white/[0.04] border-white/10" : ""
-            )}
-          >
-            {/* Subtle Inner Glow */}
-            <div className={cn(
-              "absolute inset-0 opacity-10 blur-3xl",
-              tracking.isProductive ? "bg-emerald-500" : "bg-zinc-500"
-            )} />
-
-            <p className="relative z-10 text-[10px] sm:text-[12px] font-black uppercase tracking-[0.5em] text-zinc-600 mb-2">{mainMetricLabel}</p>
-            <div className={cn(
-              "relative z-10 font-black tracking-tighter text-white tabular-nums leading-none",
-              "text-[clamp(4rem,20vw,8rem)]"
-            )}>
-              {formatCurrency(mainMetricValue, settings.isPrivacyMode).replace('R$', '')}
-            </div>
-
-            {/* Secondary Info below main metric - Ultra discrete */}
-            <div className="relative z-10 flex gap-12 mt-8 opacity-20 hover:opacity-40 transition-opacity duration-500">
-              <div className="text-center">
-                <p className="text-[7px] font-black uppercase tracking-[0.2em] mb-1 text-zinc-400">Ganhos Hoje</p>
-                <p className="text-xs font-black text-white">{formatCurrency(todayData.totalRevenue, settings.isPrivacyMode)}</p>
-              </div>
-              <div className="text-center">
-                <p className="text-[7px] font-black uppercase tracking-[0.2em] mb-1 text-zinc-400">Velocidade</p>
-                <p className="text-xs font-black text-white">{Math.round(tracking.currentSmoothedSpeed || 0)} <span className="text-[8px] opacity-50">km/h</span></p>
-              </div>
-            </div>
-          </motion.div>
-
-          {/* 4. Comando IA Curto (Compact Pill) */}
-          <AnimatePresence mode="wait">
-            {aiInsight && !isStableAndPositive && (
-              <motion.div
-                key={aiInsight}
-                initial={{ y: 10, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                exit={{ y: -10, opacity: 0 }}
-                className="w-full flex justify-center"
-              >
-                <div className="flex items-center gap-3 px-6 py-3 bg-zinc-900 border border-zinc-800 shadow-xl rounded-2xl backdrop-blur-xl">
-                  <Zap size={14} className="text-emerald-500 fill-emerald-500" />
-                  <p className="text-sm sm:text-base font-black text-white uppercase tracking-tight">
-                    {aiInsight}
-                  </p>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-        </div>
-      </motion.div>
-    );
-  }
+  const contextInfo = tracking.isProductive 
+    ? `${formatDuration(tracking.duration)} • ${safeNumber(tracking.distance).toFixed(1)} km`
+    : `${formatDuration(tracking.duration)} • ${zoneIntelligence?.label || 'Monitorando'}`;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-4 pb-24 md:pb-8"
-    >
-      <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
+    <div className="relative min-h-screen overflow-hidden">
+      {/* Dashboard Content (Base Layer) */}
+      <motion.div
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className={cn(
+          "space-y-4 pb-24 md:pb-8 transition-all duration-1000 ease-in-out",
+          isDrivingMode ? "blur-2xl scale-[0.96] opacity-30 grayscale-[0.5] pointer-events-none" : ""
+        )}
+      >
+        <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
 
       {/* Priority 2: Real-time Trip Evaluation Card */}
       {tracking?.isActive && (
@@ -1166,6 +1143,39 @@ export const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+
+      {aiIntelligence?.hotZones?.length > 0 && (
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
+          <CardContent className="p-4">
+            <div className="flex items-center gap-2 mb-4">
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <MapIcon size={16} className="text-orange-500" />
+              </div>
+              <h3 className="text-xs font-black uppercase tracking-widest">Suas Zonas Quentes</h3>
+            </div>
+            
+            <div className="space-y-3">
+              {aiIntelligence.hotZones.map((zone: any, idx: number) => (
+                <div key={idx} className="flex items-center justify-between p-3 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 border border-zinc-100 dark:border-zinc-800">
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-full bg-orange-500/10 flex items-center justify-center text-[10px] font-black text-orange-500">
+                      {idx + 1}
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-zinc-900 dark:text-white">{zone.label}</p>
+                      <p className="text-[10px] font-medium text-zinc-500">{zone.count} corridas registradas</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs font-black text-emerald-500">{formatCurrency(zone.revenue, settings.isPrivacyMode)}</p>
+                    <p className="text-[9px] font-bold text-zinc-400 uppercase tracking-tighter">Total Gerado</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {openCycle && (
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
@@ -1807,9 +1817,169 @@ export const Dashboard = () => {
           </div>
         </CardContent>
       </Card>
+      </motion.div>
 
       <QuickEntryModal isOpen={isQuickEntryOpen} onClose={() => setIsQuickEntryOpen(false)} />
-    </motion.div>
+
+      <QuickActionsMenu />
+      <PostTripActionSheet />
+
+      {/* Mini Map HUD Overlay */}
+      <AnimatePresence>
+        {isDrivingMode && miniMapOpen && (
+          <MiniMapHUD />
+        )}
+      </AnimatePresence>
+
+      {/* Driving Mode HUD Overlay */}
+      <AnimatePresence>
+        {isDrivingMode && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[70] flex flex-col items-center justify-between py-12 px-6"
+          >
+            {/* Background Effects */}
+            <div className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-none" />
+            <motion.div 
+              animate={{ 
+                opacity: [0.1, 0.2, 0.1],
+                scale: [1, 1.1, 1]
+              }}
+              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+              className="absolute inset-0 bg-radial-gradient from-emerald-500/10 to-transparent"
+              style={{ background: `radial-gradient(circle at center, ${glowColor}, transparent 70%)` }}
+            />
+
+            {/* Top: Status & Context */}
+            <div className="relative z-10 w-full flex flex-col items-center gap-4">
+              <motion.div
+                initial={{ y: -20, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                className="flex flex-col items-center"
+              >
+                <h2 className={cn(
+                  "text-4xl sm:text-5xl font-black tracking-[0.25em] transition-colors duration-500",
+                  statusColor
+                )}>
+                  {currentStatus}
+                </h2>
+                
+                <div className="mt-4 px-6 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-xl flex items-center gap-3">
+                  <div className={cn("w-2 h-2 rounded-full animate-pulse", statusColor.replace('text-', 'bg-'))} />
+                  <span className="text-xs font-black text-white/80 uppercase tracking-[0.2em]">
+                    {contextInfo}
+                  </span>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Center: Main Metric */}
+            <div className="relative z-10 flex flex-col items-center">
+              <motion.div
+                initial={{ scale: 0.8, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                whileTap={{ scale: 0.95 }}
+                onClick={() => {
+                  // Open a quick summary or toggle mode
+                  toast.info("Resumo rápido aberto", {
+                    description: "Seus ganhos por hora estão 15% acima da média.",
+                    icon: <Zap className="text-amber-500" />
+                  });
+                  if (navigator.vibrate) navigator.vibrate(20);
+                }}
+                className="flex flex-col items-center cursor-pointer"
+              >
+                <span className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-[0.4em] mb-2">
+                  {mainMetricLabel}
+                </span>
+                <div className="relative">
+                  <span className="text-7xl sm:text-9xl font-black tracking-tighter text-white tabular-nums">
+                    {formatCurrency(mainMetricValue, settings.isPrivacyMode).replace('R$', '').trim()}
+                  </span>
+                  <span className="absolute -top-2 -right-8 text-2xl font-black text-emerald-500">
+                    R$
+                  </span>
+                </div>
+              </motion.div>
+            </div>
+
+            {/* Bottom: AI Insight Pill */}
+            <div className="relative z-10 w-full max-w-xs">
+              <AnimatePresence mode="wait">
+                {aiInsight && (
+                  <motion.div
+                    key={aiInsight}
+                    initial={{ y: 20, opacity: 0, scale: 0.9 }}
+                    animate={{ y: 0, opacity: 1, scale: 1 }}
+                    exit={{ y: -20, opacity: 0, scale: 0.9 }}
+                    whileTap={{ scale: 0.95 }}
+                    onClick={() => {
+                      // Actionable AI Insight
+                      if (aiInsight.includes('CONTINUE')) {
+                        toast.success("Ótima escolha! Mantendo foco na zona atual.");
+                      } else if (aiInsight.includes('MOVA') || aiInsight.includes('SAIA')) {
+                        window.open('https://www.google.com/maps/search/?api=1&query=postos+de+combustivel+proximos', '_blank');
+                      }
+                      if (navigator.vibrate) navigator.vibrate(30);
+                    }}
+                    className="bg-emerald-500 text-zinc-950 px-8 py-4 rounded-3xl shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center justify-center text-center cursor-pointer active:bg-emerald-400 transition-colors"
+                  >
+                    <Zap size={18} fill="currentColor" className="mr-3 shrink-0" />
+                    <span className="text-sm font-black uppercase tracking-wider leading-tight">
+                      {aiInsight}
+                    </span>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+            </div>
+
+            {/* Voice Command Button */}
+            {settings.voiceCommandsEnabled && (
+              <motion.button
+                initial={{ scale: 0, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                whileTap={{ scale: 0.9 }}
+                onClick={listen}
+                className={cn(
+                  "absolute bottom-32 right-0 z-[80] w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300",
+                  isListening 
+                    ? "bg-red-500 text-white animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.5)]" 
+                    : "bg-white/10 backdrop-blur-xl border border-white/20 text-white hover:bg-white/20"
+                )}
+              >
+                <Mic size={28} className={cn(isListening ? "opacity-100" : "opacity-60")} />
+                
+                {isListening && (
+                  <motion.div 
+                    initial={{ scale: 0 }}
+                    animate={{ scale: [1, 1.5, 1] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="absolute inset-0 rounded-full border-2 border-red-500/50"
+                  />
+                )}
+              </motion.button>
+            )}
+
+            {/* Speaking Indicator */}
+            <AnimatePresence>
+              {voiceState.lastSpokenAt && (Date.now() - voiceState.lastSpokenAt < 4000) && (
+                <motion.div
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0 }}
+                  className="absolute top-24 right-0 z-[80] flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full backdrop-blur-md"
+                >
+                  <Volume2 size={14} className="text-emerald-500 animate-bounce" />
+                  <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Falando...</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
   );
 };
 
@@ -1822,3 +1992,64 @@ const PlatformMiniStat = ({ label, value, color, isPrivacyMode }: any) => (
     <span className="text-xs font-black tracking-tight">{formatCurrency(safeNumber(value), isPrivacyMode)}</span>
   </div>
 );
+
+const MiniMapHUD = () => {
+  const { setMiniMapOpen, updateUserLearning } = useDriverStore();
+  
+  return (
+    <motion.div
+      initial={{ scale: 0.8, opacity: 0, y: 20 }}
+      animate={{ scale: 1, opacity: 1, y: 0 }}
+      exit={{ scale: 0.8, opacity: 0, y: 20 }}
+      className="fixed bottom-32 left-6 right-6 z-[80] bg-zinc-900/90 backdrop-blur-xl border border-white/10 rounded-[32px] overflow-hidden shadow-2xl"
+    >
+      <div className="p-4 border-b border-white/5 flex justify-between items-center bg-white/5">
+        <div className="flex items-center gap-2">
+          <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+          <span className="text-[10px] font-black text-white/60 uppercase tracking-widest">Melhor Zona Próxima</span>
+        </div>
+        <button onClick={() => { setMiniMapOpen(false); updateUserLearning('ignore'); }} className="text-white/40 hover:text-white">
+          <X size={16} />
+        </button>
+      </div>
+      
+      <div className="h-40 bg-zinc-800 relative flex items-center justify-center overflow-hidden">
+        <div className="absolute inset-0 opacity-40">
+          <img 
+            src="https://picsum.photos/seed/map/600/400" 
+            alt="Map" 
+            className="w-full h-full object-cover grayscale"
+            referrerPolicy="no-referrer"
+          />
+        </div>
+        <div className="relative z-10 flex flex-col items-center">
+          <div className="w-12 h-12 rounded-full bg-emerald-500/20 flex items-center justify-center mb-2">
+            <MapIcon size={24} className="text-emerald-500" />
+          </div>
+          <span className="text-white font-bold">Vila Olímpia</span>
+          <span className="text-emerald-500 text-xs font-black uppercase tracking-wider">+25% Demanda</span>
+        </div>
+      </div>
+      
+      <div className="p-4 grid grid-cols-2 gap-3">
+        <button 
+          onClick={() => {
+            window.open('https://www.google.com/maps/search/?api=1&query=Vila+Olimpia+Sao+Paulo', '_blank');
+            setMiniMapOpen(false);
+            updateUserLearning('accept');
+          }}
+          className="bg-emerald-500 text-zinc-950 py-3 rounded-2xl font-black uppercase tracking-wider text-xs flex items-center justify-center gap-2"
+        >
+          <Zap size={14} fill="currentColor" />
+          Ir Agora
+        </button>
+        <button 
+          onClick={() => { setMiniMapOpen(false); updateUserLearning('ignore'); }}
+          className="bg-white/5 text-white/60 py-3 rounded-2xl font-black uppercase tracking-wider text-xs"
+        >
+          Ignorar
+        </button>
+      </div>
+    </motion.div>
+  );
+};

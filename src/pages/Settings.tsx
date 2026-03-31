@@ -5,7 +5,7 @@ import {
   User, Car, Target, Trash2, LogOut, Download, Database, 
   Upload, RefreshCw, AlertCircle, FlaskConical,
   Zap, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
-  DollarSign, Plus, CheckCircle2, Eye, EyeOff
+  DollarSign, Plus, CheckCircle2, Eye, EyeOff, Mic, Volume2
 } from 'lucide-react';
 import { downloadFile, formatCurrency, calculateDailyFixedCost, calculateMonthlyFixedCost } from '../utils';
 import { supabase } from '../lib/supabase';
@@ -469,7 +469,72 @@ export const Settings = () => {
         </Card>
       </section>
 
-      {/* Vehicle Profile Section */}
+      {/* Voice Mode Section */}
+      <section className="space-y-4">
+        <SectionHeader icon={Volume2} title="Modo Voz (Copiloto)" />
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
+          <CardContent className="p-6 space-y-6">
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold">Voz do Aplicativo (TTS)</p>
+                <p className="text-[10px] text-zinc-500 font-medium">
+                  O app fala alertas e sugestões importantes.
+                </p>
+              </div>
+              <button
+                onClick={() => updateSettings({ voiceEnabled: !settings.voiceEnabled })}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  settings.voiceEnabled ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm",
+                  settings.voiceEnabled ? "left-7" : "left-1"
+                )} />
+              </button>
+            </div>
+
+            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold">Comandos de Voz</p>
+                <p className="text-[10px] text-zinc-500 font-medium">
+                  Permite operar o app falando comandos simples.
+                </p>
+              </div>
+              <button
+                onClick={() => updateSettings({ voiceCommandsEnabled: !settings.voiceCommandsEnabled })}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  settings.voiceCommandsEnabled ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm",
+                  settings.voiceCommandsEnabled ? "left-7" : "left-1"
+                )} />
+              </button>
+            </div>
+
+            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+
+            <div className="space-y-1.5">
+              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Verbosidade da Voz</label>
+              <Select
+                value={settings.voiceVerbosity || 'normal'}
+                onChange={e => updateSettings({ voiceVerbosity: e.target.value as any })}
+                className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+              >
+                <option value="low">Baixa (Apenas Críticos)</option>
+                <option value="normal">Normal</option>
+                <option value="high">Alta (Mais Detalhes)</option>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
       <section className="space-y-4">
         <div className="flex items-center justify-between px-1">
           <SectionHeader icon={Car} title="Perfil do Veículo" />

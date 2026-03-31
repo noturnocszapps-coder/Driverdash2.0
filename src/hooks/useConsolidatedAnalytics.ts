@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 import { useDriverStore } from '../store';
-import { consolidateDailyData, ConsolidatedDayData, getBestHourRanges, getEfficiencyTrend, getWaitingZones, isDataMature } from '../utils';
+import { consolidateDailyData, ConsolidatedDayData, getBestHourRanges, getEfficiencyTrend, getWaitingZones, getHotZones, isDataMature } from '../utils';
 import { eachDayOfInterval, format, parseISO, getDay } from 'date-fns';
 
 export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter: 'all' | 'manual' | 'imported' = 'all') {
@@ -170,6 +170,7 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
       weakestDayOfWeek,
       efficiencyTrend: getEfficiencyTrend(dailyData),
       waitingZones: getWaitingZones(cycles),
+      hotZones: getHotZones(cycles),
       avgIdleTimeByDay: dailyData.reduce((acc, day) => acc + day.idleKm, 0) / daysWithIdleKm,
       avgProfitPerKm: totals.totalKm > 0 ? totals.profit / totals.totalKm : 0,
       avgProductiveKm: totals.rideKm / daysWithRideKm,

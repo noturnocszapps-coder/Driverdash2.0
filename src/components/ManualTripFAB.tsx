@@ -1,11 +1,13 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Play, Square, Navigation, Clock } from 'lucide-react';
+import { Play, Square, Navigation, Clock, Mic } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { cn, formatDuration } from '../utils';
+import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
 
 export const ManualTripFAB = () => {
-  const { tracking, startTrip, endTrip, isSaving } = useDriverStore();
+  const { tracking, startTrip, endTrip, isSaving, setQuickActionsOpen, settings } = useDriverStore();
+  const { listen, isListening } = useVoiceAssistant();
   const isActive = tracking.isActive;
   const mode = tracking.mode;
 
@@ -17,6 +19,20 @@ export const ManualTripFAB = () => {
     } else {
       startTrip();
     }
+  };
+
+  const handlePan = (_: any, info: any) => {
+    // Swipe up to open quick actions
+    if (info.offset.y < -40) {
+      setQuickActionsOpen(true);
+      if (navigator.vibrate) navigator.vibrate(30);
+    }
+  };
+
+  const handleLongPress = (e: React.MouseEvent | React.TouchEvent) => {
+    e.preventDefault();
+    setQuickActionsOpen(true);
+    if (navigator.vibrate) navigator.vibrate(30);
   };
 
   // Map tracking mode to visual style
@@ -38,8 +54,8 @@ export const ManualTripFAB = () => {
 
   return (
     <div className={cn(
-      "fixed z-[100] md:hidden transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]",
-      "bottom-[calc(6.5rem+env(safe-area-inset-bottom))] right-6"
+      "fixed z-[100] md:hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]",
+      "bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-6"
     )}>
       <AnimatePresence mode="wait">
         <motion.button
@@ -52,25 +68,27 @@ export const ManualTripFAB = () => {
             transition: { type: "spring", stiffness: 400, damping: 30 }
           }}
           exit={{ scale: 0, y: 20, opacity: 0 }}
-          whileTap={{ scale: 0.95 }}
+          whileTap={{ scale: 0.92 }}
+          onPanEnd={handlePan}
+          onContextMenu={handleLongPress}
           onClick={handleAction}
           disabled={isSaving}
           className={cn(
             "rounded-full flex items-center justify-center transition-all duration-700 relative overflow-hidden",
-            "shadow-[0_15px_40px_rgba(0,0,0,0.4)] border-[2px] border-white/10 backdrop-blur-md",
-            isActive ? "w-16 h-16 sm:w-20 sm:h-20" : "w-14 h-14 sm:w-16 sm:h-16",
+            "shadow-[0_20px_50px_rgba(0,0,0,0.5)] border border-white/10 backdrop-blur-xl",
+            isActive ? "w-14 h-14 sm:w-16 sm:h-16" : "w-12 h-12 sm:w-14 sm:h-14",
             getFABStyle()
           )}
         >
-          {/* Refined Premium Glow - Subtle */}
+          {/* Refined Premium Glow - Ultra Subtle */}
           <motion.div 
             animate={{ 
-              opacity: isActive ? [0.05, 0.15, 0.05] : 0,
-              scale: [1, 1.05, 1]
+              opacity: isActive ? [0.03, 0.1, 0.03] : 0,
+              scale: [1, 1.1, 1]
             }}
-            transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
+            transition={{ duration: 5, repeat: Infinity, ease: "easeInOut" }}
             className={cn(
-              "absolute inset-0 blur-xl",
+              "absolute inset-0 blur-2xl",
               mode === 'in_trip' ? "bg-red-400" : 
               mode === 'searching' ? "bg-amber-400" : "bg-emerald-400"
             )}
@@ -79,13 +97,13 @@ export const ManualTripFAB = () => {
           <div className="relative z-10 flex flex-col items-center">
             {tracking.isProductive ? (
               <>
-                <Square size={isActive ? 22 : 18} fill="currentColor" className="transition-all duration-500" />
-                <span className="text-[8px] font-black uppercase tracking-[0.15em] mt-1 opacity-80">Parar</span>
+                <Square size={isActive ? 18 : 16} fill="currentColor" className="transition-all duration-500" />
+                <span className="text-[7px] font-black uppercase tracking-[0.2em] mt-1 opacity-70">Parar</span>
               </>
             ) : (
               <>
-                <Play size={isActive ? 22 : 18} fill="currentColor" className="ml-0.5 transition-all duration-500" />
-                <span className="text-[8px] font-black uppercase tracking-[0.15em] mt-1 opacity-80">Iniciar</span>
+                <Play size={isActive ? 18 : 16} fill="currentColor" className="ml-0.5 transition-all duration-500" />
+                <span className="text-[7px] font-black uppercase tracking-[0.2em] mt-1 opacity-70">Iniciar</span>
               </>
             )}
           </div>
@@ -119,6 +137,24 @@ export const ManualTripFAB = () => {
           )}
         </motion.button>
       </AnimatePresence>
+
+      {/* Voice Assistant Button (FAB context) */}
+      {settings.voiceCommandsEnabled && (
+        <motion.button
+          initial={{ scale: 0, x: 20 }}
+          animate={{ scale: 1, x: 0 }}
+          whileTap={{ scale: 0.9 }}
+          onClick={listen}
+          className={cn(
+            "absolute -left-14 bottom-0 w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300",
+            isListening 
+              ? "bg-red-500 text-white animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.3)]" 
+              : "bg-zinc-900/90 backdrop-blur-xl border border-white/10 text-white/60 hover:text-white"
+          )}
+        >
+          <Mic size={20} />
+        </motion.button>
+      )}
 
       {/* Mini Status Indicator - Refined for zero distraction */}
       {isActive && (

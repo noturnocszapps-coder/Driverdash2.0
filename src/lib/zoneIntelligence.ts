@@ -1,5 +1,5 @@
-import { TrackingSession, Cycle, ZoneIntelligence, ZoneStatus, ZoneSeverity, ZoneReason, TripIntelligence } from '../types';
-import { safeNumber } from '../utils';
+import { TrackingSession, Cycle, ZoneIntelligence, ZoneStatus, ZoneSeverity, ZoneReason, TripIntelligence, DriverProfile, DriverState } from '../types';
+import { safeNumber, getHumanLocation, calculateDistance } from '../utils';
 
 export const ZONE_DETECTION_THRESHOLDS = {
   MIN_MINUTES_MATURITY: 10,
@@ -24,27 +24,27 @@ export const ZONE_DETECTION_THRESHOLDS = {
   PERSISTENCE_WINDOW_MS: 2 * 60 * 1000, // 2 minutes to confirm bad zone
   COOLDOWN_MS: 5 * 60 * 1000, // 5 minutes between alerts
   STABILITY_WINDOW_MS: 30 * 1000, // 30 seconds debounce for state changes
+  
+  // AI Learning
+  IGNORE_PENALTY_THRESHOLD: 3, // Reduce frequency after 3 ignores
 };
 
 export function evaluateZoneQuality(
   tracking: TrackingSession,
   cycle: Cycle | undefined,
   previousIntelligence?: ZoneIntelligence,
-  tripIntelligence?: TripIntelligence
+  tripIntelligence?: TripIntelligence,
+  driverProfile?: DriverProfile,
+  userLearning?: DriverState['userLearning']
 ): ZoneIntelligence {
   const idleKm = safeNumber(tracking.idleDistance);
   const totalKm = safeNumber(tracking.distance);
   
-  // BUG FIX: duration is in ms, convert to minutes correctly
   const durationMs = safeNumber(tracking.duration);
   let durationMinutes = durationMs / 60000;
   
-  // Clamp and fallback for absurd values
-  if (isNaN(durationMinutes) || durationMinutes < 0 || durationMinutes > 1440) { // Max 24h
-    console.warn(`[ZONE] invalid searching minutes fallback applied: ${durationMinutes}`);
+  if (isNaN(durationMinutes) || durationMinutes < 0 || durationMinutes > 1440) {
     durationMinutes = 0;
-  } else {
-    console.log(`[ZONE] searching minutes computed: ${durationMinutes.toFixed(2)}`);
   }
 
   const recentRevenue = safeNumber(cycle?.total_amount);
@@ -73,6 +73,7 @@ export function evaluateZoneQuality(
         currentEfficiency: efficiency,
         recentRevenue
       },
+      regionName: getHumanLocation(tracking.lastLocation?.lat || 0, tracking.lastLocation?.lng || 0),
       maturity: {
         isMature: false,
         reason: durationMinutes < ZONE_DETECTION_THRESHOLDS.MIN_MINUTES_MATURITY 
@@ -83,22 +84,13 @@ export function evaluateZoneQuality(
   }
 
   // 2. Calculate Weighted Score (0-100)
-  // Higher score is better
-  
-  // Idle KM Score (0-100)
   const idleScore = Math.max(0, 100 - (idleKm / ZONE_DETECTION_THRESHOLDS.BAD_IDLE_KM) * 100);
-  
-  // Waiting Time Score (0-100) - only if revenue is 0
   let waitingScore = 100;
   if (recentRevenue === 0) {
     waitingScore = Math.max(0, 100 - (durationMinutes / ZONE_DETECTION_THRESHOLDS.BAD_SEARCHING_MINUTES) * 100);
   }
-
-  // Efficiency Score (0-100)
-  const efficiencyScore = Math.min(100, (efficiency / 70) * 100); // Target 70%
-
-  // Revenue Score (0-100)
-  const revenueScore = Math.min(100, (recentRevenue / 50) * 100); // Target R$ 50 to be "good" early on
+  const efficiencyScore = Math.min(100, (efficiency / 70) * 100);
+  const revenueScore = Math.min(100, (recentRevenue / 50) * 100);
 
   const totalScore = Math.round(
     (idleScore * (ZONE_DETECTION_THRESHOLDS.WEIGHT_IDLE_KM / 100)) +
@@ -116,7 +108,6 @@ export function evaluateZoneQuality(
     { type: 'low_demand' as ZoneReason, val: revenueScore }
   ];
   
-  // Sort by lowest score to find the biggest problem
   const worstMetric = scores.sort((a, b) => a.val - b.val)[0];
   if (worstMetric.val < 60) {
     reason = worstMetric.type;
@@ -127,7 +118,7 @@ export function evaluateZoneQuality(
   let severity: ZoneSeverity = 'low';
   let label = 'Zona boa';
 
-  if (totalScore < 35) {
+  if (totalScore < 40) {
     rawStatus = 'bad_zone';
     severity = 'high';
     label = 'Zona ruim';
@@ -137,47 +128,48 @@ export function evaluateZoneQuality(
     label = 'Atenção';
   }
 
-  // 5. Persistence and Smoothing
+  // 5. Persistence and Smoothing (INÉRCIA DE DECISÃO)
   let finalStatus = previousIntelligence?.status || rawStatus;
   let badZoneCandidateStartTime = previousIntelligence?.badZoneCandidateStartTime;
   let lastStateChangeTime = previousIntelligence?.lastStateChangeTime || now;
 
-  // Persistence for Bad Zone
-  if (rawStatus === 'bad_zone') {
-    if (!badZoneCandidateStartTime) {
-      badZoneCandidateStartTime = now;
-    } else if (now - badZoneCandidateStartTime >= ZONE_DETECTION_THRESHOLDS.PERSISTENCE_WINDOW_MS) {
-      finalStatus = 'bad_zone';
+  // Se o status bruto mudou, verificamos se a mudança persiste
+  if (rawStatus !== finalStatus) {
+    // Para zona ruim, temos uma janela de persistência maior (2 min)
+    if (rawStatus === 'bad_zone') {
+      if (!badZoneCandidateStartTime) {
+        badZoneCandidateStartTime = now;
+      } else if (now - badZoneCandidateStartTime >= ZONE_DETECTION_THRESHOLDS.PERSISTENCE_WINDOW_MS) {
+        finalStatus = 'bad_zone';
+        lastStateChangeTime = now;
+      }
+    } else {
+      // Para outras mudanças, usamos a janela de estabilidade (30s)
+      if (now - lastStateChangeTime >= ZONE_DETECTION_THRESHOLDS.STABILITY_WINDOW_MS) {
+        finalStatus = rawStatus;
+        lastStateChangeTime = now;
+        badZoneCandidateStartTime = undefined;
+      }
     }
   } else {
-    badZoneCandidateStartTime = undefined;
-  }
-
-  // Debounce for other transitions
-  if (rawStatus !== finalStatus && rawStatus !== 'bad_zone') {
-    if (now - lastStateChangeTime >= ZONE_DETECTION_THRESHOLDS.STABILITY_WINDOW_MS) {
-      finalStatus = rawStatus;
-      lastStateChangeTime = now;
+    // Se o status bruto é igual ao final, resetamos o candidato a zona ruim
+    if (rawStatus !== 'bad_zone') {
+      badZoneCandidateStartTime = undefined;
     }
-  } else if (rawStatus === finalStatus) {
-    lastStateChangeTime = now;
+    // Mantemos o lastStateChangeTime se estivermos estáveis
   }
 
-  // 6. Contextual Message [PROBLEMA] + [AÇÃO]
+  // 6. Contextual Message
   let message = 'Sua performance operacional está sólida nesta região.';
   const isMoving = currentSpeed > 5;
 
   if (finalStatus === 'bad_zone') {
     switch (reason) {
       case 'high_idle_km':
-        message = isMoving 
-          ? 'KM ocioso alto — considere mudar de área' 
-          : 'Rodando vazio — evite continuar se deslocando sem rumo';
+        message = isMoving ? 'KM ocioso alto — considere mudar de área' : 'Rodando vazio — evite continuar se deslocando sem rumo';
         break;
       case 'long_wait_time':
-        message = isMoving
-          ? 'Muito tempo sem corrida — considere mudar de região'
-          : 'Pouca demanda — aguarde mais alguns minutos ou reposicione';
+        message = isMoving ? 'Muito tempo sem corrida — considere mudar de região' : 'Pouca demanda — aguarde mais alguns minutos ou reposicione';
         break;
       case 'low_efficiency':
         message = 'Eficiência baixa — aguarde ou mude de estratégia';
@@ -192,17 +184,7 @@ export function evaluateZoneQuality(
     message = 'Sinais de baixa conversão — fique atento à sua eficiência.';
   }
 
-  // 7. Cooldown and Alert Logic
-  let lastAlertTime = previousIntelligence?.lastAlertTime;
-  const shouldAlert = finalStatus === 'bad_zone' && 
-    (!lastAlertTime || now - lastAlertTime >= ZONE_DETECTION_THRESHOLDS.COOLDOWN_MS || previousIntelligence?.status !== 'bad_zone');
-
-  if (shouldAlert) {
-    lastAlertTime = now;
-    // In a real app, we might trigger a notification here
-  }
-
-  // 8. Integration with Trip Intelligence (Reconciliation)
+  // 7. Integration with Trip Intelligence
   if (tripIntelligence?.maturity.isMature) {
     if (tripIntelligence.status === 'good' && finalStatus === 'bad_zone') {
       severity = 'medium';
@@ -223,14 +205,97 @@ export function evaluateZoneQuality(
     }
   }
 
-  // 9. Best Zone Suggestion (Mock)
+  // 8. Decision Source & Confidence Logic (REFINED)
+  let confidence: 'HIGH' | 'MEDIUM' | 'LOW' = 'MEDIUM';
+  let decisionSource: 'realtime' | 'profile' | 'mixed' = 'realtime';
+  
+  const currentLat = tracking.lastLocation?.lat || 0;
+  const currentLng = tracking.lastLocation?.lng || 0;
+  const currentRegion = getHumanLocation(currentLat, currentLng);
+  
+  const isBestRegion = driverProfile?.bestRegions.includes(currentRegion);
+  const isWorstRegion = driverProfile?.worstRegions.includes(currentRegion);
+  
+  // History validity check (7 days)
+  const lastUpdated = driverProfile?.lastUpdated ? new Date(driverProfile.lastUpdated).getTime() : 0;
+  const isHistoryValid = (now - lastUpdated) < (7 * 24 * 60 * 60 * 1000);
+  const hasHistory = driverProfile && driverProfile.totalRides > 5 && isHistoryValid;
+
+  if (totalScore < 40) {
+    // TEMPO REAL > HISTÓRICO: Ignore history if zone is bad
+    decisionSource = 'realtime';
+    confidence = 'HIGH';
+  } else if (totalScore >= 40 && totalScore <= 60) {
+    // MEDIUM: Use history as support
+    if (hasHistory) {
+      if (isWorstRegion) {
+        decisionSource = 'mixed';
+        confidence = 'HIGH';
+      } else if (isBestRegion) {
+        decisionSource = 'mixed';
+        confidence = 'MEDIUM';
+      } else {
+        decisionSource = 'realtime';
+        confidence = 'MEDIUM';
+      }
+    } else {
+      decisionSource = 'realtime';
+      confidence = 'LOW';
+    }
+  } else {
+    // GOOD: Use history to reinforce
+    if (hasHistory) {
+      if (isBestRegion) {
+        decisionSource = 'mixed';
+        confidence = 'HIGH';
+      } else {
+        decisionSource = 'realtime';
+        confidence = 'MEDIUM';
+      }
+    } else {
+      decisionSource = 'realtime';
+      confidence = 'LOW';
+    }
+  }
+
+  // 9. Best Zone Suggestion (Contextualized & Time-Based)
   let bestZone;
-  if (finalStatus === 'bad_zone' || finalStatus === 'neutral_zone') {
+  
+  // APRENDIZADO POR IGNORAR: Reduzir frequência se o usuário ignora muito
+  const ignoredCount = userLearning?.ignoredTypes?.['hot_zone'] || 0;
+  const shouldSuppressHotZone = ignoredCount >= ZONE_DETECTION_THRESHOLDS.IGNORE_PENALTY_THRESHOLD;
+
+  // Only suggest hot zone if not in trip and distance is reasonable
+  const isHotZoneViable = !tracking.isProductive && hasHistory && !shouldSuppressHotZone;
+
+  if (isHotZoneViable && (finalStatus === 'bad_zone' || finalStatus === 'neutral_zone')) {
+    const bestRegion = driverProfile.bestRegions[0];
+    const mockDistance = 1.5 + Math.random() * 3;
+    
+    // DISTÂNCIA BASEADA EM TEMPO: Estimar tempo de deslocamento (30km/h avg)
+    const estimatedTimeMinutes = (mockDistance / 30) * 60;
+    
+    // Só sugerir se acessível em menos de 15 minutos
+    if (estimatedTimeMinutes < 15) {
+      bestZone = {
+        label: bestRegion,
+        distance: mockDistance,
+        timeToArrival: Math.round(estimatedTimeMinutes),
+        direction: '→'
+      };
+    }
+  } 
+  
+  if (!bestZone && (finalStatus === 'bad_zone' || finalStatus === 'neutral_zone')) {
     const directions: ('N' | 'S' | 'E' | 'W' | 'NE' | 'NW' | 'SE' | 'SW' | 'UP' | 'DOWN' | 'LEFT' | 'RIGHT')[] = ['UP', 'RIGHT', 'LEFT', 'DOWN'];
-    const mockDirection = directions[Math.floor(now / 3600000) % directions.length]; // Changes every hour
+    const mockDirection = directions[Math.floor(now / 3600000) % directions.length];
+    const mockDistance = 2.4;
+    const estimatedTimeMinutes = (mockDistance / 30) * 60;
+
     bestZone = {
       label: 'Centro',
-      distance: 2.4,
+      distance: mockDistance,
+      timeToArrival: Math.round(estimatedTimeMinutes),
       direction: mockDirection === 'UP' ? '↑' : mockDirection === 'RIGHT' ? '→' : mockDirection === 'LEFT' ? '←' : '↓'
     };
   }
@@ -242,6 +307,9 @@ export function evaluateZoneQuality(
     message,
     reason,
     score: totalScore,
+    confidence,
+    decisionSource,
+    regionName: currentRegion,
     metrics: {
       idleKm,
       searchingMinutes: durationMinutes,
@@ -250,7 +318,7 @@ export function evaluateZoneQuality(
     },
     maturity: { isMature: true },
     bestZone,
-    lastAlertTime,
+    lastAlertTime: previousIntelligence?.lastAlertTime,
     lastZoneState: finalStatus,
     badZoneCandidateStartTime,
     lastStateChangeTime

@@ -14,7 +14,7 @@ const TRACKING_CONFIG = {
   MIN_POINTS_TRIP: 6,
   MIN_SPEED_START: 12, // km/h (Início automático)
   MIN_SPEED_STOP: 3, // km/h
-  STOP_BUFFER_MS: 180000, // 180 segundos para fim real
+  STOP_BUFFER_MS: 120000, // 120 segundos para fim real
   MIN_DIST_PRECISION: 0.01, // 10 metros
   MAX_SPEED_NOISE: 160, // km/h
   DRIFT_SPEED_THRESHOLD: 2.5, // km/h
@@ -45,6 +45,9 @@ const INITIAL_SETTINGS: UserSettings = {
   isPrivacyMode: false,
   keepScreenOn: false,
   voiceEnabled: true,
+  voiceCommandsEnabled: true,
+  voiceVerbosity: 'normal',
+  voiceVolume: 1,
   fixedCosts: {
     vehicleType: 'owned',
   },
@@ -59,6 +62,8 @@ const INITIAL_TRACKING: TrackingSession = {
   distance: 0,
   productiveDistance: 0,
   idleDistance: 0,
+  productiveTime: 0,
+  idleTime: 0,
   isProductive: false,
   isManualOverride: false,
   isPaused: false,
@@ -119,6 +124,62 @@ export const useDriverStore = create<DriverState>()(
       tracking: INITIAL_TRACKING,
       financialEntries: [],
       isSaving: false,
+      isQuickActionsOpen: false,
+      postTripActionSheet: { isOpen: false },
+      miniMapOpen: false,
+      voiceState: {
+        isListening: false,
+      },
+      userLearning: {
+        consecutiveIgnores: 0,
+        isSilentMode: false,
+        acceptedSuggestions: 0,
+        ignoredSuggestions: 0,
+        editedValues: 0,
+        ignoredTypes: {},
+      },
+      
+      setQuickActionsOpen: (isOpen) => set({ isQuickActionsOpen: isOpen }),
+      setPostTripActionSheet: (data) => set((state) => ({
+        postTripActionSheet: { ...state.postTripActionSheet, ...data }
+      })),
+      setMiniMapOpen: (isOpen) => set({ miniMapOpen: isOpen }),
+      
+      setVoiceListening: (isListening) => set((state) => ({
+        voiceState: { ...state.voiceState, isListening }
+      })),
+      
+      setLastSpoken: (message) => set((state) => ({
+        voiceState: { 
+          ...state.voiceState, 
+          lastSpokenMessage: message,
+          lastSpokenAt: Date.now()
+        }
+      })),
+
+      updateUserLearning: (action, type) => set((state) => {
+        const learning = { ...state.userLearning };
+        if (action === 'accept') {
+          learning.acceptedSuggestions++;
+          learning.consecutiveIgnores = 0;
+          learning.isSilentMode = false;
+        } else if (action === 'ignore') {
+          learning.ignoredSuggestions++;
+          learning.consecutiveIgnores++;
+          
+          if (type) {
+            learning.ignoredTypes[type] = (learning.ignoredTypes[type] || 0) + 1;
+          }
+          
+          if (learning.consecutiveIgnores >= 3) {
+            learning.isSilentMode = true;
+          }
+        } else if (action === 'edit') {
+          learning.editedValues++;
+        }
+        return { userLearning: learning };
+      }),
+
       setUser: (user) => {
         const currentUser = get().user;
         
@@ -160,7 +221,18 @@ export const useDriverStore = create<DriverState>()(
           settings: INITIAL_SETTINGS,
           tracking: INITIAL_TRACKING,
           financialEntries: [],
-          isSaving: false
+          isSaving: false,
+          isQuickActionsOpen: false,
+          postTripActionSheet: { isOpen: false },
+          miniMapOpen: false,
+          userLearning: {
+            consecutiveIgnores: 0,
+            isSilentMode: false,
+            acceptedSuggestions: 0,
+            ignoredSuggestions: 0,
+            editedValues: 0,
+            ignoredTypes: {},
+          }
         });
       },
       setSyncStatus: (syncStatus) => set({ syncStatus }),
@@ -1281,7 +1353,7 @@ export const useDriverStore = create<DriverState>()(
           updatedTracking.tripIntelligence = intelligence;
 
           // Evaluate Zone Quality
-          const zoneIntelligence = evaluateZoneQuality(updatedTracking, openCycle, state.tracking.zoneIntelligence, intelligence);
+          const zoneIntelligence = evaluateZoneQuality(updatedTracking, openCycle, state.tracking.zoneIntelligence, intelligence, state.driverProfile, state.userLearning);
           updatedTracking.zoneIntelligence = zoneIntelligence;
         }
         
@@ -1311,7 +1383,14 @@ export const useDriverStore = create<DriverState>()(
       },
 
       endTrip: () => {
-        const { updateTracking } = get();
+        const { updateTracking, setPostTripActionSheet, tracking, driverProfile } = get();
+        
+        // Calculate suggested value
+        const ratePerKm = driverProfile.avgProfitPerKm || 2.5;
+        const distance = tracking.productiveDistance || 0;
+        const duration = tracking.productiveTime || 0;
+        const suggestedValue = Math.round((distance * ratePerKm + (duration / 60000) * 0.1) * 100) / 100;
+
         updateTracking({ 
           isProductive: false, 
           mode: 'searching', 
@@ -1321,6 +1400,14 @@ export const useDriverStore = create<DriverState>()(
         });
         console.log('[TRIP] Encerrada (manual)');
         if (navigator.vibrate) navigator.vibrate([50, 30, 50]);
+        
+        // Trigger post-trip action sheet with suggested value
+        setPostTripActionSheet({ 
+          isOpen: true, 
+          autoCloseTimer: 5000,
+          suggestedValue,
+          suggestedDistance: distance
+        });
       },
 
       pauseTracking: () => {
@@ -1473,6 +1560,8 @@ export const useDriverStore = create<DriverState>()(
             let newStoppedTime = currentTracking.stoppedTime;
             let newProductiveDistance = currentTracking.productiveDistance;
             let newIdleDistance = currentTracking.idleDistance;
+            let newProductiveTime = currentTracking.productiveTime || 0;
+            let newIdleTime = currentTracking.idleTime || 0;
             let newIsProductive = currentTracking.isProductive;
             let newIsManualOverride = currentTracking.isManualOverride;
             let manualOverrideTimestamp = currentTracking.manualOverrideTimestamp;
@@ -1541,9 +1630,11 @@ export const useDriverStore = create<DriverState>()(
                 // 3. CLASSIFICAÇÃO DE DISTÂNCIA E MODO
                 if (newIsProductive) {
                   newProductiveDistance += dist;
+                  newProductiveTime += timeDiff;
                   newMode = 'in_trip';
                 } else {
                   newIdleDistance += dist;
+                  newIdleTime += timeDiff;
                   newMode = 'searching';
                 }
                 
@@ -1592,6 +1683,19 @@ export const useDriverStore = create<DriverState>()(
                       newTripDetectionState = 'transition_window';
                       newStopReason = 'end_of_trip';
                       if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                      
+                      // Calculate suggested value
+                      const { driverProfile } = get();
+                      const ratePerKm = driverProfile.avgProfitPerKm || 2.5;
+                      const suggestedValue = Math.round((newProductiveDistance * ratePerKm + (newProductiveTime / 60000) * 0.1) * 100) / 100;
+
+                      // Trigger post-trip action sheet
+                      get().setPostTripActionSheet({ 
+                        isOpen: true, 
+                        autoCloseTimer: 5000,
+                        suggestedValue,
+                        suggestedDistance: newProductiveDistance
+                      });
                       
                       // Janela de transição para corridas seguidas
                       setTimeout(() => {
@@ -1691,6 +1795,8 @@ export const useDriverStore = create<DriverState>()(
                 distance: newDistance,
                 productiveDistance: newProductiveDistance,
                 idleDistance: newIdleDistance,
+                productiveTime: newProductiveTime,
+                idleTime: newIdleTime,
                 movingTime: newMovingTime,
                 stoppedTime: newStoppedTime,
                 isProductive: newIsProductive,
@@ -1773,30 +1879,9 @@ export const useDriverStore = create<DriverState>()(
 
         // 2. Reset tracking state IMMEDIATELY
         set({
+          isQuickActionsOpen: false,
           tracking: {
-            isActive: false,
-            isLoading: false,
-            distance: 0,
-            avgSpeed: 0,
-            currentSmoothedSpeed: 0,
-            speedBuffer: [],
-            duration: 0,
-            movingTime: 0,
-            stoppedTime: 0,
-            productiveDistance: 0,
-            idleDistance: 0,
-            isProductive: false,
-            isManualOverride: false,
-            isPaused: false,
-            manualOverrideTimestamp: undefined,
-            mode: 'idle',
-            tripDetectionState: 'idle',
-            points: [],
-            segments: [],
-            consecutiveMovingPoints: 0,
-            consecutiveStoppedPoints: 0,
-            lastPoint: undefined,
-            lastStopLocation: undefined,
+            ...INITIAL_TRACKING,
             endTime: Date.now()
           }
         });
@@ -2317,29 +2402,7 @@ export const useDriverStore = create<DriverState>()(
         maintenances: [],
         importedReports: [],
         faturamentoLogs: [],
-        tracking: {
-          isActive: false,
-          isLoading: false,
-          isPaused: false,
-          distance: 0,
-          productiveDistance: 0,
-          idleDistance: 0,
-          isProductive: false,
-          isManualOverride: false,
-          mode: 'idle',
-          tripDetectionState: 'idle',
-          avgSpeed: 0,
-          currentSmoothedSpeed: 0,
-          speedBuffer: [],
-          duration: 0,
-          movingTime: 0,
-          stoppedTime: 0,
-          points: [],
-          segments: [],
-          consecutiveMovingPoints: 0,
-          consecutiveStoppedPoints: 0,
-          lastPoint: undefined
-        },
+        tracking: INITIAL_TRACKING,
       }),
       clearCloudData: async () => {
         const { user } = get();

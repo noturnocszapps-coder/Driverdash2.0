@@ -201,6 +201,36 @@ export function getWaitingZones(cycles: any[]) {
     .slice(0, 5); // Return top 5
 }
 
+export function getHotZones(cycles: any[]) {
+  const zones: Record<string, { lat: number; lng: number; revenue: number; count: number; label: string }> = {};
+  
+  cycles.forEach(cycle => {
+    if (!cycle.route_points || cycle.route_points.length === 0) return;
+    
+    // Use the start point of the cycle as the "zone" for that revenue
+    const point = cycle.route_points[0];
+    const gridLat = Math.round(point.lat * 100) / 100; // Larger grid for hot zones
+    const gridLng = Math.round(point.lng * 100) / 100;
+    const key = `${gridLat},${gridLng}`;
+    
+    if (!zones[key]) {
+      zones[key] = { 
+        lat: gridLat, 
+        lng: gridLng, 
+        revenue: 0, 
+        count: 0, 
+        label: getHumanLocation(gridLat, gridLng) 
+      };
+    }
+    zones[key].revenue += safeNumber(cycle.total_amount);
+    zones[key].count++;
+  });
+
+  return Object.values(zones)
+    .sort((a, b) => b.revenue - a.revenue)
+    .slice(0, 5);
+}
+
 export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const R = 6371; // Radius of the earth in km
   const dLat = deg2rad(lat2 - lat1);
