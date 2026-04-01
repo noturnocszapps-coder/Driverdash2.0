@@ -64,8 +64,8 @@ export const useVoiceAssistant = () => {
     }
     
     if (cmd.includes('abrir mapa')) {
-      setMiniMapOpen(true);
-      speak('Abrindo mapa', 'normal');
+      window.location.href = '/heatmap';
+      speak('Abrindo mapa de inteligência', 'normal');
       return;
     }
     

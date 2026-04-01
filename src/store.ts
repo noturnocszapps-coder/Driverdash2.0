@@ -85,6 +85,8 @@ const INITIAL_TRACKING: TrackingSession = {
   tripIntelligence: undefined,
   zoneIntelligence: undefined,
   hasActiveInsight: false,
+  hudState: 'expanded',
+  lastAlerts: {},
 };
 
 const INITIAL_DRIVER_PROFILE: DriverProfile = {
@@ -144,6 +146,59 @@ export const useDriverStore = create<DriverState>()(
         postTripActionSheet: { ...state.postTripActionSheet, ...data }
       })),
       setMiniMapOpen: (isOpen) => set({ miniMapOpen: isOpen }),
+      setHudState: (hudState) => set((state) => ({
+        tracking: { ...state.tracking, hudState }
+      })),
+      triggerAlert: (type, severity, message) => {
+        const { tracking, userLearning } = get();
+        const now = Date.now();
+        const lastAlerts = tracking.lastAlerts || {};
+        const lastAlertTime = lastAlerts[type] || 0;
+        
+        // Cooldown logic
+        const cooldowns: Record<string, number> = {
+          critical: 30000, // 30s
+          important: 120000, // 2m
+          silent: 600000, // 10m
+        };
+
+        // Prevent duplicate consecutive messages or cooldown violation
+        if (now - lastAlertTime < (cooldowns[severity] || 60000)) return;
+        if (tracking.lastAlertMessage === message) return;
+
+        // Silent mode logic
+        if (userLearning.isSilentMode && severity !== 'critical') return;
+
+        // Update last alert info
+        set(state => ({
+          tracking: {
+            ...state.tracking,
+            lastAlertMessage: message,
+            lastAlerts: {
+              ...lastAlerts,
+              [type]: now
+            }
+          }
+        }));
+
+        // Hierarchy:
+        // 1. Critical -> Toast + HUD
+        // 2. Important -> HUD only (via tracking state update)
+        // 3. Silent -> Log only
+        
+        if (severity === 'critical') {
+          toast.error(message, { 
+            duration: 8000,
+            description: 'Ação imediata recomendada.'
+          });
+        } else if (severity === 'important') {
+          // Important alerts are shown in the HUD via the tracking session state
+          // which is already updated above with lastAlertMessage
+          console.log(`[HUD Alert] ${message}`);
+        } else {
+          console.log(`[Silent Alert] ${message}`);
+        }
+      },
       
       setVoiceListening: (isListening) => set((state) => ({
         voiceState: { ...state.voiceState, isListening }
@@ -465,8 +520,7 @@ export const useDriverStore = create<DriverState>()(
                 idle_km: cycle.idle_km,
                 efficiency_percentage: cycle.efficiency_percentage,
                 driver_score: cycle.driver_score,
-                route_points: cycle.route_points,
-                segments: cycle.segments,
+                // Reduced payload: route_points and segments are kept local only
                 vehicle_id: cycle.vehicle_id,
                 vehicle_name: cycle.vehicle_name,
                 vehicle_snapshot: cycle.vehicle_snapshot,
@@ -524,15 +578,23 @@ export const useDriverStore = create<DriverState>()(
       },
 
       addFinancialEntry: async (entry) => {
-        const { user, isSaving, updateCycle, cycles, financialEntries } = get();
+        const { user, isSaving, updateCycle, cycles } = get();
         if (isSaving) return;
 
         set({ isSaving: true });
         try {
           const id = crypto.randomUUID();
           const now = new Date().toISOString();
+          
+          // Calcular valor líquido se componentes forem fornecidos
+          let netValue = entry.value;
+          if (entry.gross_value !== undefined) {
+            netValue = (entry.gross_value || 0) + (entry.tips || 0) + (entry.bonuses || 0) - (entry.platform_fee || 0);
+          }
+
           const newEntry = { 
             ...entry, 
+            value: netValue,
             id, 
             user_id: user?.id || '', 
             created_at: now,
@@ -544,9 +606,12 @@ export const useDriverStore = create<DriverState>()(
           // Update cycle totals
           const cycle = cycles.find(c => c.id === entry.cycle_id);
           if (cycle) {
-            const field = `${entry.platform}_amount` as const;
+            const platformKey = entry.platform === 'noventanove' ? 'noventanove' : 
+                               entry.platform === 'indriver' ? 'indriver' : 
+                               entry.platform === 'extra' ? 'extra' : 'uber';
+            const field = `${platformKey}_amount` as const;
             const currentAmount = (cycle[field] as number) || 0;
-            await updateCycle(entry.cycle_id, { [field]: currentAmount + entry.value });
+            await updateCycle(entry.cycle_id, { [field]: currentAmount + netValue });
           }
 
           if (user && isSupabaseConfigured) {
@@ -563,14 +628,14 @@ export const useDriverStore = create<DriverState>()(
           const { tracking, addPerformanceRecord } = get();
           if (tracking.isActive && tracking.distance > 0.1) {
             const durationMin = tracking.duration / 60000;
-            const profitPerHour = durationMin > 0 ? (entry.value / durationMin) * 60 : 0;
-            const profitPerKm = tracking.distance > 0 ? entry.value / tracking.distance : 0;
+            const profitPerHour = durationMin > 0 ? (netValue / durationMin) * 60 : 0;
+            const profitPerKm = tracking.distance > 0 ? netValue / tracking.distance : 0;
             
             addPerformanceRecord({
               startTime: new Date(Date.now() - tracking.duration).toISOString(),
               endTime: new Date().toISOString(),
               duration: Math.round(durationMin),
-              earnings: entry.value,
+              earnings: netValue,
               distance: tracking.distance,
               profitPerKm,
               profitPerHour,
@@ -597,26 +662,43 @@ export const useDriverStore = create<DriverState>()(
         set({ isSaving: true });
         try {
           const now = new Date().toISOString();
-          const updatedEntry = { ...entry, ...data, updated_at: now };
+          
+          // Calcular novo valor líquido se componentes forem fornecidos
+          let newNetValue = data.value !== undefined ? data.value : entry.value;
+          if (data.gross_value !== undefined || data.tips !== undefined || data.bonuses !== undefined || data.platform_fee !== undefined) {
+            const g = data.gross_value !== undefined ? data.gross_value : (entry.gross_value || 0);
+            const t = data.tips !== undefined ? data.tips : (entry.tips || 0);
+            const b = data.bonuses !== undefined ? data.bonuses : (entry.bonuses || 0);
+            const f = data.platform_fee !== undefined ? data.platform_fee : (entry.platform_fee || 0);
+            newNetValue = g + t + b - f;
+          }
+
+          const updatedEntry = { ...entry, ...data, value: newNetValue, updated_at: now };
           
           set((state) => ({
             financialEntries: state.financialEntries.map(e => e.id === id ? updatedEntry : e)
           }));
 
           // Recalculate cycle totals if value or platform changed
-          if (data.value !== undefined || data.platform !== undefined) {
+          if (newNetValue !== entry.value || data.platform !== undefined) {
             const cycle = cycles.find(c => c.id === entry.cycle_id);
             if (cycle) {
-              // We need to subtract old value and add new value
-              const oldField = `${entry.platform}_amount` as const;
-              const newField = `${updatedEntry.platform}_amount` as const;
+              const oldPlatformKey = entry.platform === 'noventanove' ? 'noventanove' : 
+                                    entry.platform === 'indriver' ? 'indriver' : 
+                                    entry.platform === 'extra' ? 'extra' : 'uber';
+              const newPlatformKey = updatedEntry.platform === 'noventanove' ? 'noventanove' : 
+                                    updatedEntry.platform === 'indriver' ? 'indriver' : 
+                                    updatedEntry.platform === 'extra' ? 'extra' : 'uber';
+              
+              const oldField = `${oldPlatformKey}_amount` as const;
+              const newField = `${newPlatformKey}_amount` as const;
               
               const updates: any = {};
               if (oldField === newField) {
-                updates[oldField] = (cycle[oldField] as number || 0) - entry.value + updatedEntry.value;
+                updates[oldField] = (cycle[oldField] as number || 0) - entry.value + newNetValue;
               } else {
                 updates[oldField] = (cycle[oldField] as number || 0) - entry.value;
-                updates[newField] = (cycle[newField] as number || 0) + updatedEntry.value;
+                updates[newField] = (cycle[newField] as number || 0) + newNetValue;
               }
               
               await updateCycle(entry.cycle_id, updates);
@@ -627,7 +709,7 @@ export const useDriverStore = create<DriverState>()(
             set({ syncStatus: 'syncing' });
             const { error } = await supabase
               .from('financial_entries')
-              .update({ ...data, updated_at: now })
+              .update({ ...data, value: newNetValue, updated_at: now })
               .eq('id', id)
               .eq('user_id', user.id);
             if (error) console.error('[SYNC] Error (update financial entry):', error);
@@ -1157,11 +1239,16 @@ export const useDriverStore = create<DriverState>()(
             
           if (updateActiveError) throw updateActiveError;
 
-          // Persist to profile
-          await supabase
-            .from('profiles')
-            .update({ active_vehicle_id: id })
-            .eq('id', user.id);
+          // 3. Persist to profile
+          if (user && isSupabaseConfigured) {
+            await supabase
+              .from('profiles')
+              .update({ 
+                active_vehicle_id: id,
+                user_id: user.id // Ensure user_id is set if required by schema
+              })
+              .eq('id', user.id);
+          }
 
           await get().updateSettings({
             currentVehicleProfileId: id,
@@ -1278,7 +1365,13 @@ export const useDriverStore = create<DriverState>()(
             if (newSettings.role !== undefined) updateObj.role = newSettings.role;
             if (newSettings.status !== undefined) updateObj.status = newSettings.status;
 
-            const { error } = await supabase.from('profiles').update(updateObj).eq('id', user.id);
+            const { error } = await supabase
+              .from('profiles')
+              .update({
+                ...updateObj,
+                user_id: user.id // Ensure user_id is set if required by schema
+              })
+              .eq('id', user.id);
             
             if (error) {
               console.error('[SETTINGS] Error updating settings in Supabase:', error);
@@ -1330,7 +1423,8 @@ export const useDriverStore = create<DriverState>()(
         }
       },
 
-      updateTracking: (newTracking) => set((state) => {
+      updateTracking: (newTracking) => {
+        const state = get();
         const updatedTracking = { ...state.tracking, ...newTracking };
         
         // If isProductive is manually changed, set isManualOverride to true
@@ -1355,10 +1449,25 @@ export const useDriverStore = create<DriverState>()(
           // Evaluate Zone Quality
           const zoneIntelligence = evaluateZoneQuality(updatedTracking, openCycle, state.tracking.zoneIntelligence, intelligence, state.driverProfile, state.userLearning);
           updatedTracking.zoneIntelligence = zoneIntelligence;
+
+          // TRIGGER ALERTS
+          if (zoneIntelligence.maturity.isMature) {
+            if (zoneIntelligence.status === 'bad_zone') {
+              state.triggerAlert('bad_zone', 'critical', zoneIntelligence.message);
+            } else if (zoneIntelligence.status === 'neutral_zone') {
+              state.triggerAlert('neutral_zone', 'important', zoneIntelligence.message);
+            }
+          }
+
+          if (intelligence.maturity.isMature) {
+            if (intelligence.status === 'bad') {
+              state.triggerAlert('bad_trip', 'important', intelligence.message);
+            }
+          }
         }
         
-        return { tracking: updatedTracking };
-      }),
+        set({ tracking: updatedTracking });
+      },
 
       setHasActiveInsight: (hasActiveInsight) => {
         set((state) => ({
@@ -2173,8 +2282,14 @@ export const useDriverStore = create<DriverState>()(
           
           const pushPromises = [];
           
+          // Helper to wrap push promises with table info
+          const wrapPush = (promise: any, tableName: string) => 
+            Promise.resolve(promise)
+                   .then(res => ({ ...res, table: tableName }))
+                   .catch(err => ({ error: { message: err.message, details: err.stack, table: tableName }, table: tableName }));
+
           if (currentStore.expenses.length > 0) {
-            pushPromises.push(supabase.from('expenses').upsert(currentStore.expenses.map(e => ({
+            pushPromises.push(wrapPush(supabase.from('expenses').upsert(currentStore.expenses.map(e => ({
               id: e.id,
               user_id: user.id,
               date: e.date,
@@ -2182,11 +2297,11 @@ export const useDriverStore = create<DriverState>()(
               value: e.value,
               description: e.description || '',
               updated_at: e.updated_at || new Date().toISOString()
-            }))).then(res => ({ ...res, table: 'expenses' })));
+            }))), 'expenses'));
           }
 
           if (currentStore.fuelings.length > 0) {
-            pushPromises.push(supabase.from('fuel_logs').upsert(currentStore.fuelings.map(f => ({
+            pushPromises.push(wrapPush(supabase.from('fuel_logs').upsert(currentStore.fuelings.map(f => ({
               id: f.id,
               user_id: user.id,
               date: f.date,
@@ -2194,11 +2309,11 @@ export const useDriverStore = create<DriverState>()(
               cost: f.value,
               odometer: f.odometer,
               updated_at: f.updated_at || new Date().toISOString()
-            }))).then(res => ({ ...res, table: 'fuel_logs' })));
+            }))), 'fuel_logs'));
           }
 
           if (currentStore.maintenances.length > 0) {
-            pushPromises.push(supabase.from('maintenance_logs').upsert(currentStore.maintenances.map(m => ({
+            pushPromises.push(wrapPush(supabase.from('maintenance_logs').upsert(currentStore.maintenances.map(m => ({
               id: m.id,
               user_id: user.id,
               date: m.date,
@@ -2207,11 +2322,11 @@ export const useDriverStore = create<DriverState>()(
               odometer: m.currentKm,
               next_change_km: m.nextChangeKm || null,
               updated_at: m.updated_at || new Date().toISOString()
-            }))).then(res => ({ ...res, table: 'maintenance_logs' })));
+            }))), 'maintenance_logs'));
           }
 
           if (currentStore.cycles.length > 0) {
-            pushPromises.push(supabase.from('cycles').upsert(currentStore.cycles.map(c => ({
+            const cyclesPayload = currentStore.cycles.map(c => ({
               id: c.id,
               user_id: user.id,
               start_time: c.start_time,
@@ -2238,17 +2353,24 @@ export const useDriverStore = create<DriverState>()(
               idle_km: c.idle_km,
               efficiency_percentage: c.efficiency_percentage,
               driver_score: c.driver_score,
-              route_points: c.route_points || [],
-              segments: c.segments || [],
+              // Reduced payload: route_points and segments are kept local only
               vehicle_id: c.vehicle_id,
               vehicle_name: c.vehicle_name,
               status: c.status,
               updated_at: c.updated_at || new Date().toISOString()
-            }))).then(res => ({ ...res, table: 'cycles' })));
+            }));
+
+            // Log payload size for debugging
+            const payloadSize = JSON.stringify(cyclesPayload).length;
+            if (payloadSize > 1000000) { // > 1MB
+              console.warn(`[SYNC] Large cycles payload: ${(payloadSize / 1024 / 1024).toFixed(2)}MB`);
+            }
+
+            pushPromises.push(wrapPush(supabase.from('cycles').upsert(cyclesPayload), 'cycles'));
           }
 
           if (currentStore.importedReports.length > 0) {
-            pushPromises.push(supabase.from('imported_reports').upsert(currentStore.importedReports.map(r => ({
+            pushPromises.push(wrapPush(supabase.from('imported_reports').upsert(currentStore.importedReports.map(r => ({
               id: r.id,
               user_id: user.id,
               vehicle_id: r.vehicle_id,
@@ -2272,11 +2394,11 @@ export const useDriverStore = create<DriverState>()(
               confidence_score: r.confidence_score,
               uncertain_fields: r.uncertain_fields || [],
               updated_at: r.updated_at || new Date().toISOString()
-            }))).then(res => ({ ...res, table: 'imported_reports' })));
+            }))), 'imported_reports'));
           }
 
           if (currentStore.vehicles.length > 0) {
-            pushPromises.push(supabase.from('vehicles').upsert(currentStore.vehicles.map(v => ({
+            pushPromises.push(wrapPush(supabase.from('vehicles').upsert(currentStore.vehicles.map(v => ({
               id: v.id,
               user_id: user.id,
               name: v.name,
@@ -2296,11 +2418,11 @@ export const useDriverStore = create<DriverState>()(
               rental_value: v.fixedCosts.rentalValue,
               is_active: v.is_active,
               updated_at: v.updated_at || new Date().toISOString()
-            }))).then(res => ({ ...res, table: 'vehicles' })));
+            }))), 'vehicles'));
           }
 
           if (currentStore.faturamentoLogs.length > 0) {
-            pushPromises.push(supabase.from('faturamento_logs').upsert(currentStore.faturamentoLogs.map(l => ({
+            pushPromises.push(wrapPush(supabase.from('faturamento_logs').upsert(currentStore.faturamentoLogs.map(l => ({
               id: l.id,
               user_id: user.id,
               date: l.date,
@@ -2317,11 +2439,11 @@ export const useDriverStore = create<DriverState>()(
               additional_expense: l.additional_expense,
               notes: l.notes || '',
               updated_at: l.updated_at || new Date().toISOString()
-            }))).then(res => ({ ...res, table: 'faturamento_logs' })));
+            }))), 'faturamento_logs'));
           }
 
           if (currentStore.financialEntries.length > 0) {
-            pushPromises.push(supabase.from('financial_entries').upsert(currentStore.financialEntries.map(e => ({
+            pushPromises.push(wrapPush(supabase.from('financial_entries').upsert(currentStore.financialEntries.map(e => ({
               id: e.id,
               user_id: user.id,
               cycle_id: e.cycle_id,
@@ -2331,28 +2453,31 @@ export const useDriverStore = create<DriverState>()(
               origin: e.origin,
               created_at: e.created_at || new Date().toISOString(),
               updated_at: e.updated_at || new Date().toISOString()
-            }))).then(res => ({ ...res, table: 'financial_entries' })));
+            }))), 'financial_entries'));
           }
 
           // Push settings to profiles
-          pushPromises.push(supabase.from('profiles').upsert({
-            id: user.id,
-            name: currentStore.settings.name,
-            daily_goal: currentStore.settings.dailyGoal,
-            vehicle: currentStore.settings.vehicle,
-            km_per_liter: currentStore.settings.kmPerLiter,
-            fuel_price: currentStore.settings.fuelPrice,
-            active_platforms: currentStore.settings.activePlatforms,
-            transport_mode: currentStore.settings.transportMode,
-            dashboard_mode: currentStore.settings.dashboardMode,
-            theme: currentStore.settings.theme,
-            photo_url: currentStore.settings.photoUrl || '',
-            fixed_costs: currentStore.settings.fixedCosts || {},
-            current_vehicle_profile_id: currentStore.settings.currentVehicleProfileId || null,
-            role: currentStore.settings.role || UserRole.DRIVER,
-            status: currentStore.settings.status || UserStatus.ACTIVE,
-            updated_at: new Date().toISOString()
-          }).then(res => ({ ...res, table: 'profiles' })));
+          if (user && isSupabaseConfigured) {
+            pushPromises.push(wrapPush(supabase.from('profiles').upsert({
+              id: user.id,
+              user_id: user.id, // Explicitly provide user_id to satisfy constraint
+              name: currentStore.settings.name,
+              daily_goal: currentStore.settings.dailyGoal,
+              vehicle: currentStore.settings.vehicle,
+              km_per_liter: currentStore.settings.kmPerLiter,
+              fuel_price: currentStore.settings.fuelPrice,
+              active_platforms: currentStore.settings.activePlatforms,
+              transport_mode: currentStore.settings.transportMode,
+              dashboard_mode: currentStore.settings.dashboardMode,
+              theme: currentStore.settings.theme,
+              photo_url: currentStore.settings.photoUrl || '',
+              fixed_costs: currentStore.settings.fixedCosts || {},
+              current_vehicle_profile_id: currentStore.settings.currentVehicleProfileId || null,
+              role: currentStore.settings.role || UserRole.DRIVER,
+              status: currentStore.settings.status || UserStatus.ACTIVE,
+              updated_at: new Date().toISOString()
+            }), 'profiles'));
+          }
 
           if (pushPromises.length > 0) {
             const results = await Promise.all(pushPromises);

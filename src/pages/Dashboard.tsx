@@ -41,7 +41,11 @@ import {
   X,
   Mic,
   MicOff,
-  Volume2
+  Volume2,
+  Minimize2,
+  Maximize2,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { startOfDay, isSameDay, subDays, format, differenceInMinutes, getDay } from 'date-fns';
@@ -115,6 +119,7 @@ export const Dashboard = () => {
     vehicles = [],
     activeVehicleId,
     updateSettings,
+    updateTracking,
     driverProfile,
     setHasActiveInsight,
     miniMapOpen,
@@ -134,8 +139,17 @@ export const Dashboard = () => {
   const [isQuickEntryOpen, setIsQuickEntryOpen] = useState(false);
   const [locationError, setLocationError] = useState<string | null>(null);
 
+  const [quickEntrySuggestedValue, setQuickEntrySuggestedValue] = useState<number | null>(null);
+
   useEffect(() => {
-    const handleOpenQuickEntry = () => setIsQuickEntryOpen(true);
+    const handleOpenQuickEntry = (e: any) => {
+      if (e.detail?.suggestedValue) {
+        setQuickEntrySuggestedValue(e.detail.suggestedValue);
+      } else {
+        setQuickEntrySuggestedValue(null);
+      }
+      setIsQuickEntryOpen(true);
+    };
     window.addEventListener('open-quick-entry', handleOpenQuickEntry);
     return () => window.removeEventListener('open-quick-entry', handleOpenQuickEntry);
   }, []);
@@ -573,13 +587,12 @@ export const Dashboard = () => {
     
     // 1. PRIORIDADE: TEMPO REAL (BAD ZONE)
     if (zoneIntelligence?.status === 'bad_zone') {
-      const confidenceLabel = zoneIntelligence.confidence === 'HIGH' ? '(ALTA CONFIANÇA)' : '(CONFIANÇA MÉDIA)';
       if (zoneIntelligence?.bestZone) {
         const { direction, label, distance, timeToArrival } = zoneIntelligence.bestZone;
         const timeStr = timeToArrival ? ` (~${timeToArrival} min)` : '';
-        return `MOVA ${direction} ${label} ${distance.toFixed(1)}km${timeStr} ${confidenceLabel}`;
+        return `MOVA ${direction} ${label} • ${distance.toFixed(1)}km${timeStr}`;
       }
-      return `ZONA RUIM: MUDE DE ÁREA ${confidenceLabel}`;
+      return `ZONA RUIM: REPOSICIONE AGORA`;
     }
 
     // 2. APOIO: HISTÓRICO (NEUTRAL ZONE)
@@ -588,12 +601,10 @@ export const Dashboard = () => {
       const isBestRegion = currentRegion && driverProfile.bestRegions.includes(currentRegion);
       const isWorstRegion = currentRegion && driverProfile.worstRegions.includes(currentRegion);
 
-      if (isBestRegion) return 'ZONA MÉDIA (HISTÓRICO FAVORÁVEL)';
-      if (isWorstRegion) return 'ZONA MÉDIA (HISTÓRICO DESFAVORÁVEL)';
+      if (isBestRegion) return 'ZONA MÉDIA • HISTÓRICO FAVORÁVEL';
+      if (isWorstRegion) return 'ZONA MÉDIA • HISTÓRICO DESFAVORÁVEL';
       
-      const confidenceLabel = zoneIntelligence.confidence === 'HIGH' ? '(ALTA CONFIANÇA)' : 
-                             zoneIntelligence.confidence === 'MEDIUM' ? '(CONFIANÇA MÉDIA)' : '(BAIXA CONFIANÇA)';
-      return `ZONA NEUTRA ${confidenceLabel}`;
+      return `ZONA NEUTRA • AGUARDE`;
     }
 
     // 3. REFORÇO: HISTÓRICO (GOOD ZONE)
@@ -601,17 +612,17 @@ export const Dashboard = () => {
       const currentRegion = zoneIntelligence?.regionName;
       const isBestRegion = currentRegion && driverProfile.bestRegions.includes(currentRegion);
       
-      if (isBestRegion) return 'ZONA EXCELENTE (HISTÓRICO + AGORA)';
-      return 'ZONA BOA (ALTA CONFIANÇA)';
+      if (isBestRegion) return 'ALTA PERFORMANCE • ZONA EXCELENTE';
+      return 'ZONA BOA • MANTENHA O RITMO';
     }
 
     // 4. CONTEXTO DE PARADA / CORRIDA
-    if (tracking.stopReason === 'traffic_light') return 'AGUARDE O VERDE';
-    if (tracking.stopReason === 'waiting') return 'MOVA AGORA → CENTRO';
-    if (tracking.isProductive) return 'CONTINUE';
+    if (tracking.stopReason === 'traffic_light') return 'AGUARDE O SINAL VERDE';
+    if (tracking.stopReason === 'waiting') return 'MOVA AGORA • BUSQUE DEMANDA';
+    if (tracking.isProductive) return 'EM CORRIDA • FOCO NA ROTA';
     
     // Fallback
-    return 'AGUARDE';
+    return 'MONITORANDO PERFORMANCE';
   }, [isDrivingMode, zoneIntelligence, tracking, driverProfile, userLearning.isSilentMode]);
 
   // Update hasActiveInsight in store for FAB positioning
@@ -1001,18 +1012,10 @@ export const Dashboard = () => {
             </button>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => updateSettings({ isPrivacyMode: !settings.isPrivacyMode })}
-              className="p-2 rounded-xl bg-zinc-100 dark:bg-zinc-800 text-zinc-500 hover:text-zinc-900 dark:hover:text-white transition-colors"
-              title={settings.isPrivacyMode ? "Mostrar valores" : "Ocultar valores"}
-            >
-              {settings.isPrivacyMode ? <EyeOff size={16} /> : <Eye size={16} />}
-            </button>
-            <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+          <div className="flex items-center gap-3">
+            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
               {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
             </p>
-            <SyncIndicator />
           </div>
         </div>
       </div>
@@ -1184,32 +1187,25 @@ export const Dashboard = () => {
               <div className="flex items-center gap-3 min-w-0">
                 <div
                   className={cn(
-                    'w-10 h-10 rounded-full flex items-center justify-center shadow-inner shrink-0',
+                    'w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500',
                     tracking?.isActive
-                      ? 'bg-emerald-500/15 text-emerald-500'
-                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-500'
+                      ? 'bg-emerald-500/10 text-emerald-500 shadow-[0_0_20px_rgba(16,185,129,0.1)]'
+                      : 'bg-zinc-100 dark:bg-zinc-800 text-zinc-400'
                   )}
                 >
-                  <Navigation size={20} className={tracking?.isActive ? 'animate-pulse' : ''} />
+                  <Navigation size={24} className={tracking?.isActive ? 'animate-pulse' : ''} />
                 </div>
 
                 <div className="min-w-0">
-                  <h3 className="text-xs font-black uppercase tracking-widest text-zinc-900 dark:text-white">
-                    Rastreamento de KM
+                  <h3 className="text-sm font-black tracking-tight text-zinc-900 dark:text-white">
+                    Rastreamento
                   </h3>
-                  <div className="flex items-center gap-2">
-                    <p className={cn(
-                      "text-[10px] font-bold uppercase tracking-wider",
-                      tracking?.isActive ? "text-emerald-500" : "text-zinc-500 dark:text-zinc-400"
-                    )}>
-                      {tracking?.isActive ? 'Rastreamento ativo' : 'Rastreamento pausado'}
-                    </p>
-                    {tracking?.isActive && tracking?.isPaused && (
-                      <span className="px-1.5 py-0.5 rounded-md bg-amber-500/10 text-amber-500 text-[8px] font-black uppercase tracking-tighter">
-                        Pausado
-                      </span>
-                    )}
-                  </div>
+                  <p className={cn(
+                    "text-[10px] font-bold uppercase tracking-widest",
+                    tracking?.isActive ? "text-emerald-500" : "text-zinc-500"
+                  )}>
+                    {tracking?.isActive ? 'GPS Ativo' : 'Desativado'}
+                  </p>
                 </div>
               </div>
 
@@ -1220,10 +1216,10 @@ export const Dashboard = () => {
                       e.stopPropagation();
                       tracking.isPaused ? resumeTracking() : pauseTracking();
                     }}
-                    variant="outline"
-                    className="h-8 w-8 rounded-xl border-zinc-200 dark:border-zinc-800 p-0 flex items-center justify-center"
+                    variant="ghost"
+                    className="h-10 w-10 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-0 text-zinc-500"
                   >
-                    {tracking.isPaused ? <Play size={14} fill="currentColor" /> : <Pause size={14} fill="currentColor" />}
+                    {tracking.isPaused ? <Play size={16} fill="currentColor" /> : <Pause size={16} fill="currentColor" />}
                   </Button>
                 )}
                 
@@ -1231,25 +1227,15 @@ export const Dashboard = () => {
                   onClick={handleToggleTracking}
                   disabled={isProcessing}
                   className={cn(
-                    "h-8 px-3 text-[10px] font-black uppercase tracking-widest rounded-xl transition-all duration-300",
+                    "h-10 px-5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all duration-300",
                     tracking?.isActive
-                      ? "bg-red-500/10 text-red-500 hover:bg-red-500/20 border border-red-500/20"
-                      : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/20"
+                      ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                      : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
                   )}
                 >
                   {isProcessing ? (
                     <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  ) : tracking?.isActive ? (
-                    <>
-                      <Square size={12} fill="currentColor" className="mr-1.5" />
-                      Parar
-                    </>
-                  ) : (
-                    <>
-                      <Play size={12} fill="currentColor" className="mr-1.5" />
-                      Iniciar
-                    </>
-                  )}
+                  ) : tracking?.isActive ? "Parar" : "Iniciar"}
                 </Button>
               </div>
             </div>
@@ -1819,7 +1805,14 @@ export const Dashboard = () => {
       </Card>
       </motion.div>
 
-      <QuickEntryModal isOpen={isQuickEntryOpen} onClose={() => setIsQuickEntryOpen(false)} />
+      <QuickEntryModal 
+        isOpen={isQuickEntryOpen} 
+        onClose={() => {
+          setIsQuickEntryOpen(false);
+          setQuickEntrySuggestedValue(null);
+        }} 
+        suggestedValue={quickEntrySuggestedValue}
+      />
 
       <QuickActionsMenu />
       <PostTripActionSheet />
@@ -1833,80 +1826,140 @@ export const Dashboard = () => {
 
       {/* Driving Mode HUD Overlay */}
       <AnimatePresence>
-        {isDrivingMode && (
+        {isDrivingMode && tracking.hudState !== 'hidden' && (
           <motion.div
             initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
+            animate={{ 
+              opacity: 1,
+              height: tracking.hudState === 'minimized' ? 'auto' : '100vh',
+              backgroundColor: tracking.hudState === 'minimized' ? 'rgba(0,0,0,0.8)' : 'rgba(0,0,0,0.6)'
+            }}
             exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[70] flex flex-col items-center justify-between py-12 px-6"
+            className={cn(
+              "fixed z-[70] flex flex-col items-center transition-all duration-500 ease-in-out",
+              tracking.hudState === 'minimized' 
+                ? "bottom-0 left-0 right-0 py-4 px-6 rounded-t-[32px] border-t border-white/10 backdrop-blur-2xl shadow-[0_-20px_50px_rgba(0,0,0,0.5)]" 
+                : "inset-0 py-12 px-6 justify-between"
+            )}
           >
-            {/* Background Effects */}
-            <div className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-none" />
-            <motion.div 
-              animate={{ 
-                opacity: [0.1, 0.2, 0.1],
-                scale: [1, 1.1, 1]
-              }}
-              transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
-              className="absolute inset-0 bg-radial-gradient from-emerald-500/10 to-transparent"
-              style={{ background: `radial-gradient(circle at center, ${glowColor}, transparent 70%)` }}
-            />
+            {/* Background Effects (Only in Expanded) */}
+            {tracking.hudState === 'expanded' && (
+              <>
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-md pointer-events-none" />
+                <motion.div 
+                  animate={{ 
+                    opacity: [0.1, 0.2, 0.1],
+                    scale: [1, 1.1, 1]
+                  }}
+                  transition={{ duration: 8, repeat: Infinity, ease: "easeInOut" }}
+                  className="absolute inset-0 bg-radial-gradient from-emerald-500/10 to-transparent"
+                  style={{ background: `radial-gradient(circle at center, ${glowColor}, transparent 70%)` }}
+                />
+              </>
+            )}
 
-            {/* Top: Status & Context */}
-            <div className="relative z-10 w-full flex flex-col items-center gap-4">
+            {/* Controls (Minimize/Close) */}
+            <div className="absolute top-6 right-6 z-20 flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => updateTracking({ hudState: tracking.hudState === 'expanded' ? 'minimized' : 'expanded' })}
+                className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10"
+              >
+                {tracking.hudState === 'expanded' ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => updateTracking({ hudState: 'hidden' })}
+                className="w-10 h-10 rounded-full bg-white/5 hover:bg-white/10 text-white/60 hover:text-white border border-white/10"
+              >
+                <X size={18} />
+              </Button>
+            </div>
+
+            {/* Top: Status & Context (Compact in Minimized) */}
+            <div className={cn(
+              "relative z-10 w-full flex flex-col items-center",
+              tracking.hudState === 'minimized' ? "flex-row justify-between gap-4" : "gap-4"
+            )}>
               <motion.div
-                initial={{ y: -20, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                className="flex flex-col items-center"
+                layout
+                className={cn(
+                  "flex flex-col",
+                  tracking.hudState === 'minimized' ? "items-start" : "items-center"
+                )}
               >
                 <h2 className={cn(
-                  "text-4xl sm:text-5xl font-black tracking-[0.25em] transition-colors duration-500",
+                  "font-black tracking-[0.25em] transition-all duration-500",
+                  tracking.hudState === 'minimized' ? "text-lg" : "text-4xl sm:text-5xl",
                   statusColor
                 )}>
                   {currentStatus}
                 </h2>
                 
-                <div className="mt-4 px-6 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-xl flex items-center gap-3">
+                <div className={cn(
+                  "mt-1 flex items-center gap-2",
+                  tracking.hudState === 'minimized' ? "" : "mt-4 px-6 py-2 bg-white/5 border border-white/10 rounded-full backdrop-blur-xl"
+                )}>
                   <div className={cn("w-2 h-2 rounded-full animate-pulse", statusColor.replace('text-', 'bg-'))} />
-                  <span className="text-xs font-black text-white/80 uppercase tracking-[0.2em]">
+                  <span className={cn(
+                    "font-black text-white/80 uppercase tracking-[0.2em]",
+                    tracking.hudState === 'minimized' ? "text-[8px]" : "text-xs"
+                  )}>
                     {contextInfo}
                   </span>
                 </div>
               </motion.div>
+
+              {tracking.hudState === 'minimized' && (
+                <div className="flex flex-col items-end">
+                  <span className="text-[8px] font-black text-white/40 uppercase tracking-[0.2em] mb-0.5">
+                    {mainMetricLabel}
+                  </span>
+                  <p className="text-xl font-black text-white tracking-tighter">
+                    {formatCurrency(mainMetricValue, settings.isPrivacyMode)}
+                  </p>
+                </div>
+              )}
             </div>
 
-            {/* Center: Main Metric */}
-            <div className="relative z-10 flex flex-col items-center">
-              <motion.div
-                initial={{ scale: 0.8, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                whileTap={{ scale: 0.95 }}
-                onClick={() => {
-                  // Open a quick summary or toggle mode
-                  toast.info("Resumo rápido aberto", {
-                    description: "Seus ganhos por hora estão 15% acima da média.",
-                    icon: <Zap className="text-amber-500" />
-                  });
-                  if (navigator.vibrate) navigator.vibrate(20);
-                }}
-                className="flex flex-col items-center cursor-pointer"
-              >
-                <span className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-[0.4em] mb-2">
-                  {mainMetricLabel}
-                </span>
-                <div className="relative">
-                  <span className="text-7xl sm:text-9xl font-black tracking-tighter text-white tabular-nums">
-                    {formatCurrency(mainMetricValue, settings.isPrivacyMode).replace('R$', '').trim()}
+            {/* Center: Main Metric (Only in Expanded) */}
+            {tracking.hudState === 'expanded' && (
+              <div className="relative z-10 flex flex-col items-center">
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  whileTap={{ scale: 0.95 }}
+                  onClick={() => {
+                    toast.info("Resumo rápido aberto", {
+                      description: "Seus ganhos por hora estão 15% acima da média.",
+                      icon: <Zap className="text-amber-500" />
+                    });
+                    if (navigator.vibrate) navigator.vibrate(20);
+                  }}
+                  className="flex flex-col items-center cursor-pointer"
+                >
+                  <span className="text-[10px] sm:text-xs font-black text-white/40 uppercase tracking-[0.4em] mb-2">
+                    {mainMetricLabel}
                   </span>
-                  <span className="absolute -top-2 -right-8 text-2xl font-black text-emerald-500">
-                    R$
-                  </span>
-                </div>
-              </motion.div>
-            </div>
+                  <div className="relative">
+                    <span className="text-7xl sm:text-9xl font-black tracking-tighter text-white tabular-nums">
+                      {formatCurrency(mainMetricValue, settings.isPrivacyMode).replace('R$', '').trim()}
+                    </span>
+                    <span className="absolute -top-2 -right-8 text-2xl font-black text-emerald-500">
+                      R$
+                    </span>
+                  </div>
+                </motion.div>
+              </div>
+            )}
 
             {/* Bottom: AI Insight Pill */}
-            <div className="relative z-10 w-full max-w-xs">
+            <div className={cn(
+              "relative z-10 w-full",
+              tracking.hudState === 'minimized' ? "mt-4" : "max-w-xs"
+            )}>
               <AnimatePresence mode="wait">
                 {aiInsight && (
                   <motion.div
@@ -1916,18 +1969,21 @@ export const Dashboard = () => {
                     exit={{ y: -20, opacity: 0, scale: 0.9 }}
                     whileTap={{ scale: 0.95 }}
                     onClick={() => {
-                      // Actionable AI Insight
-                      if (aiInsight.includes('CONTINUE')) {
-                        toast.success("Ótima escolha! Mantendo foco na zona atual.");
-                      } else if (aiInsight.includes('MOVA') || aiInsight.includes('SAIA')) {
-                        window.open('https://www.google.com/maps/search/?api=1&query=postos+de+combustivel+proximos', '_blank');
+                      if (aiInsight.includes('MOVA') || aiInsight.includes('SAIA')) {
+                        navigate('/heatmap');
                       }
                       if (navigator.vibrate) navigator.vibrate(30);
                     }}
-                    className="bg-emerald-500 text-zinc-950 px-8 py-4 rounded-3xl shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center justify-center text-center cursor-pointer active:bg-emerald-400 transition-colors"
+                    className={cn(
+                      "bg-emerald-500 text-zinc-950 shadow-[0_20px_50px_rgba(16,185,129,0.3)] flex items-center justify-center text-center cursor-pointer active:bg-emerald-400 transition-all",
+                      tracking.hudState === 'minimized' ? "px-4 py-2 rounded-2xl" : "px-8 py-4 rounded-3xl"
+                    )}
                   >
-                    <Zap size={18} fill="currentColor" className="mr-3 shrink-0" />
-                    <span className="text-sm font-black uppercase tracking-wider leading-tight">
+                    <Zap size={tracking.hudState === 'minimized' ? 14 : 18} fill="currentColor" className="mr-2 shrink-0" />
+                    <span className={cn(
+                      "font-black uppercase tracking-wider leading-tight",
+                      tracking.hudState === 'minimized' ? "text-[10px]" : "text-sm"
+                    )}>
                       {aiInsight}
                     </span>
                   </motion.div>
@@ -1935,8 +1991,8 @@ export const Dashboard = () => {
               </AnimatePresence>
             </div>
 
-            {/* Voice Command Button */}
-            {settings.voiceCommandsEnabled && (
+            {/* Voice Command Button (Only in Expanded) */}
+            {settings.voiceCommandsEnabled && tracking.hudState === 'expanded' && (
               <motion.button
                 initial={{ scale: 0, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
@@ -1969,13 +2025,35 @@ export const Dashboard = () => {
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0 }}
-                  className="absolute top-24 right-0 z-[80] flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full backdrop-blur-md"
+                  className={cn(
+                    "absolute z-[80] flex items-center gap-2 px-3 py-1.5 bg-emerald-500/20 border border-emerald-500/30 rounded-full backdrop-blur-md",
+                    tracking.hudState === 'minimized' ? "bottom-24 right-6" : "top-24 right-0"
+                  )}
                 >
                   <Volume2 size={14} className="text-emerald-500 animate-bounce" />
                   <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Falando...</span>
                 </motion.div>
               )}
             </AnimatePresence>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hidden State Reopen Button */}
+      <AnimatePresence>
+        {isDrivingMode && tracking.hudState === 'hidden' && (
+          <motion.div
+            initial={{ scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={{ scale: 0, opacity: 0 }}
+            className="fixed bottom-24 right-6 z-[80]"
+          >
+            <Button
+              onClick={() => updateTracking({ hudState: 'expanded' })}
+              className="w-14 h-14 rounded-full bg-emerald-500 text-zinc-950 shadow-2xl shadow-emerald-500/40 flex items-center justify-center p-0"
+            >
+              <Maximize2 size={24} />
+            </Button>
           </motion.div>
         )}
       </AnimatePresence>

@@ -38,7 +38,12 @@ export const PostTripActionSheet: React.FC = () => {
   }, [postTripActionSheet.isOpen, postTripActionSheet.autoCloseTimer, setPostTripActionSheet, updateUserLearning]);
 
   const handleAction = (type: 'gain' | 'expense') => {
-    window.dispatchEvent(new CustomEvent('open-quick-entry', { detail: { type } }));
+    window.dispatchEvent(new CustomEvent('open-quick-entry', { 
+      detail: { 
+        type,
+        suggestedValue: postTripActionSheet.suggestedValue 
+      } 
+    }));
     setPostTripActionSheet({ isOpen: false });
   };
 

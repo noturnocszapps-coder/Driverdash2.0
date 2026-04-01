@@ -205,6 +205,9 @@ export interface UserSettings {
   updated_at?: string;
 }
 
+export type HUDState = 'expanded' | 'minimized' | 'hidden';
+export type AlertSeverity = 'critical' | 'important' | 'silent';
+
 export interface TrackingPoint {
   lat: number;
   lng: number;
@@ -271,6 +274,9 @@ export interface TrackingSession {
   tripIntelligence?: TripIntelligence;
   zoneIntelligence?: ZoneIntelligence;
   hasActiveInsight?: boolean;
+  hudState: HUDState;
+  lastAlertMessage?: string;
+  lastAlerts: Record<string, number>;
 }
 
 export type TripStatus = 'good' | 'acceptable' | 'bad' | 'analyzing';
@@ -407,7 +413,11 @@ export interface FinancialEntry {
   cycle_id: string;
   user_id: string;
   platform: 'uber' | 'noventanove' | 'indriver' | 'extra';
-  value: number;
+  value: number; // Valor líquido (Net)
+  gross_value?: number;
+  tips?: number;
+  bonuses?: number;
+  platform_fee?: number;
   timestamp: string;
   origin: string;
   note?: string;
@@ -491,6 +501,8 @@ export interface DriverState {
   
   miniMapOpen: boolean;
   setMiniMapOpen: (isOpen: boolean) => void;
+  setHudState: (state: HUDState) => void;
+  triggerAlert: (type: string, severity: AlertSeverity, message: string) => void;
 
   // Voice State
   voiceState: {

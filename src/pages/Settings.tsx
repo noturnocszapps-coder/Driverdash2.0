@@ -331,34 +331,9 @@ export const Settings = () => {
         </Card>
       </section>
 
-      {/* Platforms Section */}
+      {/* Preferences Section */}
       <section className="space-y-4">
-        <SectionHeader icon={Smartphone} title="Plataformas" />
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-          <CardContent className="p-6 space-y-4">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Modo de Transporte</label>
-              <Select
-                value={settings.transportMode}
-                onChange={e => updateSettings({ transportMode: e.target.value as any })}
-                className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
-              >
-                <option value="car">Uber / 99 / inDrive Carro</option>
-                <option value="motorcycle">Uber / 99 / inDrive Moto</option>
-              </Select>
-            </div>
-            <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-              <p className="text-[10px] text-zinc-500 font-bold leading-relaxed uppercase tracking-wider">
-                O DriverDash Beta foca em Uber, 99 e inDrive para garantir a melhor experiência de fechamento financeiro.
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-      </section>
-
-      {/* Panel Preferences */}
-      <section className="space-y-4">
-        <SectionHeader icon={Layout} title="Preferências do Painel" />
+        <SectionHeader icon={Layout} title="Preferências" />
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
           <CardContent className="p-6 space-y-6">
             <div className="space-y-1.5">
@@ -387,21 +362,14 @@ export const Settings = () => {
                   Segmentado
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-500 font-medium ml-1 mt-1">
-                {settings.dashboardMode === 'merged' 
-                  ? "Soma todos os ganhos em um único gráfico." 
-                  : "Mostra ganhos separados por plataforma."}
-              </p>
             </div>
 
             <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <p className="text-sm font-bold">Tema do Aplicativo</p>
-                <p className="text-[10px] text-zinc-500 font-medium">
-                  {settings.theme === 'dark' ? 'Sempre Escuro (Otimizado)' : settings.theme === 'light' ? 'Sempre Claro' : 'Seguir Sistema'}
-                </p>
+                <p className="text-sm font-bold">Tema</p>
+                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Aparência do aplicativo</p>
               </div>
               <Select
                 value={settings.theme || 'dark'}
@@ -413,21 +381,13 @@ export const Settings = () => {
                 <option value="system">Sistema</option>
               </Select>
             </div>
-          </CardContent>
-        </Card>
-      </section>
 
-      {/* Usability Section */}
-      <section className="space-y-4">
-        <SectionHeader icon={Eye} title="Usabilidade" />
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-          <CardContent className="p-6 space-y-6">
+            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <p className="text-sm font-bold">Modo de Privacidade</p>
-                <p className="text-[10px] text-zinc-500 font-medium">
-                  Ocultar valores monetários em todo o app.
-                </p>
+                <p className="text-sm font-bold">Privacidade</p>
+                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Ocultar valores monetários</p>
               </div>
               <button
                 onClick={() => updateSettings({ isPrivacyMode: !settings.isPrivacyMode })}
@@ -447,10 +407,8 @@ export const Settings = () => {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <p className="text-sm font-bold">Manter tela ligada</p>
-                <p className="text-[10px] text-zinc-500 font-medium">
-                  Evita que a tela apague durante o uso do app.
-                </p>
+                <p className="text-sm font-bold">Tela Sempre Ativa</p>
+                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Evita bloqueio automático</p>
               </div>
               <button
                 onClick={() => updateSettings({ keepScreenOn: !settings.keepScreenOn })}
@@ -751,22 +709,31 @@ export const Settings = () => {
 
       {/* Data Section */}
       <section className="space-y-4">
-        <SectionHeader icon={Database} title="Dados" />
+        <SectionHeader icon={Database} title="Backup e Sincronização" />
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
           <CardContent className="p-6 space-y-4">
             <SettingsItem 
+              icon={RefreshCw} 
+              title="Sincronizar Agora" 
+              description="Atualizar dados com a nuvem"
+              onClick={() => syncData()}
+              color="text-emerald-500"
+              loading={syncStatus === 'syncing'}
+            />
+            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+            <SettingsItem 
               icon={Download} 
               title="Exportar Backup" 
-              description="Salvar seus dados em um arquivo JSON"
+              description="Salvar dados em arquivo JSON"
               onClick={exportBackup}
-              color="text-blue-500"
+              color="text-zinc-400"
             />
             <SettingsItem 
               icon={Upload} 
               title="Importar Backup" 
-              description="Restaurar dados de um arquivo anterior"
+              description="Restaurar de um arquivo"
               onClick={() => fileInputRef.current?.click()}
-              color="text-emerald-500"
+              color="text-zinc-400"
             />
             <input 
               type="file" 
@@ -774,22 +741,6 @@ export const Settings = () => {
               className="hidden" 
               accept=".json"
               onChange={handleImportBackup}
-            />
-            <SettingsItem 
-              icon={RefreshCw} 
-              title="Sincronizar Agora" 
-              description="Forçar atualização com a nuvem"
-              onClick={() => syncData()}
-              color="text-zinc-400"
-              loading={syncStatus === 'syncing'}
-            />
-            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
-            <SettingsItem 
-              icon={FlaskConical} 
-              title="Developer Lab" 
-              description="Área de testes e depuração avançada"
-              onClick={() => navigate('/dev-lab')}
-              color="text-emerald-500"
             />
           </CardContent>
         </Card>

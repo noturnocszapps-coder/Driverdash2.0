@@ -69,6 +69,14 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
   const profitPerKm = (rideKm > 0 && totalKm > 0) ? netAmount / rideKm : 0;
   const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
 
+  // Hourly rates
+  const startTime = new Date(cycle.start_time).getTime();
+  const endTime = cycle.end_time ? new Date(cycle.end_time).getTime() : Date.now();
+  const durationHours = (endTime - startTime) / (1000 * 60 * 60);
+  
+  const grossPerHour = durationHours > 0 ? totalAmount / durationHours : 0;
+  const netPerHour = durationHours > 0 ? netAmount / durationHours : 0;
+
   // AJUSTE 4: Dinheiro Perdido
   // Se ganho R$ X por KM produtivo, cada KM ocioso é R$ X que deixei de ganhar
   const avgRevenuePerProductiveKm = rideKm > 0 ? totalAmount / rideKm : 0;
@@ -81,7 +89,10 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
     netPerKm,
     profitPerKm,
     efficiencyPercentage,
-    lostRevenue: safeNumber(lostRevenue)
+    lostRevenue: safeNumber(lostRevenue),
+    grossPerHour,
+    netPerHour,
+    durationHours
   };
 }
 
@@ -251,15 +262,21 @@ function deg2rad(deg: number): number {
 export function getHumanLocation(lat: number, lng: number): string {
   // Fallback humanized names for coordinates
   // In a real app, this would use a geocoding service
-  const latStr = lat.toFixed(3);
-  const lngStr = lng.toFixed(3);
   
-  // Simple deterministic region naming based on coordinates
-  const regionId = Math.abs(Math.floor(lat * 100 + lng * 100)) % 5 + 1;
+  // SP Region mapping (simplified)
+  if (lat > -23.56 && lat < -23.54 && lng > -46.65 && lng < -46.62) return "Centro / Sé";
+  if (lat > -23.60 && lat < -23.56 && lng > -46.70 && lng < -46.65) return "Pinheiros / Itaim";
+  if (lat > -23.54 && lat < -23.50 && lng > -46.65 && lng < -46.60) return "Santana / Z. Norte";
+  if (lat > -23.65 && lat < -23.60 && lng > -46.70 && lng < -46.60) return "Santo Amaro / Z. Sul";
+  if (lat > -23.58 && lat < -23.52 && lng > -46.60 && lng < -46.50) return "Mooca / Tatuapé";
+  if (lat > -23.50 && lat < -23.40 && lng > -46.80 && lng < -46.70) return "Osasco / Região";
+  if (lat > -23.70 && lat < -23.60 && lng > -46.60 && lng < -46.50) return "SBC / ABC";
   
-  if (lat > -23.5 && lat < -23.4 && lng > -46.7 && lng < -46.6) return "Centro";
+  // Deterministic fallback for other areas
+  const regionId = Math.abs(Math.floor(lat * 100 + lng * 100)) % 8 + 1;
+  const sectors = ["Norte", "Sul", "Leste", "Oeste", "Centro-Expandido", "Periferia", "Industrial", "Residencial"];
   
-  return `Região ${regionId} — Área aproximada`;
+  return `Setor ${sectors[regionId - 1]} — Área ${regionId}`;
 }
 
 export function isDataMature(cycles: any[], dailyData: any[]) {
