@@ -54,6 +54,9 @@ const INITIAL_SETTINGS: UserSettings = {
   currentVehicleProfileId: undefined,
   role: UserRole.DRIVER,
   status: UserStatus.ACTIVE,
+  onboardingCompleted: false,
+  isPro: false,
+  uiMode: 'simple',
 };
 
 const INITIAL_TRACKING: TrackingSession = {
@@ -97,7 +100,9 @@ const INITIAL_DRIVER_PROFILE: DriverProfile = {
   bestRegions: [],
   worstRegions: [],
   totalRides: 0,
-  lastUpdated: new Date().toISOString()
+  lastUpdated: new Date().toISOString(),
+  score: 0,
+  badges: []
 };
 
 const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
@@ -155,11 +160,15 @@ export const useDriverStore = create<DriverState>()(
         const lastAlerts = tracking.lastAlerts || {};
         const lastAlertTime = lastAlerts[type] || 0;
         
-        // Cooldown logic
+        // General insight cooldown (min 15s between any insights)
+        const lastAnyAlertTime = Math.max(...Object.values(lastAlerts), 0);
+        if (severity !== 'critical' && now - lastAnyAlertTime < 15000) return;
+
+        // Specific type cooldown logic
         const cooldowns: Record<string, number> = {
-          critical: 30000, // 30s
-          important: 120000, // 2m
-          silent: 600000, // 10m
+          critical: 15000, // 15s for critical (reduced from 30s for responsiveness)
+          important: 60000, // 1m
+          silent: 300000, // 5m
         };
 
         // Prevent duplicate consecutive messages or cooldown violation
@@ -502,6 +511,10 @@ export const useDriverStore = create<DriverState>()(
                 noventanove_amount: cycle.noventanove_amount,
                 indriver_amount: cycle.indriver_amount,
                 extra_amount: cycle.extra_amount,
+                uber_gross: cycle.uber_gross,
+                noventanove_gross: cycle.noventanove_gross,
+                indriver_gross: cycle.indriver_gross,
+                extra_gross: cycle.extra_gross,
                 total_amount: cycle.total_amount,
                 fuel_expense: cycle.fuel_expense,
                 food_expense: cycle.food_expense,
@@ -610,8 +623,15 @@ export const useDriverStore = create<DriverState>()(
                                entry.platform === 'indriver' ? 'indriver' : 
                                entry.platform === 'extra' ? 'extra' : 'uber';
             const field = `${platformKey}_amount` as const;
+            const grossField = `${platformKey}_gross` as const;
             const currentAmount = (cycle[field] as number) || 0;
-            await updateCycle(entry.cycle_id, { [field]: currentAmount + netValue });
+            const currentGross = (cycle[grossField] as number) || 0;
+            const grossValueToAdd = entry.gross_value !== undefined ? entry.gross_value : netValue;
+            
+            await updateCycle(entry.cycle_id, { 
+              [field]: currentAmount + netValue,
+              [grossField]: currentGross + grossValueToAdd
+            });
           }
 
           if (user && isSupabaseConfigured) {
@@ -692,13 +712,21 @@ export const useDriverStore = create<DriverState>()(
               
               const oldField = `${oldPlatformKey}_amount` as const;
               const newField = `${newPlatformKey}_amount` as const;
+              const oldGrossField = `${oldPlatformKey}_gross` as const;
+              const newGrossField = `${newPlatformKey}_gross` as const;
+              
+              const oldGross = entry.gross_value !== undefined ? entry.gross_value : entry.value;
+              const newGross = updatedEntry.gross_value !== undefined ? updatedEntry.gross_value : updatedEntry.value;
               
               const updates: any = {};
               if (oldField === newField) {
                 updates[oldField] = (cycle[oldField] as number || 0) - entry.value + newNetValue;
+                updates[oldGrossField] = (cycle[oldGrossField] as number || 0) - oldGross + newGross;
               } else {
                 updates[oldField] = (cycle[oldField] as number || 0) - entry.value;
                 updates[newField] = (cycle[newField] as number || 0) + newNetValue;
+                updates[oldGrossField] = (cycle[oldGrossField] as number || 0) - oldGross;
+                updates[newGrossField] = (cycle[newGrossField] as number || 0) + newGross;
               }
               
               await updateCycle(entry.cycle_id, updates);
@@ -742,9 +770,19 @@ export const useDriverStore = create<DriverState>()(
           // Update cycle totals
           const cycle = cycles.find(c => c.id === entry.cycle_id);
           if (cycle) {
-            const field = `${entry.platform}_amount` as const;
+            const platformKey = entry.platform === 'noventanove' ? 'noventanove' : 
+                               entry.platform === 'indriver' ? 'indriver' : 
+                               entry.platform === 'extra' ? 'extra' : 'uber';
+            const field = `${platformKey}_amount` as const;
+            const grossField = `${platformKey}_gross` as const;
             const currentAmount = (cycle[field] as number) || 0;
-            await updateCycle(entry.cycle_id, { [field]: currentAmount - entry.value });
+            const currentGross = (cycle[grossField] as number) || 0;
+            const grossToRemove = entry.gross_value !== undefined ? entry.gross_value : entry.value;
+            
+            await updateCycle(entry.cycle_id, { 
+              [field]: currentAmount - entry.value,
+              [grossField]: currentGross - grossToRemove
+            });
           }
 
           if (user && isSupabaseConfigured) {
@@ -1757,7 +1795,7 @@ export const useDriverStore = create<DriverState>()(
                   newConsecutiveStoppedPoints++;
                   if (!newLastStopTimestamp) {
                     newLastStopTimestamp = timestamp;
-                    set({ tracking: { ...get().tracking, lastStopLocation: { lat: latitude, lng: longitude } } });
+                    // Consolidate lastStopLocation into the final set instead of intermediate set
                   }
                 }
 
@@ -1893,6 +1931,10 @@ export const useDriverStore = create<DriverState>()(
             
             newPoint.isProductive = newIsProductive;
 
+            const newLastStopLocation = newLastStopTimestamp && !currentTracking.lastStopTimestamp 
+              ? { lat: latitude, lng: longitude } 
+              : currentTracking.lastStopLocation;
+
             // 5. ATUALIZAÇÃO DO ESTADO GLOBAL (ÚNICA)
             set({
               tracking: {
@@ -1912,6 +1954,7 @@ export const useDriverStore = create<DriverState>()(
                 isManualOverride: newIsManualOverride,
                 isWarmingUp: newIsWarmingUp,
                 lastStopTimestamp: newLastStopTimestamp,
+                lastStopLocation: newLastStopLocation,
                 mode: newMode,
                 tripDetectionState: newTripDetectionState,
                 stopReason: newStopReason,
@@ -2652,6 +2695,20 @@ export const useDriverStore = create<DriverState>()(
           .sort((a, b) => a.avg - b.avg)
           .map(r => r.region);
 
+        // Calculate Score (0-100)
+        // Factors: Efficiency (R$/KM), Consistency (Rides), Hourly Profit
+        const scorePerHour = Math.min(avgProfitPerHour / 60, 1) * 40; // Max 40 points for R$60/h
+        const scorePerKm = Math.min(avgProfitPerKm / 3, 1) * 40; // Max 40 points for R$3/km
+        const scoreConsistency = Math.min(totalRides / 50, 1) * 20; // Max 20 points for 50+ rides
+        const finalScore = Math.round(scorePerHour + scorePerKm + scoreConsistency);
+
+        // Determine Badges
+        const badges: string[] = [];
+        if (avgProfitPerHour > 50) badges.push('Elite Hourly');
+        if (avgProfitPerKm > 2.5) badges.push('High Efficiency');
+        if (totalRides > 100) badges.push('Veteran');
+        if (finalScore > 90) badges.push('Master Driver');
+
         set({
           driverProfile: {
             avgProfitPerHour,
@@ -2661,7 +2718,9 @@ export const useDriverStore = create<DriverState>()(
             bestRegions,
             worstRegions,
             totalRides,
-            lastUpdated: new Date().toISOString()
+            lastUpdated: new Date().toISOString(),
+            score: finalScore,
+            badges
           }
         });
       }

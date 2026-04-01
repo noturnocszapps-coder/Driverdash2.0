@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Minus, Map as MapIcon, CheckCircle2, X } from 'lucide-react';
+import { Plus, Minus, Map as MapIcon, CheckCircle2, X, LayoutGrid } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { cn } from '../utils';
 
@@ -13,6 +14,7 @@ interface QuickAction {
 }
 
 export const QuickActionsMenu: React.FC = () => {
+  const navigate = useNavigate();
   const { isQuickActionsOpen, setQuickActionsOpen, tracking } = useDriverStore();
 
   const actions: QuickAction[] = [
@@ -22,7 +24,6 @@ export const QuickActionsMenu: React.FC = () => {
       icon: Plus,
       color: 'bg-emerald-500',
       action: () => {
-        // This will be handled by the Dashboard to open the gain modal
         window.dispatchEvent(new CustomEvent('open-quick-entry', { detail: { type: 'gain' } }));
         setQuickActionsOpen(false);
       }
@@ -38,29 +39,32 @@ export const QuickActionsMenu: React.FC = () => {
       }
     },
     {
-      id: 'map',
-      label: 'Mapa',
-      icon: MapIcon,
-      color: 'bg-blue-500',
+      id: 'reports',
+      label: 'Relatórios',
+      icon: LayoutGrid,
+      color: 'bg-zinc-700',
       action: () => {
-        // Open maps with current location or best zone
-        const bestZone = tracking.zoneIntelligence?.bestZone;
-        if (bestZone) {
-          window.open(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(bestZone.label)}`, '_blank');
-        } else {
-          window.open('https://www.google.com/maps', '_blank');
-        }
+        navigate('/faturamento');
         setQuickActionsOpen(false);
       }
     },
     {
       id: 'status',
-      label: 'Status',
+      label: 'Produtividade',
       icon: CheckCircle2,
-      color: 'bg-amber-500',
+      color: tracking.isProductive ? 'bg-emerald-500' : 'bg-zinc-500',
       action: () => {
-        // Toggle productivity or mark status
         useDriverStore.getState().updateTracking({ isProductive: !tracking.isProductive });
+        setQuickActionsOpen(false);
+      }
+    },
+    {
+      id: 'map',
+      label: 'Mapa',
+      icon: MapIcon,
+      color: 'bg-blue-500',
+      action: () => {
+        navigate('/cycle-map/active');
         setQuickActionsOpen(false);
       }
     }

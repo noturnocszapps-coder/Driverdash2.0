@@ -336,32 +336,19 @@ export const Settings = () => {
         <SectionHeader icon={Layout} title="Preferências" />
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
           <CardContent className="p-6 space-y-6">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Modo do Dashboard</label>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
-                <button
-                  onClick={() => updateSettings({ dashboardMode: 'merged' })}
-                  className={cn(
-                    "py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                    settings.dashboardMode === 'merged' 
-                      ? "bg-white dark:bg-zinc-700 text-emerald-500 shadow-sm" 
-                      : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                  )}
-                >
-                  Unificado
-                </button>
-                <button
-                  onClick={() => updateSettings({ dashboardMode: 'segmented' })}
-                  className={cn(
-                    "py-3 px-4 rounded-xl text-xs font-black uppercase tracking-widest transition-all",
-                    settings.dashboardMode === 'segmented' 
-                      ? "bg-white dark:bg-zinc-700 text-emerald-500 shadow-sm" 
-                      : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-200"
-                  )}
-                >
-                  Segmentado
-                </button>
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold">Modo de Interface</p>
+                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Simples ou Profissional</p>
               </div>
+              <Select
+                value={settings.uiMode || 'simple'}
+                onChange={e => updateSettings({ uiMode: e.target.value as any })}
+                className="w-32 h-10 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-xl font-bold text-xs"
+              >
+                <option value="simple">Simples</option>
+                <option value="pro">Pro</option>
+              </Select>
             </div>
 
             <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
@@ -380,6 +367,27 @@ export const Settings = () => {
                 <option value="light">Claro</option>
                 <option value="system">Sistema</option>
               </Select>
+            </div>
+
+            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+
+            <div className="flex items-center justify-between">
+              <div className="space-y-0.5">
+                <p className="text-sm font-bold text-orange-500">DriverDash PRO</p>
+                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Acesso a recursos avançados</p>
+              </div>
+              <button
+                onClick={() => updateSettings({ isPro: !settings.isPro })}
+                className={cn(
+                  "w-12 h-6 rounded-full transition-colors relative",
+                  settings.isPro ? "bg-orange-500" : "bg-zinc-200 dark:bg-zinc-800"
+                )}
+              >
+                <div className={cn(
+                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm",
+                  settings.isPro ? "left-7" : "left-1"
+                )} />
+              </button>
             </div>
 
             <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
@@ -706,46 +714,6 @@ export const Settings = () => {
           </CardContent>
         </Card>
       </section>
-
-      {/* Data Section */}
-      <section className="space-y-4">
-        <SectionHeader icon={Database} title="Backup e Sincronização" />
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-          <CardContent className="p-6 space-y-4">
-            <SettingsItem 
-              icon={RefreshCw} 
-              title="Sincronizar Agora" 
-              description="Atualizar dados com a nuvem"
-              onClick={() => syncData()}
-              color="text-emerald-500"
-              loading={syncStatus === 'syncing'}
-            />
-            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
-            <SettingsItem 
-              icon={Download} 
-              title="Exportar Backup" 
-              description="Salvar dados em arquivo JSON"
-              onClick={exportBackup}
-              color="text-zinc-400"
-            />
-            <SettingsItem 
-              icon={Upload} 
-              title="Importar Backup" 
-              description="Restaurar de um arquivo"
-              onClick={() => fileInputRef.current?.click()}
-              color="text-zinc-400"
-            />
-            <input 
-              type="file" 
-              ref={fileInputRef} 
-              className="hidden" 
-              accept=".json"
-              onChange={handleImportBackup}
-            />
-          </CardContent>
-        </Card>
-      </section>
-
 
       {/* Danger Zone */}
       <section className="space-y-4">

@@ -1,9 +1,43 @@
 import { clsx, type ClassValue } from 'clsx';
 import { twMerge } from 'tailwind-merge';
-import { isSameDay, parseISO } from 'date-fns';
+import { isSameDay, parseISO, format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
+import { DriverPerformanceRecord } from './types';
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
+}
+
+/**
+ * Calcula uma meta diária adaptativa baseada no histórico
+ */
+export function calculateAdaptiveGoal(
+  performanceRecords: DriverPerformanceRecord[],
+  baseGoal: number
+): { goal: number; reason: string } {
+  if (!performanceRecords || performanceRecords.length < 5) {
+    return { goal: baseGoal, reason: 'Baseado na sua meta manual' };
+  }
+
+  const now = new Date();
+  const dayOfWeek = now.getDay();
+
+  // Filtrar registros do mesmo dia da semana
+  const sameDayRecords = performanceRecords.filter(r => r.dayOfWeek === dayOfWeek);
+  
+  if (sameDayRecords.length > 0) {
+    const avgEarnings = sameDayRecords.reduce((acc, r) => acc + (r.earnings || 0), 0) / sameDayRecords.length;
+    
+    // Se o motorista costuma ganhar mais nesse dia, sugerir meta maior
+    if (avgEarnings > baseGoal * 1.1) {
+      return { 
+        goal: Math.round(avgEarnings), 
+        reason: `Histórico forte para ${format(now, 'EEEE', { locale: ptBR })}` 
+      };
+    }
+  }
+
+  return { goal: baseGoal, reason: 'Meta padrão mantida' };
 }
 
 export function safeNumber(value: any, fallback = 0): number {
@@ -53,8 +87,51 @@ export function calculateOperationalCost(cycle: any, settings: any) {
   return dailyFixed + cycleExpenses;
 }
 
+export function estimatePlatformFees(netValue: number, platform: AppType): { gross: number; fee: number } {
+  // Médias de mercado: Uber ~25%, 99 ~20%
+  let feePercentage = 0.20; // Default (99/inDrive)
+  
+  if (platform === 'Uber') {
+    feePercentage = 0.25;
+  } else if (platform === '99') {
+    feePercentage = 0.20;
+  } else if (platform === 'inDrive') {
+    feePercentage = 0.10; // inDrive costuma ser menor
+  } else if (platform === 'Particular') {
+    feePercentage = 0;
+  }
+
+  const gross = netValue / (1 - feePercentage);
+  const fee = gross - netValue;
+
+  return { gross, fee };
+}
+
 export function calculateEfficiencyMetrics(cycle: any, settings: any) {
-  const totalAmount = safeNumber(cycle.total_amount);
+  const netAmount = safeNumber(cycle.total_amount);
+  
+  // Gross calculation: use explicit gross if available, otherwise estimate
+  let grossAmount = 0;
+  if (cycle.uber_gross || cycle.noventanove_gross || cycle.indriver_gross || cycle.extra_gross) {
+    grossAmount = safeNumber(cycle.uber_gross) + 
+                  safeNumber(cycle.noventanove_gross) + 
+                  safeNumber(cycle.indriver_gross) + 
+                  safeNumber(cycle.extra_gross);
+  } else {
+    // Estimate gross based on individual platform amounts
+    const uberNet = safeNumber(cycle.uber_amount);
+    const n99Net = safeNumber(cycle.noventanove_amount);
+    const inDriveNet = safeNumber(cycle.indriver_amount);
+    const extraNet = safeNumber(cycle.extra_amount);
+
+    grossAmount = estimatePlatformFees(uberNet, 'Uber').gross +
+                  estimatePlatformFees(n99Net, '99').gross +
+                  estimatePlatformFees(inDriveNet, 'inDrive').gross +
+                  extraNet; // Extra usually doesn't have fees
+  }
+
+  const platformFees = grossAmount - netAmount;
+  
   // Use consolidated KM fields as single source of truth
   const rideKm = safeNumber(cycle.ride_km);
   const idleKm = safeNumber(cycle.displacement_km);
@@ -62,11 +139,12 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
   
   const totalCost = calculateOperationalCost(cycle, settings);
   
-  const grossPerKm = totalKm > 0 ? totalAmount / totalKm : 0;
-  const netAmount = totalAmount - totalCost;
-  const netPerKm = totalKm > 0 ? netAmount / totalKm : 0;
+  const grossPerKm = totalKm > 0 ? grossAmount / totalKm : 0;
+  const netProfit = netAmount - totalCost;
+  const netPerKm = totalKm > 0 ? netProfit / totalKm : 0;
+  
   // Real profit per km should be based on productive (ride) km, only if total km is non-zero
-  const profitPerKm = (rideKm > 0 && totalKm > 0) ? netAmount / rideKm : 0;
+  const profitPerKm = (rideKm > 0 && totalKm > 0) ? netProfit / rideKm : 0;
   const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
 
   // Hourly rates
@@ -74,18 +152,21 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
   const endTime = cycle.end_time ? new Date(cycle.end_time).getTime() : Date.now();
   const durationHours = (endTime - startTime) / (1000 * 60 * 60);
   
-  const grossPerHour = durationHours > 0 ? totalAmount / durationHours : 0;
-  const netPerHour = durationHours > 0 ? netAmount / durationHours : 0;
+  const grossPerHour = durationHours > 0 ? grossAmount / durationHours : 0;
+  const netPerHour = durationHours > 0 ? netProfit / durationHours : 0;
 
   // AJUSTE 4: Dinheiro Perdido
   // Se ganho R$ X por KM produtivo, cada KM ocioso é R$ X que deixei de ganhar
-  const avgRevenuePerProductiveKm = rideKm > 0 ? totalAmount / rideKm : 0;
+  const avgRevenuePerProductiveKm = rideKm > 0 ? netAmount / rideKm : 0;
   const lostRevenue = idleKm * avgRevenuePerProductiveKm;
 
   return {
     totalCost,
+    grossAmount,
+    platformFees,
+    netAmount, // Driver received from platforms
+    netProfit, // Final profit after costs
     grossPerKm,
-    netAmount,
     netPerKm,
     profitPerKm,
     efficiencyPercentage,

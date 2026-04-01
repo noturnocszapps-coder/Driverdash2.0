@@ -42,6 +42,10 @@ export interface Cycle {
   noventanove_amount: number;
   indriver_amount: number;
   extra_amount: number;
+  uber_gross?: number;
+  noventanove_gross?: number;
+  indriver_gross?: number;
+  extra_gross?: number;
   total_amount: number;
   fuel_expense?: number;
   food_expense?: number;
@@ -203,6 +207,9 @@ export interface UserSettings {
   role?: UserRole;
   status?: UserStatus;
   updated_at?: string;
+  onboardingCompleted?: boolean;
+  isPro?: boolean;
+  uiMode?: 'simple' | 'pro';
 }
 
 export type HUDState = 'expanded' | 'minimized' | 'hidden';
@@ -450,6 +457,8 @@ export interface DriverProfile {
   worstRegions: string[];
   totalRides: number;
   lastUpdated: string;
+  score: number;
+  badges: string[];
 }
 
 export interface PerformanceInsight {

@@ -12,6 +12,7 @@ import {
   calculateDriverScore,
   consolidateDailyData,
   safeNumber,
+  calculateAdaptiveGoal,
 } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
@@ -30,6 +31,7 @@ import {
   Gauge,
   Map as MapIcon,
   Award,
+  Trophy,
   Info,
   Eye,
   EyeOff,
@@ -127,7 +129,8 @@ export const Dashboard = () => {
     userLearning,
     updateUserLearning,
     postTripActionSheet,
-    voiceState
+    voiceState,
+    performanceRecords = []
   } = useDriverStore();
 
   const { zoneIntelligence, tripIntelligence } = tracking;
@@ -229,6 +232,12 @@ export const Dashboard = () => {
   }, [last7DaysData, today, cycles, importedReports, settings, tracking, filter]);
 
   const [isProcessing, setIsProcessing] = useState(false);
+
+  const adaptiveGoal = useMemo(() => {
+    return calculateAdaptiveGoal(performanceRecords, settings.dailyGoal || 250);
+  }, [performanceRecords, settings.dailyGoal]);
+
+  const goalProgress = Math.min((todayData.totalRevenue / adaptiveGoal.goal) * 100, 100);
 
   const handleToggleTracking = async () => {
     if (isProcessing) return;
@@ -575,7 +584,10 @@ export const Dashboard = () => {
           : 'rgba(245, 158, 11, 0.2)';
   }, [isDrivingMode, tracking, zoneIntelligence?.status]);
 
-  const aiInsight = useMemo(() => {
+  const [currentInsight, setCurrentInsight] = useState<string>('');
+  const [lastInsightUpdate, setLastInsightUpdate] = useState<number>(0);
+
+  const rawAiInsight = useMemo(() => {
     if (!isDrivingMode || !('stopReason' in tracking)) return '';
     
     // If in silent mode, only show critical insights
@@ -624,6 +636,22 @@ export const Dashboard = () => {
     // Fallback
     return 'MONITORANDO PERFORMANCE';
   }, [isDrivingMode, zoneIntelligence, tracking, driverProfile, userLearning.isSilentMode]);
+
+  // Implement 15s limit for insights, except for critical ones
+  useEffect(() => {
+    const now = Date.now();
+    const isCritical = rawAiInsight.includes('MOVA') || rawAiInsight.includes('ZONA RUIM') || rawAiInsight.includes('SAIA');
+    const timeSinceLastUpdate = now - lastInsightUpdate;
+
+    if (rawAiInsight !== currentInsight) {
+      if (isCritical || timeSinceLastUpdate >= 15000 || !currentInsight) {
+        setCurrentInsight(rawAiInsight);
+        setLastInsightUpdate(now);
+      }
+    }
+  }, [rawAiInsight, currentInsight, lastInsightUpdate]);
+
+  const aiInsight = currentInsight;
 
   // Update hasActiveInsight in store for FAB positioning
   useEffect(() => {
@@ -710,7 +738,7 @@ export const Dashboard = () => {
         animate={{ opacity: 1, y: 0 }}
         className={cn(
           "space-y-4 pb-24 md:pb-8 transition-all duration-1000 ease-in-out",
-          isDrivingMode ? "blur-2xl scale-[0.96] opacity-30 grayscale-[0.5] pointer-events-none" : ""
+          isDrivingMode && tracking.hudState === 'expanded' ? "blur-2xl scale-[0.96] opacity-30 grayscale-[0.5] pointer-events-none" : ""
         )}
       >
         <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
@@ -961,15 +989,9 @@ export const Dashboard = () => {
           <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Visão Geral</p>
           <div className="flex items-center gap-3 flex-wrap">
             <h1 className="text-3xl font-black tracking-tighter">Olá, {firstName}</h1>
-            {driverScore && (
-              <div
-                className={cn(
-                  'px-2 py-0.5 rounded-full border text-[9px] font-black uppercase tracking-wider flex items-center gap-1',
-                  driverScore?.color || 'border-zinc-700 text-zinc-400'
-                )}
-              >
-                <Award size={10} />
-                {driverScore?.label || 'Sem score'}
+            {settings.isPro && (
+              <div className="px-2 py-0.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[8px] font-black uppercase rounded-md tracking-[0.2em] shadow-lg shadow-orange-500/20">
+                PRO
               </div>
             )}
           </div>
@@ -1020,55 +1042,79 @@ export const Dashboard = () => {
         </div>
       </div>
 
+      {/* Intelligent Goal Card */}
       <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
-        <CardContent className="p-4">
+        <CardContent className="p-5">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/10 flex items-center justify-center">
-                <Award size={16} className="text-emerald-500" />
+              <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center">
+                <Target size={16} className="text-orange-500" />
               </div>
-              <h3 className="text-xs font-black uppercase tracking-widest">Driver Score</h3>
+              <h3 className="text-xs font-black uppercase tracking-widest">Meta Adaptativa</h3>
             </div>
-
-            <div
-              className={cn(
-                'px-2.5 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border transition-colors duration-300',
-                driverScore?.color || 'border-zinc-700 text-zinc-400'
-              )}
-            >
-              {driverScore?.label || 'Sem Score'}
-            </div>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider">
+              {adaptiveGoal.reason}
+            </span>
           </div>
 
-          <div className="flex items-end gap-4">
-            <div className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-white">
-              {driverScore?.label === 'Em formação' ? '--' : safeNumber(driverScore?.score)}
-            </div>
-            <div className="pb-1 space-y-1">
-              <div className="flex gap-1">
-                {[...Array(5)].map((_, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      'w-4 h-1.5 rounded-full transition-all duration-500',
-                      driverScore?.label === 'Em formação'
-                        ? 'bg-zinc-100 dark:bg-zinc-800'
-                        : i < Math.round(safeNumber(driverScore?.score) / 20)
-                          ? 'bg-emerald-500'
-                          : 'bg-zinc-200 dark:bg-zinc-800'
-                    )}
-                  />
-                ))}
+          <div className="space-y-4">
+            <div className="flex items-end justify-between">
+              <div>
+                <p className="text-3xl font-black tracking-tighter">
+                  {formatCurrency(todayData.totalRevenue)}
+                </p>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                  de {formatCurrency(adaptiveGoal.goal)}
+                </p>
               </div>
-              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">Pontuação de Eficiência</p>
+              <div className="text-right">
+                <p className="text-2xl font-black text-orange-500 tracking-tighter">
+                  {Math.round(goalProgress)}%
+                </p>
+                <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Concluído</p>
+              </div>
+            </div>
+
+            <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden border border-zinc-200 dark:border-zinc-800">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${goalProgress}%` }}
+                className={cn(
+                  "h-full transition-all duration-1000",
+                  goalProgress >= 100 ? "bg-green-500" : "bg-orange-500"
+                )}
+              />
+            </div>
+
+            {goalProgress >= 100 && (
+              <div className="flex items-center gap-2 text-[10px] font-bold text-green-500 uppercase tracking-widest bg-green-500/10 p-2 rounded-lg border border-green-500/20">
+                <Trophy size={12} />
+                Meta batida! Você está acima da média hoje.
+              </div>
+            )}
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Analytics Pro Teaser Card */}
+      <Card 
+        onClick={() => navigate('/analytics-pro')}
+        className="border-none bg-zinc-900 text-white shadow-xl overflow-hidden cursor-pointer active:scale-[0.98] transition-all relative group"
+      >
+        <div className="absolute inset-0 bg-gradient-to-r from-orange-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+        <CardContent className="p-5 flex items-center justify-between relative z-10">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 rounded-2xl bg-orange-500 flex items-center justify-center shadow-lg shadow-orange-500/20">
+              <Zap size={24} className="text-white" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black uppercase tracking-widest">Analytics Pro</h3>
+              <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mt-0.5">
+                Score: {driverProfile.score} • {driverProfile.badges.length} Badges
+              </p>
             </div>
           </div>
-
-          <p className="mt-4 text-sm font-medium text-zinc-600 dark:text-zinc-400 leading-relaxed">
-            {driverScore?.label === 'Em formação' 
-              ? 'Dirija pelo menos 10km para começar a calcular seu score de performance.'
-              : safeString(driverScore?.explanation, 'Continue usando o app para receber mais insights de performance.')}
-          </p>
+          <ChevronRight size={20} className="text-zinc-600 group-hover:text-orange-500 transition-colors" />
         </CardContent>
       </Card>
 
@@ -1211,32 +1257,11 @@ export const Dashboard = () => {
 
               <div className="flex items-center gap-2">
                 {tracking?.isActive && (
-                  <Button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      tracking.isPaused ? resumeTracking() : pauseTracking();
-                    }}
-                    variant="ghost"
-                    className="h-10 w-10 rounded-xl bg-zinc-50 dark:bg-zinc-800/50 p-0 text-zinc-500"
-                  >
-                    {tracking.isPaused ? <Play size={16} fill="currentColor" /> : <Pause size={16} fill="currentColor" />}
-                  </Button>
+                  <div className="flex items-center gap-2 px-3 py-1.5 bg-emerald-500/10 border border-emerald-500/20 rounded-full">
+                    <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <span className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Gravando</span>
+                  </div>
                 )}
-                
-                <Button
-                  onClick={handleToggleTracking}
-                  disabled={isProcessing}
-                  className={cn(
-                    "h-10 px-5 text-[11px] font-black uppercase tracking-widest rounded-xl transition-all duration-300",
-                    tracking?.isActive
-                      ? "bg-red-500/10 text-red-500 hover:bg-red-500/20"
-                      : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400"
-                  )}
-                >
-                  {isProcessing ? (
-                    <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  ) : tracking?.isActive ? "Parar" : "Iniciar"}
-                </Button>
               </div>
             </div>
 
@@ -1290,14 +1315,9 @@ export const Dashboard = () => {
                   </div>
                 </div>
 
-                <Button
-                  onClick={() => navigate('/cycle-map/active')}
-                  className="w-full h-12 mt-6 bg-zinc-100 dark:bg-zinc-800 hover:bg-zinc-200 dark:hover:bg-zinc-700 text-zinc-900 dark:text-white font-black text-xs uppercase tracking-widest rounded-2xl gap-2 border border-zinc-200 dark:border-zinc-700"
-                >
-                  <MapIcon size={16} />
-                  Visualizar mapa do trajeto
-                </Button>
-              </>
+              <div className="flex flex-col gap-3 mt-8">
+                {/* Ações principais movidas para o QuickActionsMenu para limpar a interface */}
+              </div>
             )}
 
             {!tracking?.isActive && safeNumber(tracking?.distance) > 0 && (
@@ -1314,7 +1334,7 @@ export const Dashboard = () => {
         </Card>
       )}
 
-      {(stats.alerts.length > 0 || stats.total7Days > 0) && (
+      {openCycle && settings.uiMode === 'pro' && (stats.alerts.length > 0 || stats.total7Days > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {stats.alerts.length > 0 && (
             <div className="space-y-3">
@@ -1514,35 +1534,41 @@ export const Dashboard = () => {
                   )}
                 </div>
               ) : (
-                <>
-                  <Button
-                    onClick={() => setIsQuickEntryOpen(true)}
-                    className="h-16 bg-emerald-500 text-zinc-950 hover:bg-emerald-400 font-black rounded-2xl gap-2 text-base shadow-lg shadow-emerald-500/20 border-none"
-                  >
-                    <Plus size={20} />
-                    Lançar Valor
-                  </Button>
-
-                  <Button
-                    onClick={() => navigate('/faturamento')}
-                    variant="outline"
-                    className="h-16 bg-zinc-800/50 hover:bg-zinc-800 text-white font-black rounded-2xl gap-2 text-sm border border-white/10"
-                  >
-                    <LayoutGrid size={18} />
-                    Fechamento
-                  </Button>
-                </>
+                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                  <p className="text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                    Ciclo em andamento • Use o botão flutuante para ações
+                  </p>
+                </div>
               )}
             </div>
           </div>
         </CardContent>
 
         {openCycle && (
-          <div className="bg-white/[0.02] border-t border-white/5 px-8 py-5 grid grid-cols-4 gap-4">
-            <PlatformMiniStat label="Uber" value={safeNumber(openCycle?.uber_amount)} color="bg-white" isPrivacyMode={settings.isPrivacyMode} />
-            <PlatformMiniStat label="99" value={safeNumber(openCycle?.noventanove_amount)} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
-            <PlatformMiniStat label="inDrive" value={safeNumber(openCycle?.indriver_amount)} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
-            <PlatformMiniStat label="Outros" value={safeNumber(openCycle?.extra_amount)} color="bg-blue-500" isPrivacyMode={settings.isPrivacyMode} />
+          <div className="bg-white/[0.02] border-t border-white/5 px-8 py-5 flex flex-col gap-6">
+            <div className="grid grid-cols-4 gap-4">
+              <PlatformMiniStat label="Uber" value={safeNumber(openCycle?.uber_amount)} gross={openCycle?.uber_gross} color="bg-white" isPrivacyMode={settings.isPrivacyMode} />
+              <PlatformMiniStat label="99" value={safeNumber(openCycle?.noventanove_amount)} gross={openCycle?.noventanove_gross} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
+              <PlatformMiniStat label="inDrive" value={safeNumber(openCycle?.indriver_amount)} gross={openCycle?.indriver_gross} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
+              <PlatformMiniStat label="Outros" value={safeNumber(openCycle?.extra_amount)} gross={openCycle?.extra_gross} color="bg-blue-500" isPrivacyMode={settings.isPrivacyMode} />
+            </div>
+
+            {settings.uiMode === 'pro' && (
+              <div className="pt-4 border-t border-white/5 grid grid-cols-3 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Faturamento Bruto</p>
+                  <p className="text-xs font-black text-zinc-400">{formatCurrency(efficiencyStats?.grossAmount || 0, settings.isPrivacyMode)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Taxas Plataformas</p>
+                  <p className="text-xs font-black text-red-400/80">-{formatCurrency(efficiencyStats?.platformFees || 0, settings.isPrivacyMode)}</p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Lucro Líquido Real</p>
+                  <p className="text-xs font-black text-emerald-400">{formatCurrency(efficiencyStats?.netProfit || 0, settings.isPrivacyMode)}</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </Card>
@@ -1574,7 +1600,7 @@ export const Dashboard = () => {
         </Card>
       </div>
 
-      {openCycle && (
+      {openCycle && settings.uiMode === 'pro' && (
         <div className="grid grid-cols-1 gap-4">
           {/* Driver Pattern Section */}
       {driverProfile.totalRides > 0 && (
@@ -1718,91 +1744,93 @@ export const Dashboard = () => {
         </div>
       )}
 
-      <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-visible">
-        <CardContent className="p-4">
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
-              <TrendingUp size={16} className="text-emerald-500" />
-              Desempenho Semanal
-            </h3>
-            <button
-              onClick={() => navigate('/reports')}
-              className="w-8 h-8 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-emerald-500 transition-colors"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
+      {settings.uiMode === 'pro' && (
+        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900 overflow-visible">
+          <CardContent className="p-4">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="font-black text-sm uppercase tracking-widest flex items-center gap-2">
+                <TrendingUp size={16} className="text-emerald-500" />
+                Desempenho Semanal
+              </h3>
+              <button
+                onClick={() => navigate('/reports')}
+                className="w-8 h-8 rounded-full bg-zinc-50 dark:bg-zinc-800 flex items-center justify-center text-zinc-400 hover:text-emerald-500 transition-colors"
+              >
+                <ChevronRight size={18} />
+              </button>
+            </div>
 
-          <div className="h-40 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={stats?.chartData || []} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
-                {dashboardMode === 'segmented' ? (
-                  <>
-                    <Bar dataKey="uber" stackId="a" fill="#ffffff" radius={[0, 0, 0, 0]} barSize={24} />
-                    <Bar dataKey="noventanove" stackId="a" fill="#eab308" radius={[0, 0, 0, 0]} barSize={24} />
-                    <Bar dataKey="indriver" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={24} />
-                    <Bar dataKey="extra" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={24} />
-                  </>
-                ) : (
-                  <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={24}>
-                    {(stats?.chartData || []).map((entry: any, index: number) => (
-                      <Cell
-                        key={`cell-${index}`}
-                        className={cn(
-                          isSameDay(entry?.date || new Date(), new Date())
-                            ? 'fill-emerald-500'
-                            : 'fill-zinc-100 dark:fill-zinc-800'
-                        )}
-                      />
-                    ))}
-                  </Bar>
-                )}
-
-                <XAxis
-                  dataKey="name"
-                  axisLine={false}
-                  tickLine={false}
-                  tick={{ fontSize: 10, fontWeight: 700, fill: '#a1a1aa' }}
-                  dy={10}
-                />
-
-                <Tooltip
-                  cursor={{ fill: 'transparent' }}
-                  content={({ active, payload }) => {
-                    if (active && payload && payload.length) {
-                      const total = payload.reduce((acc, p) => acc + safeNumber(p?.value), 0);
-
-                      return (
-                        <div className="bg-zinc-900 text-white px-3 py-2 rounded-xl text-[10px] font-black shadow-2xl border border-white/5 space-y-1">
-                          {dashboardMode === 'segmented' ? (
-                            <>
-                              {payload.map((p, i) =>
-                                safeNumber(p?.value) > 0 ? (
-                                  <div key={`${p?.name}-${p?.value}-${i}`} className="flex justify-between gap-4">
-                                    <span className="text-zinc-400">{p?.name}:</span>
-                                    <span>{formatCurrency(safeNumber(p?.value), settings.isPrivacyMode)}</span>
-                                  </div>
-                                ) : null
-                              )}
-                              <div className="pt-1 border-t border-white/10 flex justify-between gap-4">
-                                <span className="text-emerald-400">Total:</span>
-                                <span className="text-emerald-400">{formatCurrency(total, settings.isPrivacyMode)}</span>
-                              </div>
-                            </>
-                          ) : (
-                            <span>{formatCurrency(total, settings.isPrivacyMode)}</span>
+            <div className="h-40 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={stats?.chartData || []} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+                  {dashboardMode === 'segmented' ? (
+                    <>
+                      <Bar dataKey="uber" stackId="a" fill="#ffffff" radius={[0, 0, 0, 0]} barSize={24} />
+                      <Bar dataKey="noventanove" stackId="a" fill="#eab308" radius={[0, 0, 0, 0]} barSize={24} />
+                      <Bar dataKey="indriver" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={24} />
+                      <Bar dataKey="extra" stackId="a" fill="#3b82f6" radius={[4, 4, 0, 0]} barSize={24} />
+                    </>
+                  ) : (
+                    <Bar dataKey="value" radius={[4, 4, 0, 0]} barSize={24}>
+                      {(stats?.chartData || []).map((entry: any, index: number) => (
+                        <Cell
+                          key={`cell-${index}`}
+                          className={cn(
+                            isSameDay(entry?.date || new Date(), new Date())
+                              ? 'fill-emerald-500'
+                              : 'fill-zinc-100 dark:fill-zinc-800'
                           )}
-                        </div>
-                      );
-                    }
-                    return null;
-                  }}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        </CardContent>
-      </Card>
+                        />
+                      ))}
+                    </Bar>
+                  )}
+
+                  <XAxis
+                    dataKey="name"
+                    axisLine={false}
+                    tickLine={false}
+                    tick={{ fontSize: 10, fontWeight: 700, fill: '#a1a1aa' }}
+                    dy={10}
+                  />
+
+                  <Tooltip
+                    cursor={{ fill: 'transparent' }}
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const total = payload.reduce((acc, p) => acc + safeNumber(p?.value), 0);
+
+                        return (
+                          <div className="bg-zinc-900 text-white px-3 py-2 rounded-xl text-[10px] font-black shadow-2xl border border-white/5 space-y-1">
+                            {dashboardMode === 'segmented' ? (
+                              <>
+                                {payload.map((p, i) =>
+                                  safeNumber(p?.value) > 0 ? (
+                                    <div key={`${p?.name}-${p?.value}-${i}`} className="flex justify-between gap-4">
+                                      <span className="text-zinc-400">{p?.name}:</span>
+                                      <span>{formatCurrency(safeNumber(p?.value), settings.isPrivacyMode)}</span>
+                                    </div>
+                                  ) : null
+                                )}
+                                <div className="pt-1 border-t border-white/10 flex justify-between gap-4">
+                                  <span className="text-emerald-400">Total:</span>
+                                  <span className="text-emerald-400">{formatCurrency(total, settings.isPrivacyMode)}</span>
+                                </div>
+                              </>
+                            ) : (
+                              <span>{formatCurrency(total, settings.isPrivacyMode)}</span>
+                            )}
+                          </div>
+                        );
+                      }
+                      return null;
+                    }}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </CardContent>
+        </Card>
+      )}
       </motion.div>
 
       <QuickEntryModal 
@@ -2061,15 +2089,38 @@ export const Dashboard = () => {
   );
 };
 
-const PlatformMiniStat = ({ label, value, color, isPrivacyMode }: any) => (
-  <div className="flex flex-col gap-1.5">
-    <div className="flex items-center gap-1.5">
-      <div className={cn('w-1.5 h-1.5 rounded-full', color)} />
-      <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">{label}</span>
+const PlatformMiniStat = ({ label, value, gross, color, isPrivacyMode }: any) => {
+  // Estimativa de taxas se o bruto não foi informado
+  const platformInfo = useMemo(() => {
+    if (gross && gross > 0) {
+      return { gross, fee: gross - value };
+    }
+    
+    // Use the helper from utils
+    const platformName = label === 'Outros' ? 'Particular' : label as AppType;
+    return estimatePlatformFees(value, platformName);
+  }, [gross, value, label]);
+
+  const fees = platformInfo.fee;
+  const feePercent = platformInfo.gross > 0 ? (fees / platformInfo.gross) * 100 : 0;
+
+  return (
+    <div className="flex flex-col gap-1.5">
+      <div className="flex items-center gap-1.5">
+        <div className={cn('w-1.5 h-1.5 rounded-full', color)} />
+        <span className="text-[9px] font-black text-zinc-500 uppercase tracking-wider">{label}</span>
+      </div>
+      <div className="flex flex-col">
+        <span className="text-xs font-black tracking-tight">{formatCurrency(safeNumber(value), isPrivacyMode)}</span>
+        {fees > 0 && (
+          <span className="text-[8px] font-bold text-red-400">
+            {gross ? '' : 'est. '}-{feePercent.toFixed(0)}% taxas
+          </span>
+        )}
+      </div>
     </div>
-    <span className="text-xs font-black tracking-tight">{formatCurrency(safeNumber(value), isPrivacyMode)}</span>
-  </div>
-);
+  );
+};
 
 const MiniMapHUD = () => {
   const { setMiniMapOpen, updateUserLearning } = useDriverStore();

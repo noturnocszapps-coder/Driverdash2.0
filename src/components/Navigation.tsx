@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
-import { LayoutDashboard, Car, BarChart3, Settings, LogOut, LogIn, User, DollarSign, Navigation as NavIcon, FlaskConical } from 'lucide-react';
+import { LayoutDashboard, Car, BarChart3, Settings, LogOut, LogIn, User, DollarSign, Navigation as NavIcon, FlaskConical, Zap } from 'lucide-react';
 import { cn } from '../utils';
 import { useDriverStore } from '../store';
 import { supabase } from '../lib/supabase';
@@ -10,6 +10,7 @@ import { UserRole } from '../types';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
+  { icon: Zap, label: 'Analytics', path: '/analytics-pro' },
   { icon: DollarSign, label: 'Fechamento', path: '/faturamento' },
   { icon: BarChart3, label: 'Relatórios', path: '/reports' },
   { icon: Settings, label: 'Ajustes', path: '/settings' },

@@ -59,6 +59,14 @@ const DevLab = lazyWithRetry(
   () => import('./pages/DevLab'),
   'DevLab'
 );
+const Onboarding = lazyWithRetry(
+  () => import('./pages/Onboarding'),
+  'Onboarding'
+);
+const AnalyticsPro = lazyWithRetry(
+  () => import('./pages/AnalyticsPro'),
+  'AnalyticsPro'
+);
 
 const PageLoader = () => (
   <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
@@ -205,6 +213,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
 function AppRoutes() {
   useWakeLock();
+  const { settings, user } = useDriverStore();
+  const location = useLocation();
+
+  // Redirect to onboarding if not completed
+  if (user && !settings.onboardingCompleted && location.pathname !== '/onboarding') {
+    return <Navigate to="/onboarding" replace />;
+  }
+
   return (
     <Layout>
       <Suspense fallback={<PageLoader />}>
@@ -336,6 +352,28 @@ function AppRoutes() {
               <ProtectedRoute>
                 <SafeRoute routeName="DevLab">
                   <DevLab />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/onboarding"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="Onboarding">
+                  <Onboarding />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
+            path="/analytics-pro"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="AnalyticsPro">
+                  <AnalyticsPro />
                 </SafeRoute>
               </ProtectedRoute>
             }
