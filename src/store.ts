@@ -1818,9 +1818,9 @@ export const useDriverStore = create<DriverState>()(
                     
                     // PORTARIA / ESPERA PASSAGEIRO
                     if (stopDuration > TRACKING_CONFIG.WAITING_PASSENGER_MS && displacementSinceStop < TRACKING_CONFIG.WAITING_PASSENGER_DIST) {
-                      if (currentTracking.mode !== 'waiting_passenger' && navigator.vibrate) navigator.vibrate(50);
-                      newMode = 'waiting_passenger';
-                      newTripDetectionState = 'waiting_passenger';
+                      if (currentTracking.mode !== 'waiting' && navigator.vibrate) navigator.vibrate(50);
+                      newMode = 'waiting';
+                      newTripDetectionState = 'waiting';
                       newStopReason = 'waiting';
                     }
 

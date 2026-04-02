@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useDriverStore } from '../store';
+import { AppType } from '../types';
 import {
   formatCurrency,
   cn,
@@ -13,6 +14,7 @@ import {
   consolidateDailyData,
   safeNumber,
   calculateAdaptiveGoal,
+  estimatePlatformFees,
 } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
@@ -353,6 +355,14 @@ export const Dashboard = () => {
         displacementKm: 0,
         efficiencyPercentage: 0,
         lostRevenue: 0,
+        grossAmount: 0,
+        platformFees: 0,
+        netProfit: 0,
+        netAmount: 0,
+        totalCost: 0,
+        grossPerHour: 0,
+        netPerHour: 0,
+        durationHours: 0,
       };
     }
   }, [openCycle, todayData, settings]);
@@ -994,6 +1004,17 @@ export const Dashboard = () => {
                 PRO
               </div>
             )}
+            {isDrivingMode && tracking.hudState === 'hidden' && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={() => updateTracking({ hudState: 'expanded' })}
+                className="h-7 px-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/20"
+              >
+                <Maximize2 size={12} className="mr-1" />
+                HUD Ativo
+              </Button>
+            )}
           </div>
         </div>
 
@@ -1318,6 +1339,7 @@ export const Dashboard = () => {
               <div className="flex flex-col gap-3 mt-8">
                 {/* Ações principais movidas para o QuickActionsMenu para limpar a interface */}
               </div>
+              </>
             )}
 
             {!tracking?.isActive && safeNumber(tracking?.distance) > 0 && (
@@ -1546,7 +1568,7 @@ export const Dashboard = () => {
 
         {openCycle && (
           <div className="bg-white/[0.02] border-t border-white/5 px-8 py-5 flex flex-col gap-6">
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
               <PlatformMiniStat label="Uber" value={safeNumber(openCycle?.uber_amount)} gross={openCycle?.uber_gross} color="bg-white" isPrivacyMode={settings.isPrivacyMode} />
               <PlatformMiniStat label="99" value={safeNumber(openCycle?.noventanove_amount)} gross={openCycle?.noventanove_gross} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
               <PlatformMiniStat label="inDrive" value={safeNumber(openCycle?.indriver_amount)} gross={openCycle?.indriver_gross} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
@@ -1554,18 +1576,30 @@ export const Dashboard = () => {
             </div>
 
             {settings.uiMode === 'pro' && (
-              <div className="pt-4 border-t border-white/5 grid grid-cols-3 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Faturamento Bruto</p>
-                  <p className="text-xs font-black text-zinc-400">{formatCurrency(efficiencyStats?.grossAmount || 0, settings.isPrivacyMode)}</p>
+              <div className="space-y-4">
+                <div className="pt-4 border-t border-white/5 grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Bruto</p>
+                    <p className="text-xs font-black text-zinc-400">{formatCurrency(efficiencyStats?.grossAmount || 0, settings.isPrivacyMode)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Taxas</p>
+                    <p className="text-xs font-black text-red-400/80">-{formatCurrency(efficiencyStats?.platformFees || 0, settings.isPrivacyMode)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Líquido</p>
+                    <p className="text-xs font-black text-emerald-400">{formatCurrency(efficiencyStats?.netProfit || 0, settings.isPrivacyMode)}</p>
+                  </div>
                 </div>
-                <div className="space-y-1">
-                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Taxas Plataformas</p>
-                  <p className="text-xs font-black text-red-400/80">-{formatCurrency(efficiencyStats?.platformFees || 0, settings.isPrivacyMode)}</p>
-                </div>
-                <div className="space-y-1">
-                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Lucro Líquido Real</p>
-                  <p className="text-xs font-black text-emerald-400">{formatCurrency(efficiencyStats?.netProfit || 0, settings.isPrivacyMode)}</p>
+                <div className="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">R$ / Hora</p>
+                    <p className="text-xs font-black text-zinc-400">{formatCurrency(efficiencyStats?.grossPerHour || 0, settings.isPrivacyMode)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">R$ / KM</p>
+                    <p className="text-xs font-black text-zinc-400">{formatCurrency(efficiencyStats?.grossPerKm || 0, settings.isPrivacyMode)}</p>
+                  </div>
                 </div>
               </div>
             )}
@@ -2067,24 +2101,7 @@ export const Dashboard = () => {
         )}
       </AnimatePresence>
 
-      {/* Hidden State Reopen Button */}
-      <AnimatePresence>
-        {isDrivingMode && tracking.hudState === 'hidden' && (
-          <motion.div
-            initial={{ scale: 0, opacity: 0 }}
-            animate={{ scale: 1, opacity: 1 }}
-            exit={{ scale: 0, opacity: 0 }}
-            className="fixed bottom-24 right-6 z-[80]"
-          >
-            <Button
-              onClick={() => updateTracking({ hudState: 'expanded' })}
-              className="w-14 h-14 rounded-full bg-emerald-500 text-zinc-950 shadow-2xl shadow-emerald-500/40 flex items-center justify-center p-0"
-            >
-              <Maximize2 size={24} />
-            </Button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+      {/* Hidden State Reopen Button - Removido para evitar duplicidade de FAB, agora no QuickActionsMenu */}
     </div>
   );
 };

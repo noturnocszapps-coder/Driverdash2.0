@@ -1,7 +1,7 @@
 import React, { useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Minus, Map as MapIcon, CheckCircle2, X, LayoutGrid } from 'lucide-react';
+import { Plus, Minus, Map as MapIcon, CheckCircle2, X, LayoutGrid, Maximize2 } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { cn } from '../utils';
 
@@ -65,6 +65,16 @@ export const QuickActionsMenu: React.FC = () => {
       color: 'bg-blue-500',
       action: () => {
         navigate('/cycle-map/active');
+        setQuickActionsOpen(false);
+      }
+    },
+    {
+      id: 'hud',
+      label: 'Abrir HUD',
+      icon: Maximize2,
+      color: 'bg-emerald-500',
+      action: () => {
+        useDriverStore.getState().updateTracking({ hudState: 'expanded' });
         setQuickActionsOpen(false);
       }
     }

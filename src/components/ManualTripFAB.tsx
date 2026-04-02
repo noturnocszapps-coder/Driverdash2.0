@@ -42,7 +42,7 @@ export const ManualTripFAB = () => {
         return "bg-red-600 text-white shadow-red-600/50 ring-4 ring-red-600/20";
       case 'searching':
         return "bg-amber-500 text-zinc-950 shadow-amber-500/40 animate-pulse";
-      case 'waiting_passenger':
+      case 'waiting':
         return "bg-blue-500 text-white shadow-blue-500/40";
       case 'transition':
         return "bg-purple-500 text-white shadow-purple-500/40";
@@ -173,7 +173,7 @@ export const ManualTripFAB = () => {
             <span className="text-[10px] font-black text-white uppercase tracking-[0.2em] leading-none mb-0.5">
               {mode === 'in_trip' ? 'Em Corrida' : 
                mode === 'searching' ? 'Buscando' : 
-               mode === 'waiting_passenger' ? 'Aguardando' :
+               mode === 'waiting' ? 'Aguardando' :
                mode === 'transition' ? 'Transição' : 'Ativo'}
             </span>
             <span className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest leading-none">

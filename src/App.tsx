@@ -477,7 +477,15 @@ export default function App() {
 
   return (
     <Router>
-      <Toaster position="top-center" richColors />
+      <Toaster 
+        position="top-center" 
+        richColors 
+        toastOptions={{
+          style: {
+            marginTop: 'env(safe-area-inset-top, 20px)',
+          }
+        }}
+      />
       <ReloadPrompt />
       <SyncManager />
       <AppRoutes />
