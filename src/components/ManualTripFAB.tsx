@@ -52,6 +52,8 @@ export const ManualTripFAB = () => {
     }
   };
 
+  if (tracking.hudState === 'expanded') return null;
+
   return (
     <div className={cn(
       "fixed z-[100] md:hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]",
