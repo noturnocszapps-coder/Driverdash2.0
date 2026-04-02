@@ -78,7 +78,7 @@ export function evaluateZoneQuality(
         isMature: false,
         reason: durationMinutes < ZONE_DETECTION_THRESHOLDS.MIN_MINUTES_MATURITY 
           ? `Aguarde mais ${Math.ceil(ZONE_DETECTION_THRESHOLDS.MIN_MINUTES_MATURITY - durationMinutes)} min`
-          : 'Desloque-se mais um pouco para análise'
+          : 'Dirija pelo menos 2km para ativar a análise inteligente'
       }
     };
   }
@@ -116,16 +116,16 @@ export function evaluateZoneQuality(
   // 4. Determine Raw Status
   let rawStatus: ZoneStatus = 'good_zone';
   let severity: ZoneSeverity = 'low';
-  let label = 'Zona boa';
+  let label = 'Alta Demanda';
 
   if (totalScore < 40) {
     rawStatus = 'bad_zone';
     severity = 'high';
-    label = 'Zona ruim';
+    label = 'Pouca Demanda';
   } else if (totalScore < 65) {
     rawStatus = 'neutral_zone';
     severity = 'medium';
-    label = 'Atenção';
+    label = 'Demanda Média';
   }
 
   // 5. Persistence and Smoothing (INÉRCIA DE DECISÃO)
@@ -188,7 +188,7 @@ export function evaluateZoneQuality(
   if (tripIntelligence?.maturity.isMature) {
     if (tripIntelligence.status === 'good' && finalStatus === 'bad_zone') {
       severity = 'medium';
-      label = 'Corrida Boa / Zona em Queda';
+      label = 'Corrida Lucrativa / Demanda em Queda';
       message = 'Sua corrida atual está performando bem, mas a região mostra sinais de baixa demanda. Considere reposicionar-se após o desembarque.';
     } else if (tripIntelligence.status === 'bad' && finalStatus === 'good_zone') {
       severity = 'medium';
@@ -197,7 +197,7 @@ export function evaluateZoneQuality(
     } else if (tripIntelligence.status === 'bad' && finalStatus === 'bad_zone') {
       severity = 'high';
       label = 'Alerta Crítico: Zona & Corrida';
-      message = 'Desempenho crítico detectado: tanto a corrida quanto a região estão ruins. Recomendamos reposicionamento imediato para áreas de maior fluxo.';
+      message = 'Desempenho crítico detectado: tanto a corrida quanto a região estão com baixa demanda. Recomendamos reposicionamento imediato para áreas de maior fluxo.';
     } else if (tripIntelligence.status === 'good' && finalStatus === 'good_zone') {
       severity = 'low';
       label = 'Alta Performance';

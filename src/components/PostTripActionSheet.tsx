@@ -17,13 +17,16 @@ export const PostTripActionSheet: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState(5);
 
   useEffect(() => {
-    let timer: NodeJS.Timeout;
+    let timer: NodeJS.Timeout | null = null;
+
     if (postTripActionSheet.isOpen && postTripActionSheet.autoCloseTimer) {
-      setTimeLeft(postTripActionSheet.autoCloseTimer / 1000);
+      // Initialize timeLeft
+      setTimeLeft(Math.floor(postTripActionSheet.autoCloseTimer / 1000));
+      
       timer = setInterval(() => {
         setTimeLeft((prev) => {
           if (prev <= 1) {
-            clearInterval(timer);
+            if (timer) clearInterval(timer);
             if (postTripActionSheet.isOpen) {
               updateUserLearning('ignore');
               setPostTripActionSheet({ isOpen: false });
@@ -34,7 +37,10 @@ export const PostTripActionSheet: React.FC = () => {
         });
       }, 1000);
     }
-    return () => clearInterval(timer);
+
+    return () => {
+      if (timer) clearInterval(timer);
+    };
   }, [postTripActionSheet.isOpen, postTripActionSheet.autoCloseTimer, setPostTripActionSheet, updateUserLearning]);
 
   const handleAction = (type: 'gain' | 'expense') => {

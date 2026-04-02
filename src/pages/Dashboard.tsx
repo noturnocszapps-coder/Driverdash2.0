@@ -800,201 +800,255 @@ export const Dashboard = () => {
           isDrivingMode && tracking.hudState === 'expanded' ? "blur-2xl scale-[0.96] opacity-30 grayscale-[0.5] pointer-events-none" : ""
         )}
       >
+        {/* Header moved up */}
+
+      <div className="flex justify-between items-start px-1 gap-4 mb-2">
+        <div className="flex flex-col">
+          <motion.p 
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 mb-2"
+          >
+            {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
+          </motion.p>
+          <div className="flex items-center gap-3 flex-wrap">
+            <h1 className="text-4xl font-black tracking-tighter bg-clip-text text-transparent bg-gradient-to-b from-zinc-900 to-zinc-500 dark:from-white dark:to-zinc-500">
+              Olá, {firstName}
+            </h1>
+            {settings.isPro && (
+              <div className="px-2.5 py-1 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[9px] font-black uppercase rounded-lg tracking-[0.2em] shadow-xl shadow-orange-500/20 border border-orange-400/20">
+                PRO
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex flex-col items-end gap-3">
+          <div className="flex bg-zinc-100 dark:bg-zinc-800/50 p-1 rounded-2xl border border-zinc-200 dark:border-zinc-800 backdrop-blur-md">
+            <button
+              onClick={() => setFilter('all')}
+              className={cn(
+                'px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300',
+                filter === 'all'
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-md'
+                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              )}
+            >
+              Tudo
+            </button>
+            <button
+              onClick={() => setFilter('manual')}
+              className={cn(
+                'px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all duration-300',
+                filter === 'manual'
+                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-md'
+                  : 'text-zinc-500 hover:text-zinc-700 dark:hover:text-zinc-300'
+              )}
+            >
+              Manual
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {tracking.hudState === 'hidden' && (
         <AIRealTimeAlerts todayData={todayData} aiIntelligence={aiIntelligence} averages={averages} />
-
-      {/* Priority 2: Real-time Trip Evaluation Card */}
-      {tracking?.isActive && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Card className={cn(
-            "border-none shadow-lg overflow-hidden transition-all duration-500",
-            tripIntelligence?.status === 'good' ? "bg-emerald-500/10 border border-emerald-500/20" :
-            tripIntelligence?.status === 'acceptable' ? "bg-blue-500/10 border border-blue-500/20" :
-            tripIntelligence?.status === 'bad' ? "bg-red-500/10 border border-red-500/20" :
-            "bg-zinc-500/10 border border-zinc-500/20"
-          )}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center",
-                    tripIntelligence?.status === 'good' ? "bg-emerald-500 text-zinc-950" :
-                    tripIntelligence?.status === 'acceptable' ? "bg-blue-500 text-zinc-950" :
-                    tripIntelligence?.status === 'bad' ? "bg-red-500 text-zinc-950" :
-                    "bg-zinc-500 text-zinc-950"
-                  )}>
-                    <Zap size={16} className={cn(tripIntelligence?.status === 'analyzing' && "animate-pulse")} />
-                  </div>
-                  <div>
-                    <h3 className="text-[10px] font-black uppercase tracking-widest opacity-70">Assistente de Decisão</h3>
-                    <p className={cn(
-                      "text-sm font-black uppercase tracking-tight",
-                      tripIntelligence?.status === 'good' ? "text-emerald-500" :
-                      tripIntelligence?.status === 'acceptable' ? "text-blue-500" :
-                      tripIntelligence?.status === 'bad' ? "text-red-500" :
-                      "text-zinc-500"
-                    )}>
-                      {tripIntelligence?.label || 'Analisando corrida...'}
-                    </p>
-                  </div>
-                </div>
-                
-                {tripIntelligence?.status !== 'analyzing' && (
-                  <div className="text-right">
-                    <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Score</p>
-                    <p className="text-lg font-black tracking-tighter">{tripIntelligence?.score}%</p>
-                  </div>
-                )}
-              </div>
-
-              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-4 leading-relaxed">
-                {tripIntelligence?.message}
-              </p>
-
-              {tripIntelligence?.status !== 'analyzing' ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganho Bruto/km</p>
-                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.grossPerKm || 0, settings.isPrivacyMode)}/km</p>
-                  </div>
-                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganho Líquido/km</p>
-                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.netPerKm || 0, settings.isPrivacyMode)}/km</p>
-                  </div>
-                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">R$/Hora</p>
-                    <p className="text-xs font-black">{formatCurrency(tripIntelligence?.metrics.perHour || 0, settings.isPrivacyMode)}/h</p>
-                  </div>
-                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Eficiência</p>
-                    <p className="text-xs font-black">{(tripIntelligence?.metrics.efficiency || 0).toFixed(1)}%</p>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                  <Info size={12} className="text-zinc-400" />
-                  <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
-                    {tripIntelligence?.maturity.reason}
-                  </p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
       )}
 
-      {/* Real-time Zone Quality Card */}
-      {tracking?.isActive && zoneIntelligence && (
-        <motion.div
-          initial={{ opacity: 0, scale: 0.95 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ duration: 0.3, delay: 0.1 }}
-        >
-          <Card className={cn(
-            "border-none shadow-lg overflow-hidden transition-all duration-500",
-            zoneIntelligence.status === 'good_zone' ? "bg-emerald-500/10 border border-emerald-500/20" :
-            zoneIntelligence.status === 'neutral_zone' ? "bg-amber-500/10 border border-amber-500/20" :
-            zoneIntelligence.status === 'bad_zone' ? "bg-red-500/10 border border-red-500/20" :
-            "bg-zinc-500/10 border border-zinc-500/20"
-          )}>
-            <CardContent className="p-4">
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <div className={cn(
-                    "w-8 h-8 rounded-lg flex items-center justify-center",
-                    zoneIntelligence.status === 'good_zone' ? "bg-emerald-500 text-zinc-950" :
-                    zoneIntelligence.status === 'neutral_zone' ? "bg-amber-500 text-zinc-950" :
-                    zoneIntelligence.status === 'bad_zone' ? "bg-red-500 text-zinc-950" :
-                    "bg-zinc-500 text-zinc-950"
-                  )}>
-                    <MapIcon size={16} className={cn(zoneIntelligence.status === 'monitoring' && "animate-pulse")} />
-                  </div>
-                  <div>
-                    <h3 className="text-[10px] font-black uppercase tracking-widest opacity-70">Inteligência de Região</h3>
-                    <p className={cn(
-                      "text-sm font-black uppercase tracking-tight",
-                      zoneIntelligence.status === 'good_zone' ? "text-emerald-500" :
-                      zoneIntelligence.status === 'neutral_zone' ? "text-amber-500" :
-                      zoneIntelligence.status === 'bad_zone' ? "text-red-500" :
-                      "text-zinc-500"
-                    )}>
-                      {zoneIntelligence.label}
-                    </p>
-                  </div>
-                </div>
-                
-                {zoneIntelligence.maturity.isMature && (
-                  <div className="flex items-center gap-2">
-                    <div className="text-right">
-                      <p className="text-[10px] font-black uppercase tracking-widest opacity-50">Score</p>
-                      <p className="text-lg font-black tracking-tighter">{zoneIntelligence.score}%</p>
-                    </div>
-                    <div className={cn(
-                      "px-2 py-1 rounded-md text-[10px] font-black uppercase tracking-widest",
-                      zoneIntelligence.severity === 'high' ? "bg-red-500 text-white" :
-                      zoneIntelligence.severity === 'medium' ? "bg-amber-500 text-zinc-950" :
-                      "bg-emerald-500 text-zinc-950"
-                    )}>
-                      {zoneIntelligence.severity === 'high' ? 'SEVERIDADE ALTA' : 
-                       zoneIntelligence.severity === 'medium' ? 'ALERTA MÉDIO' : 
-                       'RISCO BAIXO'}
-                    </div>
-                  </div>
-                )}
-              </div>
+      {/* TOP METRICS - GOAL & AVG */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900">
+          <CardContent className="p-5 space-y-1">
+            <div className="flex items-center gap-2 text-zinc-400 mb-1">
+              <Target size={14} />
+              <p className="text-[10px] font-black uppercase tracking-widest">Meta Diária</p>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(settings?.dailyGoal), settings.isPrivacyMode)}</p>
+              {openCycle && safeNumber(openCycle?.total_amount) >= safeNumber(settings?.dailyGoal) && (
+                <span className="text-[10px] font-bold text-emerald-500">Batida!</span>
+              )}
+            </div>
+          </CardContent>
+        </Card>
 
-              <p className="text-xs font-medium text-zinc-600 dark:text-zinc-400 mb-2 leading-relaxed">
-                {zoneIntelligence.message}
+        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900">
+          <CardContent className="p-5 space-y-1">
+            <div className="flex items-center gap-2 text-zinc-400 mb-1">
+              <TrendingUp size={14} />
+              <p className="text-[10px] font-black uppercase tracking-widest">Média (7d)</p>
+            </div>
+            <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(stats?.avg), settings.isPrivacyMode)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* FINANCIAL CYCLE - RESUMO DE HOJE */}
+      <Card className="relative overflow-hidden border-none bg-zinc-900 text-white shadow-2xl shadow-zinc-900/40">
+        <div className="absolute top-0 right-0 p-4 opacity-5">
+          <Navigation size={80} className="rotate-45" />
+        </div>
+
+        <CardContent className="p-4 space-y-4 relative z-10">
+          <div className="flex justify-between items-start gap-4">
+            <div className="space-y-1 min-w-0">
+              <p className="text-[9px] font-black uppercase tracking-[0.2em] text-zinc-500">
+                {safeNumber(openCycle?.total_amount) > 0 ? 'Faturamento do Ciclo' : 'Ciclo iniciado, aguardando lançamentos'}
               </p>
+              <h2 className="text-4xl font-black tracking-tighter break-words text-white">
+                {safeNumber(openCycle?.total_amount) > 0 ? formatCurrency(safeNumber(openCycle?.total_amount), settings.isPrivacyMode) : formatCurrency(0, settings.isPrivacyMode)}
+              </h2>
+            </div>
 
-              {zoneIntelligence.maturity.isMature && zoneIntelligence.reason !== 'none' && (
-                <div className="flex items-center gap-1.5 mb-4">
-                  <div className="w-1 h-1 rounded-full bg-zinc-400" />
-                  <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                    Motivo: {
-                      zoneIntelligence.reason === 'high_idle_km' ? 'KM ocioso elevado' :
-                      zoneIntelligence.reason === 'long_wait_time' ? 'Tempo de espera alto' :
-                      zoneIntelligence.reason === 'low_efficiency' ? 'Baixa eficiência' :
-                      zoneIntelligence.reason === 'low_demand' ? 'Baixa demanda' : ''
-                    }
+            {openCycle && cycleProgress && (
+              <div className="bg-white/5 backdrop-blur-md px-2 py-1 rounded-full flex items-center gap-1.5 border border-white/5 shrink-0">
+                <Clock size={12} className="text-emerald-400" />
+                <span className="text-[9px] font-bold uppercase tracking-wider text-zinc-300">
+                  {safeNumber(cycleProgress?.remainingHours)}h {safeNumber(cycleProgress?.remainingMinutes)}m
+                </span>
+              </div>
+            )}
+          </div>
+
+          {profitStats && (
+            <div className="grid grid-cols-3 gap-2 pt-4 border-t border-white/5">
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Despesas</p>
+                <p className="text-xs font-black text-red-400">
+                  {formatCurrency(safeNumber(profitStats.expenses) + safeNumber(profitStats.dailyFixed), settings.isPrivacyMode)}
+                </p>
+              </div>
+              <div className="space-y-0.5">
+                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">R$ Perdido</p>
+                <p className="text-xs font-black text-amber-400">
+                  {formatCurrency(safeNumber(efficiencyStats?.lostRevenue), settings.isPrivacyMode)}
+                </p>
+              </div>
+              <div className="text-right space-y-0.5">
+                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Lucro Estimado</p>
+                <p className="text-xl font-black text-emerald-400 leading-none">
+                  {formatCurrency(safeNumber(profitStats.profit), settings.isPrivacyMode)}
+                </p>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            {openCycle ? (
+              <div className="space-y-2">
+                <div className="flex justify-between items-end">
+                  <div className="flex items-center gap-1.5">
+                    <Calendar size={12} className="text-zinc-500" />
+                    <span className="text-[9px] font-bold text-zinc-400 uppercase tracking-wider">
+                      Iniciado às {openCycle?.start_time ? format(new Date(openCycle.start_time), 'HH:mm') : '--:--'}
+                    </span>
+                  </div>
+                  <span className="text-[10px] font-black text-emerald-400">
+                    {safeNumber(cycleProgress?.percent).toFixed(0)}%
+                  </span>
+                </div>
+
+                <div className="h-1 bg-white/5 rounded-full overflow-hidden">
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${safeNumber(cycleProgress?.percent)}%` }}
+                    className="h-full bg-gradient-to-r from-emerald-500 to-emerald-400 rounded-full"
+                  />
+                </div>
+              </div>
+            ) : (
+              <div className="py-4 text-center space-y-4">
+                <div className="w-16 h-16 bg-white/5 rounded-full flex items-center justify-center mx-auto">
+                  <Zap size={32} className="text-zinc-600" />
+                </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-zinc-400 font-black uppercase tracking-widest">Nenhum ciclo ativo</p>
+                  <p className="text-xs text-zinc-500 font-medium leading-relaxed">
+                    Toque em &quot;Iniciar Novo Ciclo&quot; para começar seu período de 24 horas.
                   </p>
                 </div>
-              )}
+              </div>
+            )}
 
-              {zoneIntelligence.maturity.isMature ? (
-                <div className="grid grid-cols-2 gap-2">
-                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">KM Ocioso</p>
-                    <p className="text-xs font-black">{zoneIntelligence.metrics.idleKm.toFixed(1)} km</p>
-                  </div>
-                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Tempo de Busca</p>
-                    <p className="text-xs font-black">{Math.floor(zoneIntelligence.metrics.searchingMinutes)} min</p>
-                  </div>
-                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Eficiência Atual</p>
-                    <p className="text-xs font-black">{zoneIntelligence.metrics.currentEfficiency.toFixed(1)}%</p>
-                  </div>
-                  <div className="p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                    <p className="text-[8px] font-black uppercase tracking-widest opacity-50 mb-1">Ganhos Recentes</p>
-                    <p className="text-xs font-black">{formatCurrency(zoneIntelligence.metrics.recentRevenue, settings.isPrivacyMode)}</p>
-                  </div>
+            <div className="grid grid-cols-2 gap-4">
+              {!openCycle ? (
+                <div className="col-span-2 space-y-2">
+                  <Button
+                    onClick={handleStartCycle}
+                    disabled={isSaving || !activeVehicleId}
+                    className={cn(
+                      "w-full h-16 font-black text-lg rounded-2xl shadow-xl transition-all",
+                      !activeVehicleId
+                        ? "bg-zinc-200 dark:bg-zinc-800 text-zinc-400 cursor-not-allowed border-none"
+                        : "bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20 border-none"
+                    )}
+                  >
+                    {isSaving ? (
+                      <div className="flex items-center gap-2">
+                        <div className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                        Iniciando...
+                      </div>
+                    ) : (
+                      'Iniciar Novo Ciclo'
+                    )}
+                  </Button>
+                  {!activeVehicleId && (
+                    <p className="text-center text-[10px] font-bold text-amber-500 uppercase tracking-widest">
+                      Selecione um veículo para iniciar
+                    </p>
+                  )}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 p-2 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5">
-                  <Info size={12} className="text-zinc-400" />
-                  <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
-                    {zoneIntelligence.maturity.reason}
+                <div className="pt-4 border-t border-zinc-200 dark:border-zinc-800">
+                  <p className="text-center text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                    Ciclo em andamento • Use o botão flutuante para ações
                   </p>
                 </div>
               )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      )}
+            </div>
+          </div>
+        </CardContent>
+
+        {openCycle && (
+          <div className="bg-white/[0.02] border-t border-white/5 px-8 py-5 flex flex-col gap-6">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <PlatformMiniStat label="Uber" value={safeNumber(openCycle?.uber_amount)} gross={openCycle?.uber_gross} color="bg-white" isPrivacyMode={settings.isPrivacyMode} />
+              <PlatformMiniStat label="99" value={safeNumber(openCycle?.noventanove_amount)} gross={openCycle?.noventanove_gross} color="bg-yellow-500" isPrivacyMode={settings.isPrivacyMode} />
+              <PlatformMiniStat label="inDrive" value={safeNumber(openCycle?.indriver_amount)} gross={openCycle?.indriver_gross} color="bg-emerald-500" isPrivacyMode={settings.isPrivacyMode} />
+              <PlatformMiniStat label="Outros" value={safeNumber(openCycle?.extra_amount)} gross={openCycle?.extra_gross} color="bg-blue-500" isPrivacyMode={settings.isPrivacyMode} />
+            </div>
+
+            {settings.uiMode === 'pro' && (
+              <div className="space-y-4">
+                <div className="pt-4 border-t border-white/5 grid grid-cols-3 gap-2">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Bruto</p>
+                    <p className="text-xs font-black text-zinc-400">{formatCurrency(efficiencyStats?.grossAmount || 0, settings.isPrivacyMode)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Taxas</p>
+                    <p className="text-xs font-black text-red-400/80">-{formatCurrency(efficiencyStats?.platformFees || 0, settings.isPrivacyMode)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Líquido</p>
+                    <p className="text-xs font-black text-emerald-400">{formatCurrency(efficiencyStats?.netProfit || 0, settings.isPrivacyMode)}</p>
+                  </div>
+                </div>
+                <div className="pt-4 border-t border-white/5 grid grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">R$ / Hora</p>
+                    <p className="text-xs font-black text-zinc-400">{formatCurrency(efficiencyStats?.grossPerHour || 0, settings.isPrivacyMode)}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">R$ / KM</p>
+                    <p className="text-xs font-black text-zinc-400">{formatCurrency(efficiencyStats?.grossPerKm || 0, settings.isPrivacyMode)}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </Card>
 
       {/* Active Vehicle Card - Prominent at the top */}
       {currentVehicle && (
@@ -1042,75 +1096,6 @@ export const Dashboard = () => {
           </Button>
         </Card>
       )}
-
-      <div className="flex justify-between items-end px-1 gap-4">
-        <div>
-          <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Visão Geral</p>
-          <div className="flex items-center gap-3 flex-wrap">
-            <h1 className="text-3xl font-black tracking-tighter">Olá, {firstName}</h1>
-            {settings.isPro && (
-              <div className="px-2 py-0.5 bg-gradient-to-r from-orange-500 to-orange-600 text-white text-[8px] font-black uppercase rounded-md tracking-[0.2em] shadow-lg shadow-orange-500/20">
-                PRO
-              </div>
-            )}
-            {isDrivingMode && tracking.hudState === 'hidden' && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={() => updateTracking({ hudState: 'expanded' })}
-                className="h-7 px-2 bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-lg text-[10px] font-black uppercase tracking-widest hover:bg-emerald-500/20"
-              >
-                <Maximize2 size={12} className="mr-1" />
-                HUD Ativo
-              </Button>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col items-end gap-2">
-          <div className="flex bg-zinc-100 dark:bg-zinc-800 p-1 rounded-xl">
-            <button
-              onClick={() => setFilter('all')}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all',
-                filter === 'all'
-                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm'
-                  : 'text-zinc-500'
-              )}
-            >
-              Tudo
-            </button>
-            <button
-              onClick={() => setFilter('manual')}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all',
-                filter === 'manual'
-                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm'
-                  : 'text-zinc-500'
-              )}
-            >
-              Manual
-            </button>
-            <button
-              onClick={() => setFilter('imported')}
-              className={cn(
-                'px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition-all',
-                filter === 'imported'
-                  ? 'bg-white dark:bg-zinc-700 text-zinc-900 dark:text-white shadow-sm'
-                  : 'text-zinc-500'
-              )}
-            >
-              IA
-            </button>
-          </div>
-
-          <div className="flex items-center gap-3">
-            <p className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">
-              {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
-            </p>
-          </div>
-        </div>
-      </div>
 
       {/* Intelligent Goal Card */}
       <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
@@ -1296,7 +1281,7 @@ export const Dashboard = () => {
         </Card>
       )}
 
-      {openCycle && (
+      {openCycle && !tracking?.isActive && (
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
           <CardContent className="p-4">
             <div className="flex items-start justify-between gap-4">
@@ -1476,20 +1461,35 @@ export const Dashboard = () => {
         </div>
       )}
 
-      {!isSupabaseConfigured && (
-        <Card className="bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-900/30">
-          <CardContent className="p-4 flex items-start gap-3">
-            <AlertCircle className="text-amber-600 shrink-0 mt-0.5" size={18} />
-            <div>
-              <h3 className="text-sm font-bold text-amber-800 dark:text-amber-400">Modo Offline</h3>
-              <p className="text-xs text-amber-700 dark:text-amber-500 mt-1">
-                Dados salvos apenas localmente. Entre para sincronizar com a nuvem.
-              </p>
+      {/* TOP METRICS - GOAL & AVG */}
+      <div className="grid grid-cols-2 gap-4">
+        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900">
+          <CardContent className="p-5 space-y-1">
+            <div className="flex items-center gap-2 text-zinc-400 mb-1">
+              <Target size={14} />
+              <p className="text-[10px] font-black uppercase tracking-widest">Meta Diária</p>
+            </div>
+            <div className="flex items-baseline gap-2">
+              <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(settings?.dailyGoal), settings.isPrivacyMode)}</p>
+              {openCycle && safeNumber(openCycle?.total_amount) >= safeNumber(settings?.dailyGoal) && (
+                <span className="text-[10px] font-bold text-emerald-500">Batida!</span>
+              )}
             </div>
           </CardContent>
         </Card>
-      )}
 
+        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900">
+          <CardContent className="p-5 space-y-1">
+            <div className="flex items-center gap-2 text-zinc-400 mb-1">
+              <TrendingUp size={14} />
+              <p className="text-[10px] font-black uppercase tracking-widest">Média (7d)</p>
+            </div>
+            <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(stats?.avg), settings.isPrivacyMode)}</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* FINANCIAL CYCLE - RESUMO DE HOJE */}
       <Card className="relative overflow-hidden border-none bg-zinc-900 text-white shadow-2xl shadow-zinc-900/40">
         <div className="absolute top-0 right-0 p-4 opacity-5">
           <Navigation size={80} className="rotate-45" />
@@ -1656,35 +1656,47 @@ export const Dashboard = () => {
         )}
       </Card>
 
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900">
-          <CardContent className="p-5 space-y-1">
-            <div className="flex items-center gap-2 text-zinc-400 mb-1">
-              <Target size={14} />
-              <p className="text-[10px] font-black uppercase tracking-widest">Meta Diária</p>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(settings?.dailyGoal), settings.isPrivacyMode)}</p>
-              {openCycle && safeNumber(openCycle?.total_amount) >= safeNumber(settings?.dailyGoal) && (
-                <span className="text-[10px] font-bold text-emerald-500">Batida!</span>
-              )}
-            </div>
-          </CardContent>
-        </Card>
+      {/* REMOVED INTELLIGENCE CARDS FROM BOTTOM - ALREADY MOVED */}
 
-        <Card className="border-none shadow-sm bg-white dark:bg-zinc-900">
-          <CardContent className="p-5 space-y-1">
-            <div className="flex items-center gap-2 text-zinc-400 mb-1">
-              <TrendingUp size={14} />
-              <p className="text-[10px] font-black uppercase tracking-widest">Média (7d)</p>
-            </div>
-            <p className="text-2xl font-black tracking-tighter">{formatCurrency(safeNumber(stats?.avg), settings.isPrivacyMode)}</p>
-          </CardContent>
-        </Card>
-      </div>
+      {/* REMOVED DUPLICATE METRICS CARDS FROM BOTTOM */}
 
       {openCycle && settings.uiMode === 'pro' && (
         <div className="grid grid-cols-1 gap-4">
+          {/* Analytics Pro Teaser */}
+          {!settings.isPro && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="mb-4"
+            >
+              <Card className="border-none bg-gradient-to-br from-zinc-900 to-zinc-950 text-white overflow-hidden shadow-2xl">
+                <CardContent className="p-6 relative">
+                  <div className="absolute top-0 right-0 p-4 opacity-10">
+                    <Zap size={100} className="text-orange-500" />
+                  </div>
+                  <div className="relative z-10 space-y-4">
+                    <div className="flex items-center gap-2">
+                      <div className="px-2 py-0.5 bg-orange-500 text-white text-[8px] font-black uppercase rounded-md tracking-[0.2em]">
+                        PRO
+                      </div>
+                      <h3 className="text-lg font-black tracking-tight">Analytics Pro</h3>
+                    </div>
+                    <p className="text-sm text-zinc-400 font-medium leading-relaxed">
+                      Desbloqueie insights avançados de lucratividade, mapas de calor de demanda em tempo real e relatórios detalhados por plataforma.
+                    </p>
+                    <Button 
+                      onClick={() => navigate('/settings')}
+                      className="w-full bg-white text-zinc-950 hover:bg-zinc-200 font-black uppercase tracking-widest text-xs h-12 rounded-xl"
+                    >
+                      Conhecer Planos
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
           {/* Driver Pattern Section */}
       {driverProfile.totalRides > 0 && (
         <motion.div
@@ -2061,36 +2073,80 @@ export const Dashboard = () => {
 
             {/* Bottom Controls (Only in Expanded) */}
             {tracking.hudState === 'expanded' && (
-              <div className="w-full flex items-center justify-between mt-auto pt-6">
-                {/* Voice Button */}
-                {settings.voiceCommandsEnabled && (
+              <div className="w-full mt-auto space-y-6">
+                {/* Zone Card & Status Chip */}
+                <div className="flex items-end justify-between gap-4">
+                  <div className="flex flex-col gap-2">
+                    {/* Status Chip */}
+                    <motion.div 
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      className={cn(
+                        "px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest border backdrop-blur-xl shadow-lg",
+                        statusColor.replace('text-', 'bg-').replace('500', '500/10').replace('400', '400/10'),
+                        statusColor.replace('text-', 'border-').replace('500', '500/20').replace('400', '400/20'),
+                        statusColor
+                      )}
+                    >
+                      {currentStatus}
+                    </motion.div>
+
+                    {/* Zone Card */}
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="bg-white/5 border border-white/10 rounded-2xl p-3 flex items-center gap-3 backdrop-blur-md"
+                    >
+                      <div className={cn(
+                        "w-8 h-8 rounded-lg flex items-center justify-center",
+                        zoneIntelligence?.status === 'productive_zone' ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-500/20 text-zinc-400"
+                      )}>
+                        <MapIcon size={16} />
+                      </div>
+                      <div>
+                        <p className="text-[8px] font-black text-white/40 uppercase tracking-widest leading-none mb-1">Zona Atual</p>
+                        <p className="text-[10px] font-black text-white uppercase tracking-tight">{zoneIntelligence?.label || 'Monitorando...'}</p>
+                      </div>
+                    </motion.div>
+                  </div>
+
+                  {/* Quick Actions (Optional placeholder for future) */}
+                  <div className="flex flex-col gap-2">
+                    {/* Placeholder for future quick actions */}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pb-[env(safe-area-inset-bottom,16px)]">
+                  {/* Voice Button */}
+                  {settings.voiceCommandsEnabled && (
+                    <motion.button
+                      whileTap={{ scale: 0.9 }}
+                      onClick={(e) => { e.stopPropagation(); listen(); }}
+                      className={cn(
+                        "w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 border",
+                        isListening 
+                          ? "bg-red-500 border-red-400 text-white animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.5)]" 
+                          : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10"
+                      )}
+                    >
+                      <Mic size={28} />
+                    </motion.button>
+                  )}
+
+                  {/* Start/Stop Trip Button */}
                   <motion.button
                     whileTap={{ scale: 0.9 }}
-                    onClick={(e) => { e.stopPropagation(); listen(); }}
+                    onClick={(e) => { e.stopPropagation(); tracking.isProductive ? endTrip() : startTrip(); }}
                     className={cn(
                       "w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 border",
-                      isListening 
-                        ? "bg-red-500 border-red-400 text-white animate-pulse shadow-[0_0_30px_rgba(239,68,68,0.5)]" 
-                        : "bg-white/5 border-white/10 text-white/60 hover:text-white hover:bg-white/10"
+                      tracking.isProductive 
+                        ? "bg-red-500 border-red-400 text-white" 
+                        : "bg-emerald-500 border-emerald-400 text-zinc-950"
                     )}
                   >
-                    <Mic size={28} />
+                    {tracking.isProductive ? <Square size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" />}
                   </motion.button>
-                )}
-
-                {/* Start/Stop Trip Button */}
-                <motion.button
-                  whileTap={{ scale: 0.9 }}
-                  onClick={(e) => { e.stopPropagation(); tracking.isProductive ? endTrip() : startTrip(); }}
-                  className={cn(
-                    "w-16 h-16 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300 border",
-                    tracking.isProductive 
-                      ? "bg-red-500 border-red-400 text-white" 
-                      : "bg-emerald-500 border-emerald-400 text-zinc-950"
-                  )}
-                >
-                  {tracking.isProductive ? <Square size={28} fill="currentColor" /> : <Play size={28} fill="currentColor" />}
-                </motion.button>
+                </div>
               </div>
             )}
 

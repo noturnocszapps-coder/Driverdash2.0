@@ -39,7 +39,7 @@ export function evaluateCurrentTrip(
       maturity: {
         isMature: false,
         reason: totalKm < TRIP_EVALUATION_THRESHOLDS.MIN_KM_MATURITY 
-          ? `Rodar pelo menos ${TRIP_EVALUATION_THRESHOLDS.MIN_KM_MATURITY}km`
+          ? `Dirija pelo menos ${TRIP_EVALUATION_THRESHOLDS.MIN_KM_MATURITY}km para ativar a análise inteligente`
           : `Aguardar ${Math.round(TRIP_EVALUATION_THRESHOLDS.MIN_TIME_MATURITY / 60000)}min de ciclo`
       },
       metrics: {
@@ -88,16 +88,16 @@ export function evaluateCurrentTrip(
 
   // 4. Determine Status and Message
   let status: TripIntelligence['status'] = 'bad';
-  let label = 'Corrida ruim';
+  let label = 'Pouco Lucrativa';
   let message = 'Desempenho abaixo do esperado para o tempo rodado.';
 
   if (score >= TRIP_EVALUATION_THRESHOLDS.GOOD_SCORE) {
     status = 'good';
-    label = 'Corrida boa';
+    label = 'Altamente Lucrativa';
     message = 'Excelente relação entre ganho, tempo e quilometragem.';
   } else if (score >= TRIP_EVALUATION_THRESHOLDS.ACCEPTABLE_SCORE) {
     status = 'acceptable';
-    label = 'Corrida aceitável';
+    label = 'Corrida na Média';
     message = 'Desempenho dentro da média. Tente reduzir o KM ocioso.';
   }
 
