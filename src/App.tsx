@@ -117,25 +117,30 @@ class RouteErrorBoundary extends React.Component<RouteErrorBoundaryProps, RouteE
                 </div>
                 <div>
                   <p className="text-[10px] font-black uppercase tracking-[0.25em] text-red-500/70 leading-none mb-1">
-                    System Failure
+                    Ops! Algo deu errado
                   </p>
                   <h1 className="text-2xl font-black tracking-tight">
-                    {this.props.routeName}
+                    Falha na Inicialização
                   </h1>
                 </div>
               </div>
 
               <div className="space-y-4 mb-8">
                 <p className="text-sm text-zinc-400 leading-relaxed">
-                  Ocorreu um erro crítico ao renderizar esta página. Isso pode ser causado por dados corrompidos ou uma falha temporária.
+                  Não foi possível carregar esta página. Tente recarregar o aplicativo ou voltar para a tela anterior.
                 </p>
                 
-                <div className="rounded-2xl bg-zinc-950/50 border border-zinc-800 p-4 font-mono">
-                  <p className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2 font-black">Error Log</p>
-                  <pre className="text-xs text-red-400/80 whitespace-pre-wrap break-words leading-relaxed">
-                    {this.state.errorMessage}
-                  </pre>
-                </div>
+                <details className="group">
+                  <summary className="text-[10px] uppercase tracking-widest text-zinc-600 mb-2 font-black cursor-pointer hover:text-zinc-500 transition-colors list-none flex items-center gap-2">
+                    <div className="w-1 h-1 rounded-full bg-zinc-600 group-open:bg-red-500" />
+                    Detalhes Técnicos
+                  </summary>
+                  <div className="rounded-2xl bg-zinc-950/50 border border-zinc-800 p-4 font-mono mt-2">
+                    <pre className="text-[10px] text-red-400/60 whitespace-pre-wrap break-words leading-relaxed">
+                      {this.state.errorMessage}
+                    </pre>
+                  </div>
+                </details>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -181,6 +186,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const { tracking } = useDriverStore();
   const isLanding = location.pathname === '/';
   const isAuth = ['/login', '/register', '/forgot-password'].includes(location.pathname);
+  const isOnboarding = location.pathname === '/onboarding';
 
   if (isLanding || isAuth) {
     return (
@@ -202,10 +208,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           {children}
         </main>
       </div>
-      <div className="hidden md:block">
-        <TripControl />
-      </div>
-      <ManualTripFAB />
+      {!isOnboarding && tracking.isActive && (
+        <>
+          <div className="hidden md:block">
+            <TripControl />
+          </div>
+          <ManualTripFAB />
+        </>
+      )}
       <BottomNav />
     </div>
   );

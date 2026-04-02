@@ -269,7 +269,10 @@ export const Dashboard = () => {
       }
     } catch (error: any) {
       console.error("[Tracking] Erro:", error);
-      toast.error(error.message || "Erro ao alterar estado do rastreamento");
+      const friendlyMessage = error.message?.includes('denied') 
+        ? "Permissão de localização negada. Ative o GPS para continuar."
+        : "Não foi possível iniciar o GPS. Verifique sua conexão.";
+      toast.error(friendlyMessage);
     } finally {
       setIsProcessing(false);
     }
@@ -549,7 +552,7 @@ export const Dashboard = () => {
   const dashboardMode = settings?.dashboardMode || 'merged';
 
   useEffect(() => {
-    if (tracking?.isActive && smartAlerts.length > 0) {
+    if (tracking?.isActive && (smartAlerts?.length || 0) > 0) {
       const lastAlert = smartAlerts[smartAlerts.length - 1];
       toast(lastAlert.message, {
         icon: lastAlert.type === 'warning' ? <AlertTriangle size={16} className="text-red-500" /> : 
@@ -1165,7 +1168,7 @@ export const Dashboard = () => {
             <div>
               <h3 className="text-sm font-black uppercase tracking-widest">Analytics Pro</h3>
               <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-wider mt-0.5">
-                Score: {driverProfile.score} • {driverProfile.badges.length} Badges
+                Score: {driverProfile.score} • {(driverProfile.badges?.length || 0)} Badges
               </p>
             </div>
           </div>
@@ -1390,11 +1393,11 @@ export const Dashboard = () => {
         </Card>
       )}
 
-      {openCycle && settings.uiMode === 'pro' && (stats.alerts.length > 0 || stats.total7Days > 0) && (
+      {openCycle && settings.uiMode === 'pro' && ((stats.alerts?.length || 0) > 0 || stats.total7Days > 0) && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {stats.alerts.length > 0 && (
+          {(stats.alerts?.length || 0) > 0 && (
             <div className="space-y-3">
-              {stats.alerts.map((alert, index) => (
+              {(stats.alerts || []).map((alert, index) => (
                 <motion.div
                   key={`alert-${alert.id}-${index}`}
                   initial={{ opacity: 0, x: -10 }}
@@ -1722,7 +1725,7 @@ export const Dashboard = () => {
                   <div className="flex items-center gap-2">
                     <Clock size={14} className="text-emerald-500" />
                     <p className="text-sm font-black">
-                      {driverProfile.bestHours.length > 0 ? `${driverProfile.bestHours[0]}h` : '--'}
+                      {(driverProfile.bestHours?.length || 0) > 0 ? `${driverProfile.bestHours[0]}h` : '--'}
                     </p>
                   </div>
                 </div>
@@ -1731,7 +1734,7 @@ export const Dashboard = () => {
                   <div className="flex items-center gap-2">
                     <MapIcon size={14} className="text-emerald-500" />
                     <p className="text-sm font-black truncate">
-                      {driverProfile.bestRegions.length > 0 ? driverProfile.bestRegions[0] : '--'}
+                      {(driverProfile.bestRegions?.length || 0) > 0 ? driverProfile.bestRegions[0] : '--'}
                     </p>
                   </div>
                 </div>
@@ -1749,12 +1752,12 @@ export const Dashboard = () => {
                 </div>
               </div>
 
-              {driverProfile.worstHours.length > 0 && (
+              {(driverProfile.worstHours?.length || 0) > 0 && (
                 <div className="mt-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
                   <div className="flex items-center gap-2">
                     <AlertTriangle size={12} className="text-amber-500" />
                     <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-wider">
-                      Atenção: Seu rendimento cai às {driverProfile.worstHours[0]}h
+                      Atenção: Seu rendimento cai às {(driverProfile.worstHours || [])[0]}h
                     </p>
                   </div>
                 </div>
@@ -1891,7 +1894,7 @@ export const Dashboard = () => {
                   <Tooltip
                     cursor={{ fill: 'transparent' }}
                     content={({ active, payload }) => {
-                      if (active && payload && payload.length) {
+                      if (active && payload && (payload?.length || 0) > 0) {
                         const total = payload.reduce((acc, p) => acc + safeNumber(p?.value), 0);
 
                         return (
