@@ -223,8 +223,16 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
 function AppRoutes() {
   useWakeLock();
-  const { settings, user } = useDriverStore();
+  const { settings, user, tracking, startTracking } = useDriverStore();
   const location = useLocation();
+
+  // Resume tracking if it was active before reload
+  useEffect(() => {
+    if (tracking.isActive && !tracking.isPaused) {
+      console.log('[TRACKING] Resuming active session after reload');
+      startTracking();
+    }
+  }, []);
 
   // Check for onboarding completion in both state and localStorage for maximum stability
   const isLocalOnboardingCompleted = localStorage.getItem('driver_dash_onboarding_completed') === 'true';

@@ -1507,6 +1507,93 @@ export const useDriverStore = create<DriverState>()(
         set({ tracking: updatedTracking });
       },
 
+      updateTrackingPosition: (newPosition) => {
+        set((state) => {
+          const { tracking } = state;
+          if (!tracking.isActive || tracking.isPaused) return state;
+
+          const lastPoint = tracking.lastPoint;
+          
+          // 1. Calculate distance using Haversine
+          const distance = lastPoint 
+            ? calculateDistance(lastPoint.lat, lastPoint.lng, newPosition.lat, newPosition.lng)
+            : 0;
+
+          // 2. Filter out noise (extremely small movements or impossible speeds)
+          const speedKmh = (newPosition.speed || 0) * 3.6;
+          
+          // If accuracy is too low, ignore point but keep tracking active
+          if (newPosition.accuracy && newPosition.accuracy > TRACKING_CONFIG.MAX_ACCURACY) {
+            console.log('[TRACKING] Accuracy too low:', newPosition.accuracy);
+            return state;
+          }
+
+          // 3. Update Metrics
+          const newKmTotal = tracking.distance + distance;
+          const newKmProdutivo = tracking.isProductive ? tracking.productiveDistance + distance : tracking.productiveDistance;
+          const newKmOcioso = !tracking.isProductive ? tracking.idleDistance + distance : tracking.idleDistance;
+
+          // 4. Calculate Average Speed
+          const startTime = tracking.startTime || Date.now();
+          const totalTimeHours = (Date.now() - startTime) / 1000 / 3600;
+          const newAvgSpeed = totalTimeHours > 0 ? newKmTotal / totalTimeHours : 0;
+
+          // 5. Stop Detection
+          let newStopPoints = [...(tracking.stopPoints || [])];
+          let newLastStopTimestamp = tracking.lastStopTimestamp;
+          const isMoving = speedKmh > 2; // Threshold for moving
+
+          if (!isMoving) {
+            if (!newLastStopTimestamp) {
+              newLastStopTimestamp = newPosition.timestamp;
+            } else {
+              const stopDuration = newPosition.timestamp - newLastStopTimestamp;
+              if (stopDuration > 60000) { // 60 seconds stop
+                const lastStop = newStopPoints[newStopPoints.length - 1];
+                // If last stop is very close, just update duration
+                if (lastStop && calculateDistance(lastStop.lat, lastStop.lng, newPosition.lat, newPosition.lng) < 0.05) {
+                  lastStop.duration = stopDuration;
+                } else {
+                  newStopPoints.push({
+                    lat: newPosition.lat,
+                    lng: newPosition.lng,
+                    timestamp: newLastStopTimestamp,
+                    duration: stopDuration,
+                    label: 'Parada'
+                  });
+                }
+              }
+            }
+          } else {
+            newLastStopTimestamp = undefined;
+          }
+
+          const newPoint = { 
+            ...newPosition, 
+            isProductive: tracking.isProductive 
+          };
+
+          const updatedTracking = {
+            ...tracking,
+            isLoading: false,
+            lastPoint: newPoint,
+            lastLocation: { lat: newPosition.lat, lng: newPosition.lng },
+            lastTimestamp: newPosition.timestamp,
+            distance: newKmTotal,
+            productiveDistance: newKmProdutivo,
+            idleDistance: newKmOcioso,
+            avgSpeed: newAvgSpeed,
+            currentSmoothedSpeed: speedKmh,
+            points: [...(tracking.points || []), newPoint].slice(-2000), // Keep last 2000 points for performance
+            stopPoints: newStopPoints,
+            lastStopTimestamp: newLastStopTimestamp,
+            duration: Date.now() - startTime
+          };
+
+          return { tracking: updatedTracking };
+        });
+      },
+
       setHasActiveInsight: (hasActiveInsight) => {
         set((state) => ({
           tracking: { ...state.tracking, hasActiveInsight }
@@ -1603,10 +1690,14 @@ export const useDriverStore = create<DriverState>()(
           watchId = null;
         }
 
-        // Se estiver retomando de um pause
-        if (tracking.isActive && tracking.isPaused) {
-          set({ tracking: { ...tracking, isPaused: false, isLoading: false } });
-          console.log('[TRACKING] Retomado');
+        // Se estiver retomando de um pause ou de um reload
+        if (tracking.isActive) {
+          if (tracking.isPaused) {
+            set({ tracking: { ...tracking, isPaused: false, isLoading: false } });
+            console.log('[TRACKING] Retomado do pause');
+          } else {
+            console.log('[TRACKING] Retomando watch após reload');
+          }
         } else {
           // Início do zero
           set({ tracking: { ...get().tracking, isLoading: true } });
@@ -1626,385 +1717,37 @@ export const useDriverStore = create<DriverState>()(
         try {
           watchId = navigator.geolocation.watchPosition(
             (position) => {
-              const { tracking: currentTracking } = get();
-              if (!currentTracking.isActive) return;
-
-              const { latitude, longitude, accuracy } = position.coords;
+              const { latitude, longitude, speed, accuracy } = position.coords;
               const timestamp = position.timestamp || Date.now();
-              const lastPoint = currentTracking.lastPoint;
-
-              // 1. FILTRO DE PONTO GPS MAIS RIGOROSO
-              if (accuracy && accuracy > TRACKING_CONFIG.MAX_ACCURACY) {
-                console.log('[TRACKING] Ponto ignorado: accuracy alta', accuracy);
-                return;
-              }
-
-            let speedKmh = 0;
-            const rawSpeed = position.coords.speed;
-            
-            if (rawSpeed !== null && rawSpeed !== undefined && rawSpeed >= 0 && Number.isFinite(rawSpeed)) {
-              // 1. USAR COORDS.SPEED QUANDO DISPONÍVEL
-              speedKmh = rawSpeed * 3.6;
-            } else if (lastPoint) {
-              // 2. FALLBACK POR DISTÂNCIA/TEMPO (HAVERSINE)
-              const dist = calculateDistance(lastPoint.lat, lastPoint.lng, latitude, longitude);
-              const timeDiffMs = timestamp - lastPoint.timestamp;
               
-              // Proteger contra divisão por zero e timestamps duplicados
-              if (timeDiffMs > 100) {
-                const timeDiffSec = timeDiffMs / 1000;
-                speedKmh = (dist / timeDiffSec) * 3600;
-              } else {
-                speedKmh = lastPoint.speed || 0;
-              }
-            }
-
-            // 3. PROTEÇÃO E FILTROS DE QUALIDADE
-            // Garantir que é um número seguro
-            speedKmh = safeNumber(speedKmh);
-
-            // Descartar velocidades absurdas (> 160 km/h)
-            if (speedKmh > TRACKING_CONFIG.MAX_SPEED_NOISE) {
-              console.log('[TRACKING] velocidade ignorada: absurda', speedKmh);
-              return;
-            }
-
-            // Considerar parado se < 3 km/h (Filtro de Drift)
-            if (speedKmh < TRACKING_CONFIG.MIN_SPEED_STOP) {
-              speedKmh = 0;
-            }
-
-            // Ignorar pontos quase duplicados (tempo < 500ms)
-            if (lastPoint && (timestamp - lastPoint.timestamp) < 500) {
-              return;
-            }
-
-            // 4. SUAVIZAÇÃO POR MÉDIA MÓVEL (3-5 pontos)
-            const newSpeedBuffer = [...currentTracking.speedBuffer, speedKmh].slice(-TRACKING_CONFIG.SPEED_BUFFER_SIZE);
-            let smoothedSpeed = newSpeedBuffer.reduce((a, b) => a + b, 0) / newSpeedBuffer.length;
-            
-            // Estabilidade visual: se a média for muito baixa, forçar zero
-            if (smoothedSpeed < 1.5) smoothedSpeed = 0;
-            
-            // Garantir que smoothedSpeed é um número válido
-            smoothedSpeed = safeNumber(smoothedSpeed);
-            
-            console.log(`[TRACKING] velocidade: raw=${speedKmh.toFixed(1)}km/h, smoothed=${smoothedSpeed.toFixed(1)}km/h`);
-
-            const newPoint = { 
-              lat: latitude, 
-              lng: longitude, 
-              accuracy, 
-              timestamp, 
-              speed: smoothedSpeed,
-              isProductive: currentTracking.isProductive 
-            };
-
-            const points = [...(currentTracking.points || []), newPoint];
-
-            let newDistance = currentTracking.distance;
-            let newMovingTime = currentTracking.movingTime;
-            let newStoppedTime = currentTracking.stoppedTime;
-            let newProductiveDistance = currentTracking.productiveDistance;
-            let newIdleDistance = currentTracking.idleDistance;
-            let newProductiveTime = currentTracking.productiveTime || 0;
-            let newIdleTime = currentTracking.idleTime || 0;
-            let newIsProductive = currentTracking.isProductive;
-            let newIsManualOverride = currentTracking.isManualOverride;
-            let manualOverrideTimestamp = currentTracking.manualOverrideTimestamp;
-            let newLastStopTimestamp = currentTracking.lastStopTimestamp;
-            let newMode = currentTracking.mode;
-            let newTripDetectionState = currentTracking.tripDetectionState;
-            let newStopReason = currentTracking.stopReason || 'none';
-            let newConsecutiveMovingPoints = currentTracking.consecutiveMovingPoints;
-            let newConsecutiveStoppedPoints = currentTracking.consecutiveStoppedPoints;
-            let newSegments = [...(currentTracking.segments || [])];
-            let newIsWarmingUp = currentTracking.isWarmingUp;
-
-            // 0. GERENCIAMENTO DE OVERRIDE MANUAL
-            if (newIsManualOverride && manualOverrideTimestamp) {
-              if (Date.now() - manualOverrideTimestamp > TRACKING_CONFIG.MANUAL_OVERRIDE_TIMEOUT) {
-                newIsManualOverride = false;
-                console.log('[TRACK] manual override expired, auto detection re-enabled');
-              }
-            }
-
-            if (lastPoint) {
-              const dist = calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng);
-              const timeDiff = timestamp - lastPoint.timestamp;
-
-              // 1. FILTRO DE MOVIMENTO (Distância mínima vs Velocidade)
-              const isMoving = dist >= TRACKING_CONFIG.MIN_DIST_PRECISION && smoothedSpeed >= TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD;
-
-              if (isMoving) {
-                newMovingTime += timeDiff;
-                newLastStopTimestamp = undefined;
-                newStopReason = 'none';
-                
-                if (smoothedSpeed > TRACKING_CONFIG.MIN_SPEED_START) {
-                  newConsecutiveMovingPoints++;
-                } else {
-                  newConsecutiveMovingPoints = Math.max(0, newConsecutiveMovingPoints - 1);
-                }
-                newConsecutiveStoppedPoints = 0;
-
-                // 2. DETECÇÃO AUTOMÁTICA DE INÍCIO / TRANSIÇÃO
-                if (!newIsManualOverride) {
-                  if (newMode !== 'in_trip') {
-                    // INÍCIO AUTOMÁTICO DE CORRIDA
-                    if (smoothedSpeed > TRACKING_CONFIG.MIN_SPEED_START && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP) {
-                      console.log('[TRIP] Início automático detectado');
-                      newIsProductive = true;
-                      newMode = 'in_trip';
-                      newTripDetectionState = 'trip_started';
-                      if (navigator.vibrate) navigator.vibrate(100);
-                    } else if (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
-                      newMode = 'searching';
-                      newTripDetectionState = 'pickup_candidate';
-                    }
-                  } else if (newMode === 'in_trip' && newTripDetectionState === 'transition_window') {
-                    // CORRIDAS SEGUIDAS (CRÍTICO)
-                    if (dist > 0.20) { // Se moveu mais de 200m após a parada curta
-                      console.log('[TRIP] Corrida sequencial confirmada');
-                      newMode = 'transition';
-                      newTripDetectionState = 'trip_started';
-                      setTimeout(() => { newMode = 'in_trip'; }, 5000); // Volta para in_trip após sinalizar transição
-                      if (navigator.vibrate) navigator.vibrate(100);
-                    }
-                  }
-                }
-
-                // 3. CLASSIFICAÇÃO DE DISTÂNCIA E MODO
-                if (newIsProductive) {
-                  newProductiveDistance += dist;
-                  newProductiveTime += timeDiff;
-                  newMode = 'in_trip';
-                } else {
-                  newIdleDistance += dist;
-                  newIdleTime += timeDiff;
-                  newMode = 'searching';
-                }
-                
-                newDistance = newProductiveDistance + newIdleDistance;
-              } else {
-                // Parado ou ruído
-                newStoppedTime += timeDiff;
-                newConsecutiveMovingPoints = 0;
-                
-                if (smoothedSpeed < TRACKING_CONFIG.MIN_SPEED_STOP) {
-                  newConsecutiveStoppedPoints++;
-                  if (!newLastStopTimestamp) {
-                    newLastStopTimestamp = timestamp;
-                    // Consolidate lastStopLocation into the final set instead of intermediate set
-                  }
-                }
-
-                const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
-                const lastStopLoc = get().tracking.lastStopLocation;
-                const displacementSinceStop = lastStopLoc ? calculateDistance(lastStopLoc.lat, lastStopLoc.lng, latitude, longitude) : 0;
-
-                // 4. DETECÇÃO AUTOMÁTICA DE ESTADOS DE PARADA
-                if (!newIsManualOverride) {
-                  const stopDuration = newLastStopTimestamp ? (timestamp - newLastStopTimestamp) : 0;
-                  const lastStopLoc = get().tracking.lastStopLocation;
-                  const displacementSinceStop = lastStopLoc ? calculateDistance(lastStopLoc.lat, lastStopLoc.lng, latitude, longitude) : 0;
-
-                  if (newMode === 'in_trip') {
-                    // SEMÁFORO (IGNORAR)
-                    if (stopDuration < TRACKING_CONFIG.TRAFFIC_LIGHT_MAX_MS) {
-                      newTripDetectionState = 'traffic_stop';
-                      newStopReason = 'traffic_light';
-                    }
-                    
-                    // PORTARIA / ESPERA PASSAGEIRO
-                    if (stopDuration > TRACKING_CONFIG.WAITING_PASSENGER_MS && displacementSinceStop < TRACKING_CONFIG.WAITING_PASSENGER_DIST) {
-                      if (currentTracking.mode !== 'waiting' && navigator.vibrate) navigator.vibrate(50);
-                      newMode = 'waiting';
-                      newTripDetectionState = 'waiting';
-                      newStopReason = 'waiting';
-                    }
-
-                    // FIM DE CORRIDA REAL / TRANSIÇÃO
-                    if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS && displacementSinceStop < TRACKING_CONFIG.MIN_TRIP_DISPLACEMENT) {
-                      console.log('[TRIP] Fim de corrida detectado');
-                      newTripDetectionState = 'transition_window';
-                      newStopReason = 'end_of_trip';
-                      if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
-                      
-                      // Calculate suggested value
-                      const { driverProfile } = get();
-                      const ratePerKm = driverProfile.avgProfitPerKm || 2.5;
-                      const suggestedValue = Math.round((newProductiveDistance * ratePerKm + (newProductiveTime / 60000) * 0.1) * 100) / 100;
-
-                      // Trigger post-trip action sheet
-                      get().setPostTripActionSheet({ 
-                        isOpen: true, 
-                        autoCloseTimer: 5000,
-                        suggestedValue,
-                        suggestedDistance: newProductiveDistance
-                      });
-                      
-                      // Janela de transição para corridas seguidas
-                      setTimeout(() => {
-                        const latestTracking = get().tracking;
-                        if (latestTracking.tripDetectionState === 'transition_window' && !latestTracking.isManualOverride) {
-                          console.log('[TRIP] Janela expirada, encerrando');
-                          set({ 
-                            tracking: { 
-                              ...latestTracking, 
-                              isProductive: false, 
-                              mode: 'searching', 
-                              tripDetectionState: 'idle',
-                              stopReason: 'none'
-                            } 
-                          });
-                        }
-                      }, TRACKING_CONFIG.TRANSITION_WINDOW_MS);
-                    }
-                  } else if (newMode === 'searching' || newMode === 'idle') {
-                    if (stopDuration > 30000) {
-                      newMode = 'idle';
-                      newStopReason = 'waiting';
-                    }
-                  }
-                }
-              }
-            }
-
-            // 5. ATUALIZAÇÃO DO ESTADO GLOBAL (Movido para o final)
-
-            // 3. CLASSIFICAÇÃO POR SEGMENTO (Gerenciamento Robusto)
-            if (newMode !== currentTracking.mode || newSegments.length === 0) {
-              // Fecha segmento anterior
-              if (newSegments.length > 0) {
-                const lastIdx = newSegments.length - 1;
-                const lastSeg = newSegments[lastIdx];
-                newSegments[lastIdx] = {
-                  ...lastSeg,
-                  endTime: timestamp,
-                  endLat: latitude,
-                  endLng: longitude,
-                  endLocation: { lat: latitude, lng: longitude },
-                  duration: timestamp - lastSeg.startTime,
-                  avgSpeed: (timestamp - lastSeg.startTime) > 0 
-                    ? lastSeg.distance / ((timestamp - lastSeg.startTime) / 3600000) 
-                    : 0
-                };
-              }
-              
-              // Inicia novo segmento
-              newSegments.push({
-                id: Math.random().toString(36).substr(2, 9),
-                startTime: timestamp,
-                startLat: latitude,
-                startLng: longitude,
-                startLocation: { lat: latitude, lng: longitude },
-                mode: newMode,
-                distance: 0,
-                duration: 0,
-                avgSpeed: 0
+              get().updateTrackingPosition({
+                lat: latitude,
+                lng: longitude,
+                speed: speed || 0,
+                timestamp,
+                accuracy: accuracy || undefined
               });
-            } else {
-              // Atualiza segmento atual
-              const lastIdx = newSegments.length - 1;
-              const dist = lastPoint ? calculateDistance(lastPoint.lat, lastPoint.lng, newPoint.lat, newPoint.lng) : 0;
-              const currentSeg = newSegments[lastIdx];
-              
-              // Filtro de distância mínima para o segmento
-              const validDist = dist >= 0.01 ? dist : 0;
-              
-              newSegments[lastIdx] = {
-                ...currentSeg,
-                distance: currentSeg.distance + validDist,
-                duration: timestamp - currentSeg.startTime,
-                avgSpeed: (timestamp - currentSeg.startTime) > 0 
-                  ? (currentSeg.distance + validDist) / ((timestamp - currentSeg.startTime) / 3600000) 
-                  : 0,
-                endLat: latitude,
-                endLng: longitude,
-                endLocation: { lat: latitude, lng: longitude }
-              };
-            }
-
-            const totalDuration = timestamp - (currentTracking.startTime || timestamp);
-            const avgSpeed = totalDuration > 0 ? (newDistance / (totalDuration / 3600000)) : 0;
-            
-            newPoint.isProductive = newIsProductive;
-
-            const newLastStopLocation = newLastStopTimestamp && !currentTracking.lastStopTimestamp 
-              ? { lat: latitude, lng: longitude } 
-              : currentTracking.lastStopLocation;
-
-            // 5. ATUALIZAÇÃO DO ESTADO GLOBAL (ÚNICA)
-            
-            // Stop point detection
-            let newStopPoints = [...(currentTracking.stopPoints || [])];
-            const isMoving = lastPoint ? (calculateDistance(lastPoint.lat, lastPoint.lng, latitude, longitude) >= TRACKING_CONFIG.MIN_DIST_PRECISION && smoothedSpeed >= TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD) : false;
-            
-            if (!isMoving && newLastStopTimestamp) {
-              const stopDuration = timestamp - newLastStopTimestamp;
-              if (stopDuration > 60000) { // 60 seconds for a stop point
-                const lastStop = newStopPoints[newStopPoints.length - 1];
-                // If last stop is close to this one, just update its duration
-                if (lastStop && calculateDistance(lastStop.lat, lastStop.lng, latitude, longitude) < 0.05) {
-                  lastStop.duration = stopDuration;
-                } else if (!lastStop || (timestamp - lastStop.timestamp > 120000)) {
-                  newStopPoints.push({
-                    lat: latitude,
-                    lng: longitude,
-                    timestamp: newLastStopTimestamp,
-                    duration: stopDuration,
-                    label: 'Parada'
-                  });
-                }
-              }
-            }
-
-            set({
-              tracking: {
-                ...currentTracking,
-                isLoading: false,
-                lastPoint: newPoint,
-                lastLocation: { lat: latitude, lng: longitude },
-                lastTimestamp: timestamp,
-                distance: newDistance,
-                productiveDistance: newProductiveDistance,
-                idleDistance: newIdleDistance,
-                productiveTime: newProductiveTime,
-                idleTime: newIdleTime,
-                movingTime: newMovingTime,
-                stoppedTime: newStoppedTime,
-                isProductive: newIsProductive,
-                isManualOverride: newIsManualOverride,
-                isWarmingUp: newIsWarmingUp,
-                lastStopTimestamp: newLastStopTimestamp,
-                lastStopLocation: newLastStopLocation,
-                mode: newMode,
-                tripDetectionState: newTripDetectionState,
-                stopReason: newStopReason,
-                consecutiveMovingPoints: newConsecutiveMovingPoints,
-                consecutiveStoppedPoints: newConsecutiveStoppedPoints,
-                segments: newSegments,
-                points,
-                stopPoints: newStopPoints,
-                duration: totalDuration,
-                avgSpeed,
-                currentSmoothedSpeed: smoothedSpeed,
-                speedBuffer: newSpeedBuffer
-              }
-            });
-          },
+            },
             (error) => {
               console.error('[TRACKING] Geolocation error:', error);
-              toast.error(`Erro de GPS: ${error.message}`);
+              let message = 'Erro de GPS';
+              if (error.code === error.PERMISSION_DENIED) {
+                message = 'Permissão de GPS negada';
+              } else if (error.code === error.POSITION_UNAVAILABLE) {
+                message = 'Sinal de GPS indisponível';
+              } else if (error.code === error.TIMEOUT) {
+                message = 'Tempo esgotado ao buscar GPS';
+              }
+              toast.error(message);
             },
             {
               enableHighAccuracy: true,
-              timeout: 10000,
-              maximumAge: 0
+              maximumAge: 0,
+              timeout: 5000
             }
           );
         } catch (err) {
+
           console.error('[TRACKING] Failed to start watchPosition:', err);
           set((state) => ({
             tracking: { ...state.tracking, isActive: false, isLoading: false },

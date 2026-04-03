@@ -38,12 +38,20 @@ const createCarIcon = (heading: number = 0) => L.divIcon({
 // Component to handle map centering and auto-zoom
 const MapController = ({ center, zoom }: { center: [number, number], zoom: number }) => {
   const map = useMap();
+  const lastCenter = React.useRef<[number, number] | null>(null);
   
   useEffect(() => {
     if (center && center[0] !== 0) {
-      map.setView(center, zoom, { animate: true, duration: 1 });
+      // Only pan if the distance is significant to avoid jitter
+      if (!lastCenter.current || 
+          Math.abs(lastCenter.current[0] - center[0]) > 0.0001 || 
+          Math.abs(lastCenter.current[1] - center[1]) > 0.0001) {
+        
+        map.panTo(center, { animate: true, duration: 1.5 });
+        lastCenter.current = center;
+      }
     }
-  }, [center, zoom, map]);
+  }, [center, map]);
   
   return null;
 };

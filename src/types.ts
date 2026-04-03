@@ -582,6 +582,7 @@ export interface DriverState {
 
   updateSettings: (settings: Partial<UserSettings>) => Promise<void>;
   updateTracking: (tracking: Partial<TrackingSession>) => void;
+  updateTrackingPosition: (position: { lat: number; lng: number; speed: number; timestamp: number; accuracy?: number }) => void;
   setHasActiveInsight: (hasInsight: boolean) => void;
   startTracking: () => void;
   pauseTracking: () => void;

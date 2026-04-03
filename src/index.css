@@ -41,3 +41,22 @@
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+.pt-safe {
+  padding-top: env(safe-area-inset-top);
+}
+
+/* Prevent pull-to-refresh on mobile */
+body {
+  overscroll-behavior-y: contain;
+}
+
+/* Custom car icon animation */
+.custom-car-icon {
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Smooth number transitions */
+.metric-value {
+  font-variant-numeric: tabular-nums;
+}

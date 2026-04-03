@@ -35,15 +35,50 @@ import { QuickActionsMenu } from '../components/QuickActionsMenu';
 import { PostTripActionSheet } from '../components/PostTripActionSheet';
 import { LiveTrackingMap } from '../components/LiveTrackingMap';
 
-const MetricItem = ({ label, value, icon: Icon, accent = "text-white" }: any) => (
-  <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
-    <div className="flex items-center gap-2 mb-1 opacity-40">
-      <Icon size={12} />
-      <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+function MetricItem({ 
+  label, 
+  value, 
+  unit,
+  icon: Icon, 
+  accent = "text-white",
+  isLarge = false
+}: { 
+  label: string; 
+  value: string | number; 
+  unit?: string;
+  icon: any; 
+  accent?: string;
+  isLarge?: boolean;
+}) {
+  return (
+    <div className={cn(
+      "p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 transition-all duration-300 hover:bg-white/10",
+      isLarge && "col-span-1 bg-white/10 border-white/10"
+    )}>
+      <div className="flex items-center gap-2">
+        <Icon size={12} className={accent} />
+        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{label}</p>
+      </div>
+      <div className="flex items-baseline gap-1">
+        <motion.p 
+          key={typeof value === 'number' ? Math.floor(value * 10) : value}
+          initial={{ opacity: 0.5, y: 2 }}
+          animate={{ opacity: 1, y: 0 }}
+          className={cn(
+            "font-black tracking-tighter metric-value",
+            isLarge ? "text-2xl text-white" : "text-lg text-zinc-200",
+            accent !== "text-white" && !isLarge && accent
+          )}
+        >
+          {typeof value === 'number' ? value.toFixed(1) : value}
+        </motion.p>
+        {unit && (
+          <span className="text-[10px] font-bold text-zinc-500 uppercase">{unit}</span>
+        )}
+      </div>
     </div>
-    <p className={cn("text-sm font-black tracking-tight", accent)}>{value}</p>
-  </div>
-);
+  );
+}
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -229,16 +264,30 @@ export const Dashboard = () => {
         <CardContent className="p-6 relative z-10">
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
-              <div className={cn(
-                "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-500",
-                locationError ? "bg-white/20" : tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-white/5"
-              )}>
-                {locationError ? <AlertTriangle size={28} /> : tracking.isActive ? <Zap size={28} /> : <Play size={28} />}
+              <div className="relative">
+                {tracking.isActive && !locationError && !tracking.isPaused && (
+                  <motion.div 
+                    animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                    transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+                    className="absolute inset-0 bg-emerald-500 rounded-2xl z-0"
+                  />
+                )}
+                <div className={cn(
+                  "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-500 relative z-10",
+                  locationError ? "bg-white/20" : tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-white/5"
+                )}>
+                  {locationError ? <AlertTriangle size={28} /> : tracking.isActive ? <Zap size={28} /> : <Play size={28} />}
+                </div>
               </div>
               <div>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Status Operacional</p>
+                <div className="flex items-center gap-2">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Status Operacional</p>
+                  {tracking.isActive && !locationError && !tracking.isPaused && (
+                    <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                  )}
+                </div>
                 <h3 className="text-xl font-black uppercase tracking-tight">
-                  {locationError ? 'Erro de Permissão' : tracking.isActive ? 'Rastreamento Ativo' : 'Rastreamento Desativado'}
+                  {locationError ? 'Erro de Permissão' : tracking.isActive ? (tracking.isPaused ? 'Rastreamento Pausado' : 'Rastreamento Ativo') : 'Rastreamento Desativado'}
                 </h3>
               </div>
             </div>
@@ -255,24 +304,29 @@ export const Dashboard = () => {
             <div className="grid grid-cols-2 gap-4 mb-6">
               <MetricItem 
                 label="KM Total" 
-                value={`${(tracking.distance || 0).toFixed(1)} km`} 
+                value={tracking.distance || 0} 
+                unit="km"
                 icon={Navigation}
+                isLarge
               />
               <MetricItem 
                 label="KM Produtivo" 
-                value={`${(tracking.productiveDistance || 0).toFixed(1)} km`} 
+                value={tracking.productiveDistance || 0} 
+                unit="km"
                 icon={Activity}
                 accent="text-emerald-500"
               />
               <MetricItem 
                 label="KM Ocioso" 
-                value={`${(tracking.idleDistance || 0).toFixed(1)} km`} 
+                value={tracking.idleDistance || 0} 
+                unit="km"
                 icon={MapPin}
                 accent="text-orange-500"
               />
               <MetricItem 
                 label="Velocidade Média" 
-                value={`${Math.round(tracking.avgSpeed || 0)} km/h`} 
+                value={Math.round(tracking.avgSpeed || 0)} 
+                unit="km/h"
                 icon={TrendingUp}
               />
             </div>
