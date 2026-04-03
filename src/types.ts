@@ -253,9 +253,12 @@ export interface StopPoint {
   label?: string;
 }
 
+export type GPSStatus = 'connecting' | 'active' | 'unavailable' | 'idle';
+
 export interface TrackingSession {
   isActive: boolean;
   isLoading: boolean;
+  gpsStatus: GPSStatus;
   startTime?: number;
   endTime?: number;
   distance: number;
@@ -584,7 +587,7 @@ export interface DriverState {
   updateTracking: (tracking: Partial<TrackingSession>) => void;
   updateTrackingPosition: (position: { lat: number; lng: number; speed: number; timestamp: number; accuracy?: number }) => void;
   setHasActiveInsight: (hasInsight: boolean) => void;
-  startTracking: () => void;
+  startTracking: () => Promise<void>;
   pauseTracking: () => void;
   resumeTracking: () => void;
   stopTracking: () => Promise<void>;

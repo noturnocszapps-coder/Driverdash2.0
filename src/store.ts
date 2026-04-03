@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
@@ -62,6 +62,7 @@ const INITIAL_SETTINGS: UserSettings = {
 const INITIAL_TRACKING: TrackingSession = {
   isActive: false,
   isLoading: false,
+  gpsStatus: 'idle',
   distance: 0,
   productiveDistance: 0,
   idleDistance: 0,
@@ -1576,6 +1577,7 @@ export const useDriverStore = create<DriverState>()(
           const updatedTracking = {
             ...tracking,
             isLoading: false,
+            gpsStatus: 'active' as GPSStatus,
             lastPoint: newPoint,
             lastLocation: { lat: newPosition.lat, lng: newPosition.lng },
             lastTimestamp: newPosition.timestamp,
@@ -1665,16 +1667,27 @@ export const useDriverStore = create<DriverState>()(
       startTracking: async () => {
         const { tracking, cycles, activeVehicleId } = get();
         
+        console.log('[TRACKING] Starting tracking process...', { 
+          isActive: tracking.isActive, 
+          isPaused: tracking.isPaused,
+          activeVehicleId 
+        });
+
         // Se já estiver ativo e NÃO estiver pausado, não faz nada
-        if (tracking.isActive && !tracking.isPaused) return;
+        if (tracking.isActive && !tracking.isPaused) {
+          console.log('[TRACKING] Already active and not paused. Skipping.');
+          return;
+        }
 
         if (!activeVehicleId) {
+          console.error('[TRACKING] No active vehicle selected');
           throw new Error('Selecione um veículo ativo antes de iniciar o rastreamento.');
         }
         
         const openCycle = cycles.find(c => c.status === 'open');
         if (!openCycle) {
           console.warn('[TRACKING] No open cycle found, cannot start tracking');
+          toast.error('Abra um turno antes de iniciar o rastreamento');
           return;
         }
 
@@ -1693,21 +1706,24 @@ export const useDriverStore = create<DriverState>()(
         // Se estiver retomando de um pause ou de um reload
         if (tracking.isActive) {
           if (tracking.isPaused) {
-            set({ tracking: { ...tracking, isPaused: false, isLoading: false } });
-            console.log('[TRACKING] Retomado do pause');
+            set({ tracking: { ...tracking, isPaused: false, isLoading: false, gpsStatus: 'connecting' } });
+            console.log('[TRACKING] Resumed from pause');
           } else {
-            console.log('[TRACKING] Retomando watch após reload');
+            console.log('[TRACKING] Resuming watch after reload');
+            set({ tracking: { ...tracking, gpsStatus: 'connecting' } });
           }
         } else {
           // Início do zero
-          set({ tracking: { ...get().tracking, isLoading: true } });
+          console.log('[TRACKING] Starting fresh session');
+          set({ tracking: { ...get().tracking, isLoading: true, gpsStatus: 'connecting' } });
           const startTime = Date.now();
-          console.log('[TRACKING] Iniciado');
+          
           set({
             tracking: {
               ...INITIAL_TRACKING,
               isActive: true,
               isLoading: false,
+              gpsStatus: 'connecting',
               startTime,
               isWarmingUp: true,
             }
@@ -1715,6 +1731,7 @@ export const useDriverStore = create<DriverState>()(
         }
 
         try {
+          console.log('[TRACKING] Requesting watchPosition...');
           watchId = navigator.geolocation.watchPosition(
             (position) => {
               const { latitude, longitude, speed, accuracy } = position.coords;
@@ -1738,16 +1755,27 @@ export const useDriverStore = create<DriverState>()(
               } else if (error.code === error.TIMEOUT) {
                 message = 'Tempo esgotado ao buscar GPS';
               }
+              
               toast.error(message);
+              
+              set((state) => ({
+                tracking: { ...state.tracking, gpsStatus: 'unavailable' }
+              }));
+
+              // Se o erro for crítico (permissão ou indisponível), paramos o rastreamento
+              if (error.code === error.PERMISSION_DENIED || error.code === error.POSITION_UNAVAILABLE) {
+                console.log('[TRACKING] Critical GPS error, stopping tracking');
+                get().stopTracking();
+              }
             },
             {
               enableHighAccuracy: true,
               maximumAge: 0,
-              timeout: 5000
+              timeout: 10000 // Aumentado para 10s para dar mais tempo no início
             }
           );
+          console.log('[TRACKING] watchPosition started successfully, ID:', watchId);
         } catch (err) {
-
           console.error('[TRACKING] Failed to start watchPosition:', err);
           set((state) => ({
             tracking: { ...state.tracking, isActive: false, isLoading: false },

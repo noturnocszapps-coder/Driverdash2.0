@@ -26,7 +26,8 @@ import {
   Clock,
   Navigation,
   Timer,
-  Activity
+  Activity,
+  Loader2
 } from 'lucide-react';
 import { startOfDay, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -116,6 +117,15 @@ export const Dashboard = () => {
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeTime, setActiveTime] = useState(0);
+  const [showResumeMessage, setShowResumeMessage] = useState(false);
+
+  useEffect(() => {
+    if (tracking.isActive && !tracking.isPaused) {
+      setShowResumeMessage(true);
+      const timer = setTimeout(() => setShowResumeMessage(false), 5000);
+      return () => clearTimeout(timer);
+    }
+  }, []);
 
   useEffect(() => {
     let interval: any;
@@ -176,25 +186,53 @@ export const Dashboard = () => {
   const handleToggleTracking = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
+    
+    console.log('[DASHBOARD] Toggling tracking...', { 
+      currentIsActive: tracking?.isActive,
+      activeVehicleId 
+    });
+
     try {
+      setLocationError(null);
       if (tracking?.isActive) {
+        console.log('[DASHBOARD] Stopping tracking...');
         await stopTracking?.();
         toast.success("Rastreamento finalizado");
       } else {
+        if (!activeVehicleId) {
+          console.warn('[DASHBOARD] No active vehicle selected');
+          toast.error("Selecione um veículo antes de iniciar");
+          setIsProcessing(false);
+          return;
+        }
+
         if (navigator?.permissions?.query) {
           const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
           if (permission.state === 'denied') {
+            console.error('[DASHBOARD] Geolocation permission denied');
             setLocationError('Permissão de localização negada. Ative o GPS nas configurações.');
             setIsProcessing(false);
             return;
           }
         }
+
+        console.log('[DASHBOARD] Starting tracking...');
+        // O startTracking no store já lida com permissões e geolocalização
         await startTracking?.();
-        setLocationError(null);
-        toast.success("Rastreamento iniciado");
+        
+        // Verificamos se o rastreamento realmente iniciou no store
+        // Como o Zustand set é síncrono, após o await ele já deve estar atualizado
+        const currentTracking = useDriverStore.getState().tracking;
+        console.log('[DASHBOARD] Tracking start result:', currentTracking.isActive);
+        
+        if (currentTracking.isActive) {
+          setLocationError(null);
+          toast.success("Rastreamento iniciado");
+        }
       }
     } catch (error: any) {
-      toast.error("Erro ao alterar rastreamento");
+      console.error('[DASHBOARD] Error toggling tracking:', error);
+      toast.error(error.message || "Erro ao alterar rastreamento");
     } finally {
       setIsProcessing(false);
     }
@@ -262,6 +300,22 @@ export const Dashboard = () => {
         )}
         
         <CardContent className="p-6 relative z-10">
+          <AnimatePresence>
+            {showResumeMessage && (
+              <motion.div 
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="mb-4 overflow-hidden"
+              >
+                <div className="bg-emerald-500/20 border border-emerald-500/20 rounded-xl p-2 flex items-center justify-center gap-2">
+                  <Zap size={14} className="text-emerald-500" />
+                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Rastreamento em andamento</p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-4">
               <div className="relative">
@@ -283,7 +337,10 @@ export const Dashboard = () => {
                 <div className="flex items-center gap-2">
                   <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Status Operacional</p>
                   {tracking.isActive && !locationError && !tracking.isPaused && (
-                    <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                    <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                      <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">AO VIVO</span>
+                    </div>
                   )}
                 </div>
                 <h3 className="text-xl font-black uppercase tracking-tight">
@@ -299,6 +356,21 @@ export const Dashboard = () => {
               </div>
             )}
           </div>
+
+          {/* GPS Status Label */}
+          {tracking.isActive && !locationError && (
+            <div className="flex items-center gap-2 mb-6 px-1">
+              <div className={cn(
+                "w-1.5 h-1.5 rounded-full",
+                tracking.gpsStatus === 'active' ? "bg-emerald-500 animate-pulse" : 
+                tracking.gpsStatus === 'connecting' ? "bg-amber-500 animate-pulse" : "bg-red-500"
+              )} />
+              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
+                {tracking.gpsStatus === 'active' ? 'GPS Ativo' : 
+                 tracking.gpsStatus === 'connecting' ? 'Conectando ao GPS...' : 'Sem sinal de GPS'}
+              </p>
+            </div>
+          )}
 
           {tracking.isActive && !locationError && (
             <div className="grid grid-cols-2 gap-4 mb-6">
@@ -344,37 +416,60 @@ export const Dashboard = () => {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            {!tracking.isActive ? (
+            {!tracking.isActive && !locationError ? (
               <Button 
                 onClick={handleToggleTracking}
-                loading={isProcessing}
-                className="col-span-2 w-full bg-white text-zinc-950 hover:bg-zinc-100 font-black uppercase tracking-widest text-xs h-14 rounded-2xl border-none shadow-lg"
+                disabled={isProcessing}
+                className="col-span-2 w-full bg-emerald-500 text-zinc-950 hover:bg-emerald-600 font-black uppercase tracking-widest text-xs h-14 rounded-2xl border-none shadow-lg flex items-center justify-center gap-2"
               >
-                Ativar Rastreamento
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="animate-spin" size={16} />
+                    Iniciando rastreamento...
+                  </>
+                ) : (
+                  <>
+                    <Play size={16} fill="currentColor" />
+                    Ativar Rastreamento
+                  </>
+                )}
               </Button>
-            ) : (
+            ) : tracking.isActive && !locationError ? (
               <>
                 <Button 
                   onClick={() => tracking.isPaused ? resumeTracking?.() : pauseTracking?.()}
+                  disabled={isProcessing}
                   className="bg-zinc-800 text-white hover:bg-zinc-700 border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg flex items-center justify-center gap-2"
                 >
                   {tracking.isPaused ? <><Play size={14} fill="currentColor" /> Retomar</> : <><Pause size={14} fill="currentColor" /> Pausar</>}
                 </Button>
                 <Button 
                   onClick={handleToggleTracking}
+                  disabled={isProcessing}
                   variant="danger"
                   className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg flex items-center justify-center gap-2"
                 >
-                  <Square size={14} fill="currentColor" /> Encerrar
+                  {isProcessing ? <Loader2 className="animate-spin" size={14} /> : <><Square size={14} fill="currentColor" /> Encerrar</>}
                 </Button>
               </>
-            )}
+            ) : null}
           </div>
           
           {locationError && (
-            <div className="mt-4 p-3 bg-white/10 rounded-xl flex items-center gap-2">
-              <AlertTriangle size={14} />
-              <p className="text-[10px] font-bold uppercase tracking-wider">{locationError}</p>
+            <div className="mt-6 space-y-4">
+              <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
+                <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
+                <p className="text-sm font-bold text-red-100 leading-tight uppercase tracking-tight">
+                  {locationError}
+                </p>
+              </div>
+              <Button 
+                onClick={handleToggleTracking}
+                disabled={isProcessing}
+                className="w-full h-14 rounded-2xl bg-white text-zinc-950 font-black uppercase tracking-widest hover:bg-zinc-100 flex items-center justify-center gap-2"
+              >
+                {isProcessing ? <Loader2 className="animate-spin" size={18} /> : 'Tentar Novamente'}
+              </Button>
             </div>
           )}
         </CardContent>
