@@ -23,13 +23,27 @@ import {
   Calendar,
   Info,
   MapPin,
-  Clock
+  Clock,
+  Navigation,
+  Timer,
+  Activity
 } from 'lucide-react';
 import { startOfDay, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { QuickActionsMenu } from '../components/QuickActionsMenu';
 import { PostTripActionSheet } from '../components/PostTripActionSheet';
+import { LiveTrackingMap } from '../components/LiveTrackingMap';
+
+const MetricItem = ({ label, value, icon: Icon, accent = "text-white" }: any) => (
+  <div className="bg-white/5 rounded-2xl p-3 border border-white/5">
+    <div className="flex items-center gap-2 mb-1 opacity-40">
+      <Icon size={12} />
+      <span className="text-[9px] font-black uppercase tracking-widest">{label}</span>
+    </div>
+    <p className={cn("text-sm font-black tracking-tight", accent)}>{value}</p>
+  </div>
+);
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -46,6 +60,13 @@ export const Dashboard = () => {
       mode: 'idle',
       duration: 0,
       distance: 0,
+      isPaused: false,
+      startTime: undefined,
+      productiveDistance: 0,
+      idleDistance: 0,
+      avgSpeed: 0,
+      points: [],
+      stopPoints: [],
     },
     startTracking,
     stopTracking,
@@ -59,6 +80,27 @@ export const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [activeTime, setActiveTime] = useState(0);
+
+  useEffect(() => {
+    let interval: any;
+    if (tracking.isActive && !tracking.isPaused && tracking.startTime) {
+      interval = setInterval(() => {
+        setActiveTime(Date.now() - tracking.startTime!);
+      }, 1000);
+    } else {
+      setActiveTime(tracking.duration || 0);
+    }
+    return () => clearInterval(interval);
+  }, [tracking.isActive, tracking.isPaused, tracking.startTime, tracking.duration]);
+
+  const formatDuration = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+  };
 
   useEffect(() => {
     // Simulate initial loading for skeleton effect
@@ -177,27 +219,75 @@ export const Dashboard = () => {
       {/* STATUS OPERACIONAL */}
       <Card className={cn(
         "border-none shadow-xl transition-all duration-500 overflow-hidden relative",
-        locationError ? "bg-red-500 text-white" : tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-zinc-900 text-white"
+        locationError ? "bg-red-500 text-white" : tracking.isActive ? "bg-zinc-900 text-white" : "bg-zinc-900 text-white"
       )}>
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          {tracking.isActive ? <Zap size={80} /> : <Play size={80} />}
-        </div>
+        {/* Background Accent for Active State */}
+        {tracking.isActive && !locationError && (
+          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
+        )}
         
         <CardContent className="p-6 relative z-10">
-          <div className="flex items-center gap-4 mb-6">
-            <div className={cn(
-              "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg",
-              tracking.isActive ? "bg-white/20" : "bg-white/5"
-            )}>
-              {locationError ? <AlertTriangle size={28} /> : tracking.isActive ? <Zap size={28} /> : <Play size={28} />}
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-500",
+                locationError ? "bg-white/20" : tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-white/5"
+              )}>
+                {locationError ? <AlertTriangle size={28} /> : tracking.isActive ? <Zap size={28} /> : <Play size={28} />}
+              </div>
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Status Operacional</p>
+                <h3 className="text-xl font-black uppercase tracking-tight">
+                  {locationError ? 'Erro de Permissão' : tracking.isActive ? 'Rastreamento Ativo' : 'Rastreamento Desativado'}
+                </h3>
+              </div>
             </div>
-            <div>
-              <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Status Operacional</p>
-              <h3 className="text-xl font-black uppercase tracking-tight">
-                {locationError ? 'Erro de Permissão' : tracking.isActive ? 'Rastreamento Ativo' : 'Rastreamento Desativado'}
-              </h3>
-            </div>
+            
+            {tracking.isActive && !locationError && (
+              <div className="text-right">
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Tempo Ativo</p>
+                <p className="text-lg font-black font-mono text-emerald-500">{formatDuration(activeTime)}</p>
+              </div>
+            )}
           </div>
+
+          {tracking.isActive && !locationError && (
+            <div className="grid grid-cols-2 gap-4 mb-6">
+              <MetricItem 
+                label="KM Total" 
+                value={`${(tracking.distance || 0).toFixed(1)} km`} 
+                icon={Navigation}
+              />
+              <MetricItem 
+                label="KM Produtivo" 
+                value={`${(tracking.productiveDistance || 0).toFixed(1)} km`} 
+                icon={Activity}
+                accent="text-emerald-500"
+              />
+              <MetricItem 
+                label="KM Ocioso" 
+                value={`${(tracking.idleDistance || 0).toFixed(1)} km`} 
+                icon={MapPin}
+                accent="text-orange-500"
+              />
+              <MetricItem 
+                label="Velocidade Média" 
+                value={`${Math.round(tracking.avgSpeed || 0)} km/h`} 
+                icon={TrendingUp}
+              />
+            </div>
+          )}
+
+          {tracking.isActive && !locationError && (
+            <div className="mb-6">
+              <LiveTrackingMap 
+                points={tracking.points || []} 
+                stopPoints={tracking.stopPoints || []}
+                isActive={tracking.isActive}
+                isPaused={tracking.isPaused}
+              />
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3">
             {!tracking.isActive ? (
@@ -212,14 +302,14 @@ export const Dashboard = () => {
               <>
                 <Button 
                   onClick={() => tracking.isPaused ? resumeTracking?.() : pauseTracking?.()}
-                  className="bg-zinc-950 text-white hover:bg-zinc-900 border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg"
+                  className="bg-zinc-800 text-white hover:bg-zinc-700 border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg flex items-center justify-center gap-2"
                 >
                   {tracking.isPaused ? <><Play size={14} fill="currentColor" /> Retomar</> : <><Pause size={14} fill="currentColor" /> Pausar</>}
                 </Button>
                 <Button 
                   onClick={handleToggleTracking}
                   variant="danger"
-                  className="bg-white/10 hover:bg-white/20 text-white border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg"
+                  className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg flex items-center justify-center gap-2"
                 >
                   <Square size={14} fill="currentColor" /> Encerrar
                 </Button>

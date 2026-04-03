@@ -16,15 +16,36 @@ import { cn } from '../utils';
 
 const Onboarding = () => {
   const [step, setStep] = useState(0);
+  const [isCompleting, setIsCompleting] = useState(false);
   const navigate = useNavigate();
   const { settings, updateSettings, vehicles } = useDriverStore();
 
-  const nextStep = () => {
+  const nextStep = async () => {
     if (step < 2) {
       setStep(step + 1);
     } else {
-      updateSettings({ onboardingCompleted: true });
-      navigate('/');
+      if (isCompleting) return;
+      
+      setIsCompleting(true);
+      console.log('[ONBOARDING] Starting completion process...');
+      console.log('[ONBOARDING] Current state:', settings.onboardingCompleted);
+      
+      try {
+        await updateSettings({ onboardingCompleted: true });
+        console.log('[ONBOARDING] Settings updated successfully');
+        
+        // Double check local storage as fallback
+        localStorage.setItem('driver_dash_onboarding_completed', 'true');
+        
+        console.log('[ONBOARDING] Redirecting to dashboard...');
+        navigate('/dashboard', { replace: true });
+      } catch (error) {
+        console.error('[ONBOARDING] Error completing onboarding:', error);
+        // Even if it fails, we try to navigate if local state was updated
+        navigate('/dashboard', { replace: true });
+      } finally {
+        setIsCompleting(false);
+      }
     }
   };
 
@@ -126,10 +147,20 @@ const Onboarding = () => {
 
         <button
           onClick={nextStep}
-          className="w-full py-4 bg-white text-black rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors"
+          disabled={isCompleting}
+          className={cn(
+            "w-full py-4 bg-white text-black rounded-2xl font-bold text-lg flex items-center justify-center gap-2 hover:bg-gray-200 transition-colors",
+            isCompleting && "opacity-50 cursor-not-allowed"
+          )}
         >
-          {step === 2 ? 'Começar Agora' : 'Próximo'}
-          <ArrowRight className="w-5 h-5" />
+          {isCompleting ? (
+            <div className="w-6 h-6 border-2 border-black/20 border-t-black rounded-full animate-spin" />
+          ) : (
+            <>
+              {step === 2 ? 'Começar Agora' : 'Próximo'}
+              <ArrowRight className="w-5 h-5" />
+            </>
+          )}
         </button>
       </div>
     </div>

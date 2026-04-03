@@ -226,9 +226,32 @@ function AppRoutes() {
   const { settings, user } = useDriverStore();
   const location = useLocation();
 
+  // Check for onboarding completion in both state and localStorage for maximum stability
+  const isLocalOnboardingCompleted = localStorage.getItem('driver_dash_onboarding_completed') === 'true';
+  const onboardingCompleted = settings.onboardingCompleted || isLocalOnboardingCompleted;
+
+  // Debug visibility for onboarding state
+  useEffect(() => {
+    if (user) {
+      console.log('[ONBOARDING] State check:', {
+        onboardingCompleted,
+        settingsOnboarding: settings.onboardingCompleted,
+        localOnboarding: isLocalOnboardingCompleted,
+        path: location.pathname
+      });
+    }
+  }, [user, onboardingCompleted, settings.onboardingCompleted, isLocalOnboardingCompleted, location.pathname]);
+
   // Redirect to onboarding if not completed
-  if (user && !settings.onboardingCompleted && location.pathname !== '/onboarding') {
+  if (user && !onboardingCompleted && location.pathname !== '/onboarding') {
+    console.log('[ONBOARDING] Redirecting to onboarding...');
     return <Navigate to="/onboarding" replace />;
+  }
+
+  // Anti-loop: If onboarding is completed, don't allow access to onboarding page
+  if (user && onboardingCompleted && location.pathname === '/onboarding') {
+    console.log('[ONBOARDING] Already completed, redirecting to dashboard...');
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

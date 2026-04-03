@@ -245,6 +245,14 @@ export interface TrackingSegment {
   avgSpeed: number;
 }
 
+export interface StopPoint {
+  lat: number;
+  lng: number;
+  timestamp: number;
+  duration: number;
+  label?: string;
+}
+
 export interface TrackingSession {
   isActive: boolean;
   isLoading: boolean;
@@ -276,6 +284,7 @@ export interface TrackingSession {
   segments: TrackingSegment[];
   consecutiveMovingPoints: number;
   consecutiveStoppedPoints: number;
+  stopPoints: StopPoint[];
   lastLocation?: { lat: number; lng: number };
   lastTimestamp?: number;
   tripIntelligence?: TripIntelligence;

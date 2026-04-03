@@ -81,6 +81,7 @@ const INITIAL_TRACKING: TrackingSession = {
   segments: [],
   consecutiveMovingPoints: 0,
   consecutiveStoppedPoints: 0,
+  stopPoints: [],
   mode: 'idle' as const,
   tripDetectionState: 'idle' as const,
   stopReason: 'none' as const,
@@ -1305,6 +1306,15 @@ export const useDriverStore = create<DriverState>()(
       },
 
       initVehicle: async () => {
+        // Check for onboarding completion in localStorage as fallback
+        const isLocalOnboardingCompleted = localStorage.getItem('driver_dash_onboarding_completed') === 'true';
+        if (isLocalOnboardingCompleted && !get().settings.onboardingCompleted) {
+          console.log('[BOOT] Restoring onboardingCompleted from localStorage');
+          set((state) => ({
+            settings: { ...state.settings, onboardingCompleted: true }
+          }));
+        }
+
         const { user } = get();
         
         // Ensure vehicles are loaded
@@ -1370,8 +1380,27 @@ export const useDriverStore = create<DriverState>()(
         if (isSaving) return;
 
         set({ isSaving: true });
+        
+        // Always update local state first for immediate UI feedback and local persistence
+        set((state) => {
+          if (newSettings.currentVehicleProfileId) {
+            localStorage.setItem(ACTIVE_VEHICLE_KEY, newSettings.currentVehicleProfileId);
+          }
+          
+          // Special handling for onboardingCompleted to ensure it's saved in a dedicated key
+          if (newSettings.onboardingCompleted === true) {
+            localStorage.setItem('driver_dash_onboarding_completed', 'true');
+            console.log('[SETTINGS] Onboarding marked as completed in localStorage');
+          }
+
+          return { 
+            settings: { ...state.settings, ...newSettings },
+            activeVehicleId: newSettings.currentVehicleProfileId !== undefined ? newSettings.currentVehicleProfileId : state.activeVehicleId
+          };
+        });
+
         try {
-          // If user is logged in, update Supabase FIRST (Cloud-First)
+          // If user is logged in, update Supabase (Cloud-Sync)
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             
@@ -1405,57 +1434,28 @@ export const useDriverStore = create<DriverState>()(
 
             const { error } = await supabase
               .from('profiles')
-              .update({
-                ...updateObj,
-                user_id: user.id // Ensure user_id is set if required by schema
-              })
+              .update(updateObj)
               .eq('id', user.id);
             
             if (error) {
               console.error('[SETTINGS] Error updating settings in Supabase:', error);
               set({ syncStatus: 'offline' });
-              throw error; // Throw to let UI handle it
+              // We don't throw here to prevent UI from breaking if sync fails, 
+              // as local state is already updated.
+            } else {
+              set({ syncStatus: 'synced' });
+              
+              // Force refresh to ensure data integrity
+              await syncData();
+              
+              setTimeout(() => {
+                if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+              }, 3000);
             }
-
-            // Only update local state if Supabase update succeeded
-            set((state) => {
-              if (newSettings.currentVehicleProfileId) {
-                localStorage.setItem(ACTIVE_VEHICLE_KEY, newSettings.currentVehicleProfileId);
-              }
-              return { 
-                settings: { ...state.settings, ...newSettings },
-                syncStatus: 'synced',
-                activeVehicleId: newSettings.currentVehicleProfileId !== undefined ? newSettings.currentVehicleProfileId : state.activeVehicleId
-              };
-            });
-
-            // Force refresh to ensure data integrity
-            await syncData();
-            
-            setTimeout(() => {
-              if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
-            }, 3000);
-          } else {
-            // Guest mode - update local only
-            if (newSettings.isPrivacyMode !== undefined) {
-              console.log(`[SETTINGS] privacy mode ${newSettings.isPrivacyMode ? 'enabled' : 'disabled'}`);
-            }
-            if (newSettings.keepScreenOn !== undefined) {
-              console.log(`[SETTINGS] keep screen on ${newSettings.keepScreenOn ? 'enabled' : 'disabled'}`);
-            }
-            set((state) => {
-              if (newSettings.currentVehicleProfileId) {
-                localStorage.setItem(ACTIVE_VEHICLE_KEY, newSettings.currentVehicleProfileId);
-              }
-              return { 
-                settings: { ...state.settings, ...newSettings },
-                activeVehicleId: newSettings.currentVehicleProfileId !== undefined ? newSettings.currentVehicleProfileId : state.activeVehicleId
-              };
-            });
           }
         } catch (err) {
-          console.error('[SETTINGS] updateSettings error:', err);
-          throw err;
+          console.error('[SETTINGS] updateSettings sync error:', err);
+          // Local state is already updated, so we just log the sync error
         } finally {
           set({ isSaving: false });
         }
@@ -1936,6 +1936,30 @@ export const useDriverStore = create<DriverState>()(
               : currentTracking.lastStopLocation;
 
             // 5. ATUALIZAÇÃO DO ESTADO GLOBAL (ÚNICA)
+            
+            // Stop point detection
+            let newStopPoints = [...(currentTracking.stopPoints || [])];
+            const isMoving = lastPoint ? (calculateDistance(lastPoint.lat, lastPoint.lng, latitude, longitude) >= TRACKING_CONFIG.MIN_DIST_PRECISION && smoothedSpeed >= TRACKING_CONFIG.DRIFT_SPEED_THRESHOLD) : false;
+            
+            if (!isMoving && newLastStopTimestamp) {
+              const stopDuration = timestamp - newLastStopTimestamp;
+              if (stopDuration > 60000) { // 60 seconds for a stop point
+                const lastStop = newStopPoints[newStopPoints.length - 1];
+                // If last stop is close to this one, just update its duration
+                if (lastStop && calculateDistance(lastStop.lat, lastStop.lng, latitude, longitude) < 0.05) {
+                  lastStop.duration = stopDuration;
+                } else if (!lastStop || (timestamp - lastStop.timestamp > 120000)) {
+                  newStopPoints.push({
+                    lat: latitude,
+                    lng: longitude,
+                    timestamp: newLastStopTimestamp,
+                    duration: stopDuration,
+                    label: 'Parada'
+                  });
+                }
+              }
+            }
+
             set({
               tracking: {
                 ...currentTracking,
@@ -1962,6 +1986,7 @@ export const useDriverStore = create<DriverState>()(
                 consecutiveStoppedPoints: newConsecutiveStoppedPoints,
                 segments: newSegments,
                 points,
+                stopPoints: newStopPoints,
                 duration: totalDuration,
                 avgSpeed,
                 currentSmoothedSpeed: smoothedSpeed,
@@ -2192,6 +2217,7 @@ export const useDriverStore = create<DriverState>()(
               currentVehicleProfileId: profile.current_vehicle_profile_id,
               role: profile.role || UserRole.DRIVER,
               status: profile.status || UserStatus.ACTIVE,
+              onboardingCompleted: profile.onboarding_completed || false,
               updated_at: profile.updated_at
             };
           }
