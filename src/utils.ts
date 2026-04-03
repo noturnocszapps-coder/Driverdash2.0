@@ -56,7 +56,7 @@ export function formatCurrency(value: number, isPrivacyMode: boolean = false) {
 }
 
 export function formatKm(value: number) {
-  return `${value.toLocaleString('pt-BR')} km`;
+  return `${value.toLocaleString('pt-BR', { minimumFractionDigits: 1, maximumFractionDigits: 1 })} km`;
 }
 
 export function calculateMonthlyFixedCost(fixedCosts?: any) {

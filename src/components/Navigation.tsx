@@ -10,7 +10,6 @@ import { UserRole } from '../types';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
-  { icon: Zap, label: 'Analytics', path: '/analytics-pro' },
   { icon: DollarSign, label: 'Fechamento', path: '/faturamento' },
   { icon: BarChart3, label: 'Relatórios', path: '/reports' },
   { icon: Settings, label: 'Ajustes', path: '/settings' },

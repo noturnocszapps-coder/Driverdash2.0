@@ -131,3 +131,7 @@ export const DropdownMenuItem = ({ children, className, ...props }: any) => (
     {children}
   </DropdownMenuPrimitive.Item>
 );
+
+export const Skeleton = ({ className, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
+  <div className={cn("animate-pulse rounded-md bg-zinc-100 dark:bg-zinc-800", className)} {...props} />
+);
