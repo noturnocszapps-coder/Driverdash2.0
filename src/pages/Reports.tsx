@@ -463,8 +463,32 @@ export const Reports = () => {
                           {report.period_start || 'Período não identificado'} 
                           {report.period_end && ` - ${report.period_end}`} 
                           <span className="mx-1 opacity-20">•</span>
-                          {report.report_type === 'daily' ? 'Diário' : 'Semanal'}
+                          {report.report_type === 'daily' ? 'Diário' : 
+                           report.report_type === 'weekly' ? 'Semanal' : 
+                           report.report_type === 'ride_offer' ? 'Oferta' : 'Detalhe'}
                         </p>
+                        {(report.ride_km || report.passenger_rating || report.surge_multiplier) && (
+                          <div className="flex items-center gap-3 mt-1">
+                            {report.ride_km && (
+                              <div className="flex items-center gap-1">
+                                <MapIcon size={10} className="text-zinc-400" />
+                                <span className="text-[10px] font-bold text-zinc-500">{report.ride_km}km</span>
+                              </div>
+                            )}
+                            {report.passenger_rating && (
+                              <div className="flex items-center gap-1">
+                                <Award size={10} className="text-amber-500" />
+                                <span className="text-[10px] font-bold text-zinc-500">{report.passenger_rating}</span>
+                              </div>
+                            )}
+                            {report.surge_multiplier && report.surge_multiplier > 1 && (
+                              <div className="flex items-center gap-1">
+                                <Zap size={10} className="text-blue-500" />
+                                <span className="text-[10px] font-bold text-blue-500">{report.surge_multiplier}x</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
                       </div>
                     </div>
                     <div className="flex items-center gap-3">

@@ -46,7 +46,7 @@ const DevLab = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#0B0B0B] text-white flex flex-col">
+    <div className="min-h-[100dvh] bg-[#0B0B0B] text-white flex flex-col">
       <header className="p-4 flex items-center gap-3 border-b border-zinc-800 bg-[#0B0B0B] sticky top-0 z-[1001]">
         <button 
           onClick={() => navigate(-1)}

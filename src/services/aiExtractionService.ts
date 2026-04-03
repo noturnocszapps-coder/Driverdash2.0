@@ -1,7 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
 export interface ExtractedReportData {
-  report_type: 'daily' | 'weekly';
+  report_type: 'daily' | 'weekly' | 'ride_offer' | 'ride_detail';
   period_start: string;
   period_end: string;
   total_earnings: number;
@@ -11,6 +11,13 @@ export interface ExtractedReportData {
   promotions: number;
   taxes: number;
   requests_count: number;
+  // Ride specific fields
+  ride_km?: number;
+  ride_duration_mins?: number;
+  passenger_rating?: number;
+  surge_multiplier?: number;
+  value_per_km?: number;
+  value_per_hour?: number;
   confidence_score: number;
   uncertain_fields: string[];
 }
@@ -46,13 +53,25 @@ export const extractReportFromImage = async (base64Image: string, platform: stri
           },
         },
         {
-          text: `Analise este print da tela de ganhos do aplicativo de motorista ${platform}. 
-          Extraia os dados financeiros e operacionais. 
-          Se um valor não for encontrado, retorne 0.
-          O período deve ser extraído com precisão. Se for um relatório diário, period_start e period_end devem ser o mesmo dia. Se for semanal, identifique o intervalo.
-          Use o formato YYYY-MM-DD para datas se possível, caso contrário use a descrição legível do print.
+          text: `Analise este print da tela do aplicativo de motorista ${platform}. 
+          Pode ser um relatório de ganhos (diário/semanal) ou uma oferta/detalhe de corrida individual.
           
-          Avalie a confiança da sua extração de 0 a 100 e liste campos onde você teve dúvida ou que podem estar imprecisos.
+          Extraia os dados financeiros e operacionais. 
+          Se um valor não for encontrado, retorne 0 ou null conforme apropriado.
+          
+          Para relatórios:
+          - Identifique se é diário ou semanal.
+          - Extraia ganhos totais, taxas e número de viagens.
+          
+          Para ofertas ou detalhes de corrida:
+          - Identifique como 'ride_offer' ou 'ride_detail'.
+          - Extraia o valor total da corrida.
+          - Extraia a distância em KM.
+          - Extraia a duração estimada em minutos.
+          - Extraia a nota do passageiro (ex: 4.95).
+          - Extraia o multiplicador de preço dinâmico/surge (ex: 1.5x ou valor adicional).
+          - Calcule o valor por KM (valor / distância).
+          - Calcule o valor por hora (valor / (duração/60)).
           
           Retorne os dados estritamente no formato JSON solicitado.`,
         },
@@ -64,53 +83,77 @@ export const extractReportFromImage = async (base64Image: string, platform: stri
           properties: {
             report_type: { 
               type: Type.STRING, 
-              enum: ["daily", "weekly"],
-              description: "Tipo do relatório: diário ou semanal"
+              enum: ["daily", "weekly", "ride_offer", "ride_detail"],
+              description: "Tipo do relatório ou tela"
             },
             period_start: { 
               type: Type.STRING, 
-              description: "Data de início do período (YYYY-MM-DD ou descrição legível)" 
+              description: "Data de início ou data da corrida" 
             },
             period_end: { 
               type: Type.STRING, 
-              description: "Data de fim do período (YYYY-MM-DD ou descrição legível)" 
+              description: "Data de fim (mesma do início para corridas)" 
             },
             total_earnings: { 
               type: Type.NUMBER,
-              description: "Ganhos totais brutos"
+              description: "Ganhos totais ou valor da corrida"
             },
             cash_earnings: { 
               type: Type.NUMBER,
-              description: "Ganhos em dinheiro (recebidos diretamente do passageiro)"
+              description: "Ganhos em dinheiro"
             },
             app_earnings: { 
               type: Type.NUMBER,
-              description: "Ganhos via aplicativo (cartão/crédito)"
+              description: "Ganhos via aplicativo"
             },
             platform_fee: { 
               type: Type.NUMBER,
-              description: "Taxa da plataforma (se visível)"
+              description: "Taxa da plataforma"
             },
             promotions: { 
               type: Type.NUMBER,
-              description: "Promoções, incentivos ou bônus"
+              description: "Promoções ou bônus"
             },
             taxes: { 
               type: Type.NUMBER,
-              description: "Impostos ou taxas governamentais (se visível)"
+              description: "Impostos"
             },
             requests_count: { 
               type: Type.NUMBER,
-              description: "Número de viagens ou solicitações concluídas"
+              description: "Número de viagens (1 para corridas individuais)"
+            },
+            ride_km: {
+              type: Type.NUMBER,
+              description: "Distância da corrida em KM"
+            },
+            ride_duration_mins: {
+              type: Type.NUMBER,
+              description: "Duração da corrida em minutos"
+            },
+            passenger_rating: {
+              type: Type.NUMBER,
+              description: "Nota do passageiro"
+            },
+            surge_multiplier: {
+              type: Type.NUMBER,
+              description: "Multiplicador de preço dinâmico"
+            },
+            value_per_km: {
+              type: Type.NUMBER,
+              description: "Valor por KM calculado"
+            },
+            value_per_hour: {
+              type: Type.NUMBER,
+              description: "Valor por hora calculado"
             },
             confidence_score: {
               type: Type.NUMBER,
-              description: "Nível de confiança da extração (0-100)"
+              description: "Nível de confiança (0-100)"
             },
             uncertain_fields: {
               type: Type.ARRAY,
               items: { type: Type.STRING },
-              description: "Lista de campos que podem estar imprecisos"
+              description: "Campos imprecisos"
             }
           },
           required: ["report_type", "total_earnings", "confidence_score"],

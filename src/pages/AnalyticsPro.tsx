@@ -36,7 +36,7 @@ export const AnalyticsPro: React.FC = () => {
   }, [cycles]);
 
   return (
-    <div className="min-h-screen bg-zinc-950 text-white p-6 pb-32">
+    <div className="min-h-[100dvh] bg-zinc-950 text-white p-6 pb-32">
       <header className="flex items-center justify-between mb-8">
         <button 
           onClick={() => navigate(-1)}

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useDriverStore } from '../store';
-import { cn } from '../utils';
+import { cn, formatCurrency } from '../utils';
 import { Button, Card, Input } from '../components/UI';
 import { 
   extractReportFromImage, 
@@ -148,6 +148,12 @@ export const ImportReport = () => {
         promotions: extractedData.promotions,
         taxes: extractedData.taxes,
         requests_count: extractedData.requests_count,
+        ride_km: extractedData.ride_km,
+        ride_duration_mins: extractedData.ride_duration_mins,
+        passenger_rating: extractedData.passenger_rating,
+        surge_multiplier: extractedData.surge_multiplier,
+        value_per_km: extractedData.value_per_km,
+        value_per_hour: extractedData.value_per_hour,
         image_hash: imageHash,
         content_fingerprint: fingerprint,
         source: 'screenshot',
@@ -385,6 +391,8 @@ export const ImportReport = () => {
                   >
                     <option value="daily">Diário</option>
                     <option value="weekly">Semanal</option>
+                    <option value="ride_offer">Oferta de Corrida</option>
+                    <option value="ride_detail">Detalhe de Corrida</option>
                   </select>
                 </div>
                 <div className="space-y-1.5">
@@ -441,6 +449,77 @@ export const ImportReport = () => {
                     className="h-12 font-bold"
                   />
                 </div>
+
+                {(extractedData.report_type === 'ride_offer' || extractedData.report_type === 'ride_detail') && (
+                  <div className="col-span-2 grid grid-cols-2 gap-4 p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800">
+                    <div className="col-span-2 mb-2">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">Análise da Corrida</h4>
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                        Distância (KM)
+                      </label>
+                      <Input
+                        type="number"
+                        value={extractedData.ride_km}
+                        onChange={(e) => setExtractedData({ ...extractedData, ride_km: parseFloat(e.target.value) })}
+                        className="h-12 font-bold bg-white dark:bg-zinc-900"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                        Duração (Min)
+                      </label>
+                      <Input
+                        type="number"
+                        value={extractedData.ride_duration_mins}
+                        onChange={(e) => setExtractedData({ ...extractedData, ride_duration_mins: parseFloat(e.target.value) })}
+                        className="h-12 font-bold bg-white dark:bg-zinc-900"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                        Nota Passageiro
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={extractedData.passenger_rating}
+                        onChange={(e) => setExtractedData({ ...extractedData, passenger_rating: parseFloat(e.target.value) })}
+                        className="h-12 font-bold bg-white dark:bg-zinc-900"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black uppercase tracking-wider text-zinc-400 flex items-center gap-1.5">
+                        Dinâmico (x)
+                      </label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={extractedData.surge_multiplier}
+                        onChange={(e) => setExtractedData({ ...extractedData, surge_multiplier: parseFloat(e.target.value) })}
+                        className="h-12 font-bold bg-white dark:bg-zinc-900"
+                      />
+                    </div>
+                    
+                    {extractedData.ride_km && extractedData.total_earnings && (
+                      <div className="col-span-2 pt-2 border-t border-zinc-200 dark:border-zinc-700 mt-2 grid grid-cols-2 gap-4">
+                        <div>
+                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Valor/KM</p>
+                          <p className="text-sm font-black text-emerald-500">
+                            {formatCurrency(extractedData.total_earnings / extractedData.ride_km, false)}
+                          </p>
+                        </div>
+                        <div>
+                          <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Valor/Hora</p>
+                          <p className="text-sm font-black text-blue-500">
+                            {extractedData.ride_duration_mins ? formatCurrency((extractedData.total_earnings / extractedData.ride_duration_mins) * 60, false) : '---'}
+                          </p>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="pt-4 flex gap-3">

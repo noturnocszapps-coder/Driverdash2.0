@@ -17,7 +17,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({ children }) => {
   // Check for blocked or suspended status
   if (settings.status === UserStatus.BLOCKED || settings.status === UserStatus.SUSPENDED) {
     return (
-      <div className="min-h-screen bg-zinc-950 flex items-center justify-center p-6">
+      <div className="min-h-[100dvh] bg-zinc-950 flex items-center justify-center p-6">
         <div className="w-full max-w-md bg-zinc-900 border border-red-500/20 rounded-[2.5rem] p-8 text-center shadow-2xl">
           <div className="w-16 h-16 bg-red-500/10 rounded-2xl flex items-center justify-center border border-red-500/20 mx-auto mb-6">
             <span className="text-red-500 text-2xl font-black">!</span>

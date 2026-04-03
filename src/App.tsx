@@ -69,7 +69,7 @@ const AnalyticsPro = lazyWithRetry(
 );
 
 const PageLoader = () => (
-  <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
+  <div className="min-h-[100dvh] bg-zinc-950 flex items-center justify-center">
     <div className="w-8 h-8 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
   </div>
 );
@@ -105,7 +105,7 @@ class RouteErrorBoundary extends React.Component<RouteErrorBoundaryProps, RouteE
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-zinc-950 text-white flex items-center justify-center p-6">
+        <div className="min-h-[100dvh] bg-zinc-950 text-white flex items-center justify-center p-6">
           <div className="w-full max-w-xl rounded-[2.5rem] border border-red-500/20 bg-zinc-900/50 backdrop-blur-xl p-8 shadow-2xl relative overflow-hidden">
             {/* Background Glow */}
             <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-500/10 rounded-full blur-[100px]" />
@@ -188,22 +188,22 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const isAuth = ['/login', '/register', '/forgot-password'].includes(location.pathname);
   const isOnboarding = location.pathname === '/onboarding';
 
-  if (isLanding || isAuth) {
+  if (isLanding || isAuth || isOnboarding) {
     return (
-      <>
+      <div className="min-h-[100dvh] flex flex-col">
         {children}
         {isLanding && <Footer />}
-      </>
+      </div>
     );
   }
 
   return (
-    <div className="flex flex-col min-h-screen bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
+    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
       <div className="flex flex-1">
         <Sidebar />
         <main className={cn(
           "flex-1 px-4 py-6 md:px-8 max-w-5xl mx-auto w-full transition-all duration-500",
-          tracking.isActive ? "pb-32" : "pb-24"
+          tracking.isActive ? "pb-[calc(160px+env(safe-area-inset-bottom))]" : "pb-[calc(80px+env(safe-area-inset-bottom))]"
         )}>
           {children}
         </main>

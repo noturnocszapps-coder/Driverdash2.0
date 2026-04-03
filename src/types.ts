@@ -394,7 +394,7 @@ export interface ImportedReport {
   user_id: string;
   vehicle_id?: string;
   platform: AppType;
-  report_type: 'daily' | 'weekly';
+  report_type: 'daily' | 'weekly' | 'ride_offer' | 'ride_detail';
   period_start: string;
   period_end: string;
   total_earnings: number;
@@ -404,6 +404,13 @@ export interface ImportedReport {
   promotions: number;
   taxes: number;
   requests_count: number;
+  // Ride specific fields
+  ride_km?: number;
+  ride_duration_mins?: number;
+  passenger_rating?: number;
+  surge_multiplier?: number;
+  value_per_km?: number;
+  value_per_hour?: number;
   image_url?: string;
   image_hash: string;
   content_fingerprint: string;

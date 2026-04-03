@@ -94,7 +94,7 @@ const CycleMap = () => {
 
   if (!cycle && !isLive) {
     return (
-      <div className="min-h-screen bg-[#0B0B0B] text-white flex flex-col items-center justify-center p-6">
+      <div className="min-h-[100dvh] bg-[#0B0B0B] text-white flex flex-col items-center justify-center p-6">
         <AlertCircle size={48} className="text-zinc-500 mb-4" />
         <h2 className="text-xl font-bold mb-2">Ciclo não encontrado</h2>
         <Button onClick={() => navigate(-1)} variant="secondary">Voltar</Button>
@@ -103,7 +103,7 @@ const CycleMap = () => {
   }
 
   return (
-    <div className="min-h-screen bg-[#0B0B0B] text-white flex flex-col">
+    <div className="min-h-[100dvh] bg-[#0B0B0B] text-white flex flex-col">
       {/* Header */}
       <header className="p-4 flex items-center justify-between border-b border-zinc-800 bg-[#0B0B0B] sticky top-0 z-[1001]">
         <div className="flex items-center gap-3">

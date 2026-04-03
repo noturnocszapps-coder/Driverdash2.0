@@ -1392,16 +1392,16 @@ export const useDriverStore = create<DriverState>()(
             if (newSettings.photoUrl !== undefined) updateObj.photo_url = newSettings.photoUrl;
             if (newSettings.fixedCosts !== undefined) updateObj.fixed_costs = newSettings.fixedCosts;
             if (newSettings.currentVehicleProfileId !== undefined) updateObj.current_vehicle_profile_id = newSettings.currentVehicleProfileId;
-            if (newSettings.isPrivacyMode !== undefined) {
-              updateObj.is_privacy_mode = newSettings.isPrivacyMode;
-              console.log(`[SETTINGS] privacy mode ${newSettings.isPrivacyMode ? 'enabled' : 'disabled'}`);
-            }
-            if (newSettings.keepScreenOn !== undefined) {
-              updateObj.keep_screen_on = newSettings.keepScreenOn;
-              console.log(`[SETTINGS] keep screen on ${newSettings.keepScreenOn ? 'enabled' : 'disabled'}`);
-            }
+            if (newSettings.isPrivacyMode !== undefined) updateObj.is_privacy_mode = newSettings.isPrivacyMode;
+            if (newSettings.keepScreenOn !== undefined) updateObj.keep_screen_on = newSettings.keepScreenOn;
+            if (newSettings.isPro !== undefined) updateObj.is_pro = newSettings.isPro;
+            if (newSettings.voiceEnabled !== undefined) updateObj.voice_enabled = newSettings.voiceEnabled;
+            if (newSettings.voiceCommandsEnabled !== undefined) updateObj.voice_commands_enabled = newSettings.voiceCommandsEnabled;
+            if (newSettings.voiceVerbosity !== undefined) updateObj.voice_verbosity = newSettings.voiceVerbosity;
+            if (newSettings.uiMode !== undefined) updateObj.ui_mode = newSettings.uiMode;
             if (newSettings.role !== undefined) updateObj.role = newSettings.role;
             if (newSettings.status !== undefined) updateObj.status = newSettings.status;
+            if (newSettings.onboardingCompleted !== undefined) updateObj.onboarding_completed = newSettings.onboardingCompleted;
 
             const { error } = await supabase
               .from('profiles')
