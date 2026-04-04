@@ -238,41 +238,62 @@ export const Settings = () => {
 
       {/* Profile Section */}
       <section className="space-y-4">
-        <SectionHeader icon={User} title="Perfil" />
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-          <CardContent className="p-6 space-y-6">
-            <div className="flex items-center gap-4 pb-6 border-b border-zinc-100 dark:border-zinc-800">
+        <SectionHeader icon={User} title="Conta e Perfil" />
+        <Card className={cn(
+          "border-none bg-white dark:bg-zinc-900 shadow-xl shadow-zinc-200/50 dark:shadow-none rounded-[2.5rem] overflow-hidden border transition-all duration-500",
+          settings.isPrivacyMode 
+            ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.05)]" 
+            : "border-zinc-100 dark:border-zinc-800/50"
+        )}>
+          <CardContent className="p-8 space-y-8 relative">
+            <AnimatePresence>
+              {settings.isPrivacyMode && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-4 right-8 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full"
+                >
+                  <Shield size={10} className="text-emerald-500" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-500">Modo Privado Ativo</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            <div className="flex flex-col sm:flex-row items-center gap-5 pb-8 border-b border-zinc-100 dark:border-zinc-800">
               <div className="relative group">
-                <div className="w-20 h-20 bg-emerald-500 rounded-2xl flex items-center justify-center text-zinc-950 text-3xl font-black overflow-hidden border-4 border-zinc-100 dark:border-zinc-800">
+                <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-[2rem] flex items-center justify-center text-zinc-950 text-4xl font-black overflow-hidden border-4 border-white dark:border-zinc-800 shadow-lg shadow-emerald-500/10">
                   {settings.photoUrl ? (
                     <img 
                       src={settings.photoUrl} 
                       alt="Profile" 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                       referrerPolicy="no-referrer"
                     />
                   ) : (
-                    settings.name?.charAt(0) || '?'
+                    <span className="drop-shadow-sm">{settings.name?.charAt(0) || '?'}</span>
                   )}
                   {isUploadingPhoto && (
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center">
-                      <div className="w-6 h-6 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="absolute inset-0 bg-zinc-950/60 backdrop-blur-sm flex items-center justify-center">
+                      <div className="w-6 h-6 border-2 border-emerald-500 border-t-transparent rounded-full animate-spin" />
                     </div>
                   )}
                 </div>
-                <div className="absolute -bottom-1 -right-1 flex gap-1">
+                <div className="absolute -bottom-2 -right-2 flex gap-1.5">
                   <button 
                     onClick={() => photoInputRef.current?.click()}
-                    className="w-8 h-8 bg-zinc-900 dark:bg-white text-white dark:text-zinc-950 rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                    className="w-9 h-9 bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all border-2 border-white dark:border-zinc-900"
+                    title="Alterar foto"
                   >
-                    <Upload size={14} />
+                    <Upload size={16} />
                   </button>
                   {settings.photoUrl && (
                     <button 
                       onClick={handleRemovePhoto}
-                      className="w-8 h-8 bg-red-500 text-white rounded-xl flex items-center justify-center shadow-lg hover:scale-110 transition-transform"
+                      className="w-9 h-9 bg-red-500 text-white rounded-2xl flex items-center justify-center shadow-xl hover:scale-110 active:scale-95 transition-all border-2 border-white dark:border-zinc-900"
+                      title="Remover foto"
                     >
-                      <Trash2 size={14} />
+                      <Trash2 size={16} />
                     </button>
                   )}
                 </div>
@@ -284,47 +305,86 @@ export const Settings = () => {
                   onChange={handlePhotoUpload}
                 />
               </div>
-              <div>
-                <h3 className="font-black text-lg tracking-tight">{settings.name || 'Motorista'}</h3>
-                <p className="text-xs text-zinc-500 font-medium">{user?.email}</p>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="px-2 py-0.5 bg-zinc-100 dark:bg-zinc-800 text-[9px] font-black uppercase rounded-full tracking-widest text-zinc-500">
-                    {settings.role}
-                  </span>
-                  <span className={cn(
-                    "px-2 py-0.5 text-[9px] font-black uppercase rounded-full tracking-widest",
-                    settings.status === 'active' ? "bg-emerald-500/10 text-emerald-500" : "bg-red-500/10 text-red-500"
-                  )}>
-                    {settings.status}
-                  </span>
+
+              <div className="flex-1 text-center sm:text-left space-y-3">
+                <div className="space-y-1">
+                  <h3 className="font-black text-3xl tracking-tighter text-zinc-900 dark:text-white leading-none">
+                    {settings.name || 'Motorista'}
+                  </h3>
+                  <p className="text-sm text-zinc-500 font-bold tracking-tight opacity-80">
+                    {user?.email}
+                  </p>
                 </div>
-                <div className="mt-2">
+
+                <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 dark:bg-zinc-800/50 text-[10px] font-black uppercase rounded-lg tracking-[0.15em] text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/50">
+                    <Shield size={10} className="text-emerald-500" />
+                    {settings.role}
+                  </div>
+                  <div className={cn(
+                    "flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase rounded-lg tracking-[0.15em] border",
+                    settings.status === 'active' 
+                      ? "bg-emerald-500/5 text-emerald-500 border-emerald-500/20" 
+                      : "bg-red-500/5 text-red-500 border-red-500/20"
+                  )}>
+                    <div className={cn("w-1.5 h-1.5 rounded-full", settings.status === 'active' ? "bg-emerald-500 animate-pulse" : "bg-red-500")} />
+                    {settings.status}
+                  </div>
+                </div>
+
+                <div className="pt-1">
                   <SyncIndicator />
                 </div>
               </div>
             </div>
 
-            <div className="space-y-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome de Exibição</label>
-                <Input 
-                  value={settings.name} 
-                  onChange={e => updateSettings({ name: e.target.value })}
-                  className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
-                />
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Nome de Exibição</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500 transition-colors">
+                    <User size={18} />
+                  </div>
+                  <Input 
+                    value={settings.isPrivacyMode ? "• • • • • • • •" : settings.name} 
+                    readOnly={settings.isPrivacyMode}
+                    onChange={e => {
+                      if (settings.isPrivacyMode) return;
+                      updateSettings({ name: e.target.value });
+                    }}
+                    className={cn(
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/20 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300",
+                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                    )}
+                    placeholder="Seu nome"
+                  />
+                </div>
               </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Meta Diária (R$)</label>
-                <Input 
-                  type="number"
-                  value={settings.dailyGoal === 0 ? '' : settings.dailyGoal} 
-                  onChange={e => {
-                    const val = e.target.value;
-                    updateSettings({ dailyGoal: val === '' ? 0 : Number(val) });
-                  }}
-                  className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-black text-xl"
-                  placeholder="0"
-                />
+              <div className="space-y-2">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Meta Diária Sugerida</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500 transition-colors">
+                    <Target size={18} />
+                  </div>
+                  <Input 
+                    type={settings.isPrivacyMode ? "text" : "number"}
+                    value={settings.isPrivacyMode ? "• • • • •" : (settings.dailyGoal === 0 ? '' : settings.dailyGoal)} 
+                    readOnly={settings.isPrivacyMode}
+                    onChange={e => {
+                      if (settings.isPrivacyMode) return;
+                      const val = e.target.value;
+                      updateSettings({ dailyGoal: val === '' ? 0 : Number(val) });
+                    }}
+                    className={cn(
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/20 rounded-xl font-bold text-xl text-emerald-500 transition-all duration-300",
+                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                    )}
+                    placeholder="0"
+                  />
+                  <div className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-400 uppercase tracking-widest">
+                    {settings.isPrivacyMode ? "(oculto)" : "BRL"}
+                  </div>
+                </div>
               </div>
             </div>
           </CardContent>
@@ -514,8 +574,27 @@ export const Settings = () => {
           </Button>
         </div>
         
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-          <CardContent className="p-6 space-y-6">
+        <Card className={cn(
+          "border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden transition-all duration-500 border",
+          settings.isPrivacyMode 
+            ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.05)]" 
+            : "border-zinc-100 dark:border-zinc-800/50"
+        )}>
+          <CardContent className="p-6 space-y-6 relative">
+            <AnimatePresence>
+              {settings.isPrivacyMode && (
+                <motion.div 
+                  initial={{ opacity: 0, y: -10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  exit={{ opacity: 0, y: -10 }}
+                  className="absolute top-4 right-6 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full"
+                >
+                  <Shield size={10} className="text-emerald-500" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-500">Modo Privado Ativo</span>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
             {/* Vehicle Selector */}
             <div className="space-y-1.5">
               <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Veículo Ativo</label>
@@ -569,21 +648,31 @@ export const Settings = () => {
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome do Carro</label>
                     <Input 
-                      value={currentVehicle.name}
+                      value={settings.isPrivacyMode ? "• • • • • • • •" : currentVehicle.name}
+                      readOnly={settings.isPrivacyMode}
                       onChange={e => {
+                        if (settings.isPrivacyMode) return;
                         updateVehicle(currentVehicle.id, { name: e.target.value });
                       }}
-                      className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+                      className={cn(
+                        "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                        settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                      )}
                     />
                   </div>
                   <div className="space-y-1.5">
                     <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Ano</label>
                     <Input 
-                      value={currentVehicle.year}
+                      value={settings.isPrivacyMode ? "• • • •" : currentVehicle.year}
+                      readOnly={settings.isPrivacyMode}
                       onChange={e => {
+                        if (settings.isPrivacyMode) return;
                         updateVehicle(currentVehicle.id, { year: e.target.value });
                       }}
-                      className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+                      className={cn(
+                        "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                        settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                      )}
                     />
                   </div>
                 </div>
@@ -592,13 +681,18 @@ export const Settings = () => {
                   <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Veículo</label>
                   <Select
                     value={currentVehicle.type}
+                    disabled={settings.isPrivacyMode}
                     onChange={e => {
+                      if (settings.isPrivacyMode) return;
                       updateVehicle(currentVehicle.id, { 
                         type: e.target.value as any, 
                         fixedCosts: { ...currentVehicle.fixedCosts, vehicleType: e.target.value as any } 
                       });
                     }}
-                    className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+                    className={cn(
+                      "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                      settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
+                    )}
                   >
                     <option value="owned">Veículo Próprio</option>
                     <option value="rented">Veículo Alugado</option>
@@ -611,31 +705,37 @@ export const Settings = () => {
                       label="Seguro" 
                       value={currentVehicle.fixedCosts.insurance} 
                       onChange={val => updateCurrentVehicleCosts({ insurance: val })} 
+                      isPrivacyMode={settings.isPrivacyMode}
                     />
                     <CostInput 
                       label="IPVA" 
                       value={currentVehicle.fixedCosts.ipva} 
                       onChange={val => updateCurrentVehicleCosts({ ipva: val })} 
+                      isPrivacyMode={settings.isPrivacyMode}
                     />
                     <CostInput 
                       label="Troca de Óleo" 
                       value={currentVehicle.fixedCosts.oilChange} 
                       onChange={val => updateCurrentVehicleCosts({ oilChange: val })} 
+                      isPrivacyMode={settings.isPrivacyMode}
                     />
                     <CostInput 
                       label="Pneus" 
                       value={currentVehicle.fixedCosts.tires} 
                       onChange={val => updateCurrentVehicleCosts({ tires: val })} 
+                      isPrivacyMode={settings.isPrivacyMode}
                     />
                     <CostInput 
                       label="Manutenção" 
                       value={currentVehicle.fixedCosts.maintenance} 
                       onChange={val => updateCurrentVehicleCosts({ maintenance: val })} 
+                      isPrivacyMode={settings.isPrivacyMode}
                     />
                     <CostInput 
                       label="Parcela" 
                       value={currentVehicle.fixedCosts.financing} 
                       onChange={val => updateCurrentVehicleCosts({ financing: val })} 
+                      isPrivacyMode={settings.isPrivacyMode}
                     />
                   </div>
                 ) : (
@@ -644,8 +744,15 @@ export const Settings = () => {
                       <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Aluguel</label>
                       <Select
                         value={currentVehicle.fixedCosts.rentalPeriod || 'weekly'}
-                        onChange={e => updateCurrentVehicleCosts({ rentalPeriod: e.target.value as any })}
-                        className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+                        disabled={settings.isPrivacyMode}
+                        onChange={e => {
+                          if (settings.isPrivacyMode) return;
+                          updateCurrentVehicleCosts({ rentalPeriod: e.target.value as any });
+                        }}
+                        className={cn(
+                          "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                          settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
+                        )}
                       >
                         <option value="weekly">Semanal</option>
                         <option value="monthly">Mensal</option>
@@ -655,22 +762,29 @@ export const Settings = () => {
                       label="Valor do Aluguel" 
                       value={currentVehicle.fixedCosts.rentalValue} 
                       onChange={val => updateCurrentVehicleCosts({ rentalValue: val })} 
+                      isPrivacyMode={settings.isPrivacyMode}
                     />
                   </div>
                 )}
 
-                <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-center">
+                <div className="p-4 bg-zinc-50 dark:bg-zinc-800/50 rounded-2xl border border-zinc-100 dark:border-zinc-800 flex justify-between items-center transition-all duration-500">
                   <div>
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Custo Fixo Diário</p>
-                    <p className="text-xl font-black text-emerald-500">
-                      {formatCurrency(calculateDailyFixedCost(currentVehicle.fixedCosts))}
-                    </p>
+                    <div className="flex items-baseline gap-2">
+                      <p className="text-xl font-black text-emerald-500 transition-all duration-300">
+                        {formatCurrency(calculateDailyFixedCost(currentVehicle.fixedCosts), settings.isPrivacyMode)}
+                      </p>
+                      {settings.isPrivacyMode && <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wider">(oculto)</span>}
+                    </div>
                   </div>
                   <div className="text-right">
                     <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Total Mensal</p>
-                    <p className="text-sm font-bold text-zinc-400">
-                      {formatCurrency(calculateMonthlyFixedCost(currentVehicle.fixedCosts))}
-                    </p>
+                    <div className="flex items-baseline justify-end gap-2">
+                      {settings.isPrivacyMode && <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-wider">(oculto)</span>}
+                      <p className="text-sm font-bold text-zinc-400 transition-all duration-300">
+                        {formatCurrency(calculateMonthlyFixedCost(currentVehicle.fixedCosts), settings.isPrivacyMode)}
+                      </p>
+                    </div>
                   </div>
                 </div>
 
@@ -1016,17 +1130,22 @@ const SectionHeader = ({ icon: Icon, title }: any) => (
   </div>
 );
 
-const CostInput = ({ label, value, onChange }: { label: string, value?: number, onChange: (val: number | undefined) => void }) => (
+const CostInput = ({ label, value, onChange, isPrivacyMode }: { label: string, value?: number, onChange: (val: number | undefined) => void, isPrivacyMode?: boolean }) => (
   <div className="space-y-1.5">
     <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">{label}</label>
     <Input 
-      type="number"
-      value={value === undefined ? '' : value} 
+      type={isPrivacyMode ? "text" : "number"}
+      value={isPrivacyMode ? "• • • • •" : (value === undefined ? '' : value)} 
+      readOnly={isPrivacyMode}
       onChange={e => {
+        if (isPrivacyMode) return;
         const val = e.target.value;
         onChange(val === '' ? undefined : Number(val));
       }}
-      className="h-10 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-xl font-bold text-sm"
+      className={cn(
+        "h-10 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-xl font-bold text-sm transition-all duration-300",
+        isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+      )}
       placeholder="0,00"
     />
   </div>

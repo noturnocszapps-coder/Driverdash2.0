@@ -48,7 +48,7 @@ export function safeNumber(value: any, fallback = 0): number {
 }
 
 export function formatCurrency(value: number, isPrivacyMode: boolean = false) {
-  if (isPrivacyMode) return 'R$ ••••';
+  if (isPrivacyMode) return 'R$ • • • • •';
   return new Intl.NumberFormat('pt-BR', {
     style: 'currency',
     currency: 'BRL',
@@ -148,9 +148,9 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
   const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
 
   // Hourly rates
-  const startTime = new Date(cycle.start_time).getTime();
-  const endTime = cycle.end_time ? new Date(cycle.end_time).getTime() : Date.now();
-  const durationHours = (endTime - startTime) / (1000 * 60 * 60);
+  const startTime = cycle.start_time ? new Date(cycle.start_time).getTime() : 0;
+  const endTime = cycle.end_time ? new Date(cycle.end_time).getTime() : (cycle.start_time ? Date.now() : 0);
+  const durationHours = (startTime > 0 && endTime > startTime) ? (endTime - startTime) / (1000 * 60 * 60) : 0;
   
   const grossPerHour = durationHours > 0 ? grossAmount / durationHours : 0;
   const netPerHour = durationHours > 0 ? netProfit / durationHours : 0;

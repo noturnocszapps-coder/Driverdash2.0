@@ -20,7 +20,7 @@ export const SyncIndicator = () => {
   const { icon: Icon, text, color, animate } = (statusConfig[status as keyof typeof statusConfig] || statusConfig.idle) as any;
 
   return (
-    <div className={`flex items-center gap-1.5 px-2 py-1 rounded-full bg-zinc-100 dark:bg-zinc-800 text-[10px] font-bold uppercase tracking-wider transition-all duration-300 ${color}`}>
+    <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 text-[10px] font-black uppercase tracking-[0.15em] border border-zinc-200 dark:border-zinc-700/50 transition-all duration-300 ${color}`}>
       <Icon size={12} className={animate} />
       <span>{syncError || text}</span>
     </div>

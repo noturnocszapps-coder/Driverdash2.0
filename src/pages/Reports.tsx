@@ -194,15 +194,25 @@ export const Reports = () => {
     const reportsByDate: Record<string, any[]> = {};
 
     cycles.forEach(cycle => {
-      const dateKey = format(parseISO(cycle.start_time), 'yyyy-MM-dd');
-      if (!cyclesByDate[dateKey]) cyclesByDate[dateKey] = [];
-      cyclesByDate[dateKey].push(cycle);
+      if (!cycle.start_time) return;
+      try {
+        const dateKey = format(parseISO(cycle.start_time), 'yyyy-MM-dd');
+        if (!cyclesByDate[dateKey]) cyclesByDate[dateKey] = [];
+        cyclesByDate[dateKey].push(cycle);
+      } catch (e) {
+        console.warn('[REPORTS] Invalid cycle start_time:', cycle.start_time);
+      }
     });
 
     importedReports.forEach(report => {
-      const dateKey = format(parseISO(report.period_start), 'yyyy-MM-dd');
-      if (!reportsByDate[dateKey]) reportsByDate[dateKey] = [];
-      reportsByDate[dateKey].push(report);
+      if (!report.period_start) return;
+      try {
+        const dateKey = format(parseISO(report.period_start), 'yyyy-MM-dd');
+        if (!reportsByDate[dateKey]) reportsByDate[dateKey] = [];
+        reportsByDate[dateKey].push(report);
+      } catch (e) {
+        console.warn('[REPORTS] Invalid report period_start:', report.period_start);
+      }
     });
 
     const allDates = new Set<string>();
@@ -211,6 +221,7 @@ export const Reports = () => {
     
     const sortedDates = Array.from(allDates)
       .map(d => parseISO(d))
+      .filter(d => !isNaN(d.getTime())) // Safety check
       .sort((a, b) => b.getTime() - a.getTime())
       .slice(0, 30);
 
@@ -495,7 +506,7 @@ export const Reports = () => {
                       <div className="text-right hidden sm:block">
                         <p className="text-[9px] font-black text-zinc-400 uppercase">Importado em</p>
                         <p className="text-[10px] font-black text-zinc-600 dark:text-zinc-400">
-                          {format(new Date(report.imported_at), 'dd/MM/yy')}
+                          {report.imported_at ? format(new Date(report.imported_at), 'dd/MM/yy') : 'Data desconhecida'}
                         </p>
                       </div>
                       {linkedCycle && <ChevronRight size={16} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />}
