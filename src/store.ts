@@ -8,6 +8,7 @@ import { evaluateCurrentTrip } from './lib/tripIntelligence';
 import { evaluateZoneQuality } from './lib/zoneIntelligence';
 
 let watchId: number | null = null;
+let gpsHealthTimeout: NodeJS.Timeout | null = null;
 
 const TRACKING_CONFIG = {
   MIN_POINTS_SEARCHING: 3,
@@ -27,6 +28,7 @@ const TRACKING_CONFIG = {
   TRAFFIC_LIGHT_MAX_MS: 90000, // 90 segundos
   WAITING_PASSENGER_MS: 120000, // 120 segundos
   WAITING_PASSENGER_DIST: 0.08, // 80 metros
+  GPS_HEALTH_CHECK_MS: 8000, // 8 segundos para receber a primeira posição
 };
 
 const INITIAL_SETTINGS: UserSettings = {
@@ -121,6 +123,7 @@ export const useDriverStore = create<DriverState>()(
       workLogs: [],
       faturamentoLogs: [],
       cycles: [],
+      hasOpenCycle: false,
       expenses: [],
       fuelings: [],
       maintenances: [],
@@ -131,6 +134,7 @@ export const useDriverStore = create<DriverState>()(
       activeVehicleId: undefined,
       settings: INITIAL_SETTINGS,
       tracking: INITIAL_TRACKING,
+      isWatching: false,
       financialEntries: [],
       isSaving: false,
       isQuickActionsOpen: false,
@@ -305,12 +309,28 @@ export const useDriverStore = create<DriverState>()(
       
       startCycle: async () => {
         const { user, cycles, settings, isSaving, activeVehicleId } = get();
-        if (isSaving) return cycles.find(c => c.status === 'open')?.id || '';
+        
+        console.log('[CYCLE] Starting cycle check...', { 
+          hasOpenCycle: cycles.some(c => c.status === 'open'),
+          activeVehicleId,
+          isSaving 
+        });
+
+        if (isSaving) {
+          const existing = cycles.find(c => c.status === 'open');
+          console.log('[CYCLE] Already saving, returning existing open cycle:', existing?.id);
+          return existing?.id || '';
+        }
         
         const openCycle = cycles.find(c => c.status === 'open');
-        if (openCycle) return openCycle.id;
+        if (openCycle) {
+          console.log('[CYCLE] Found existing open cycle:', openCycle.id);
+          set({ hasOpenCycle: true });
+          return openCycle.id;
+        }
 
         if (!activeVehicleId) {
+          console.error('[CYCLE] No active vehicle selected');
           throw new Error('Selecione um veículo ativo antes de iniciar um ciclo.');
         }
 
@@ -351,12 +371,26 @@ export const useDriverStore = create<DriverState>()(
             vehicle_snapshot: vehicleSnapshot
           };
 
-          set((state) => ({ cycles: [...state.cycles, newCycle] }));
+          console.log('[CYCLE] Creating new cycle locally:', id);
+          
+          // LOCAL FIRST: Update local state immediately
+          set((state) => ({ 
+            cycles: [...state.cycles, newCycle],
+            hasOpenCycle: true 
+          }));
+
+          // Persist to localStorage for extra safety
+          localStorage.setItem('driver_dash_open_cycle', JSON.stringify(newCycle));
 
           if (user && isSupabaseConfigured) {
+            console.log('[CYCLE] Syncing new cycle to Supabase...');
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('cycles').insert(newCycle);
-            if (error) console.error('[SYNC] Error (start cycle):', error);
+            if (error) {
+              console.error('[CYCLE] Error syncing to Supabase:', error);
+            } else {
+              console.log('[CYCLE] Successfully synced to Supabase');
+            }
             set({ syncStatus: error ? 'offline' : 'synced' });
             
             // Force refresh to ensure data integrity
@@ -395,7 +429,13 @@ export const useDriverStore = create<DriverState>()(
             total_expenses: (cycle.fuel_expense || 0) + (cycle.food_expense || 0) + (cycle.other_expense || 0)
           };
 
-          set((state) => ({ cycles: [...state.cycles, newCycle] }));
+          set((state) => {
+            const updatedCycles = [...state.cycles, newCycle];
+            return {
+              cycles: updatedCycles,
+              hasOpenCycle: updatedCycles.some(c => c.status === 'open')
+            };
+          });
 
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
@@ -425,11 +465,18 @@ export const useDriverStore = create<DriverState>()(
         try {
           const endTime = new Date().toISOString();
           
-          set((state) => ({
-            cycles: state.cycles.map(c => 
-              c.id === id ? { ...c, status: 'closed', end_time: endTime, updated_at: endTime } : c
-            )
-          }));
+          set((state) => {
+            const updatedCycles = state.cycles.map(c => 
+              c.id === id ? { ...c, status: 'closed' as const, end_time: endTime, updated_at: endTime } : c
+            );
+            return {
+              cycles: updatedCycles,
+              hasOpenCycle: updatedCycles.some(c => c.status === 'open')
+            };
+          });
+
+          // Clear localStorage on close
+          localStorage.removeItem('driver_dash_open_cycle');
 
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
@@ -457,8 +504,8 @@ export const useDriverStore = create<DriverState>()(
         const { user, isSaving } = get();
         
         // Always update local state first for responsiveness
-        set((state) => ({
-          cycles: state.cycles.map(c => {
+        set((state) => {
+          const updatedCycles = state.cycles.map(c => {
             if (c.id === id) {
               const updated = { ...c, ...data, updated_at: new Date().toISOString() };
               
@@ -492,8 +539,19 @@ export const useDriverStore = create<DriverState>()(
               return updated;
             }
             return c;
-          })
-        }));
+          });
+
+          return {
+            cycles: updatedCycles,
+            hasOpenCycle: updatedCycles.some(c => c.status === 'open')
+          };
+        });
+
+        // Update localStorage if it's the open cycle
+        const openCycle = get().cycles.find(c => c.status === 'open');
+        if (openCycle && openCycle.id === id) {
+          localStorage.setItem('driver_dash_open_cycle', JSON.stringify(openCycle));
+        }
 
         // If a sync is already in progress, don't start another one
         // but the local state is already updated above.
@@ -1030,9 +1088,23 @@ export const useDriverStore = create<DriverState>()(
 
         set({ isSaving: true });
         try {
-          set((state) => ({
-            cycles: state.cycles.filter(c => c.id !== id)
-          }));
+          set((state) => {
+            const updatedCycles = state.cycles.filter(c => c.id !== id);
+            return {
+              cycles: updatedCycles,
+              hasOpenCycle: updatedCycles.some(c => c.status === 'open')
+            };
+          });
+
+          // Clear localStorage if deleted cycle was the open one
+          const localCycle = localStorage.getItem('driver_dash_open_cycle');
+          if (localCycle) {
+            try {
+              if (JSON.parse(localCycle).id === id) {
+                localStorage.removeItem('driver_dash_open_cycle');
+              }
+            } catch (e) {}
+          }
 
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
@@ -1509,6 +1581,13 @@ export const useDriverStore = create<DriverState>()(
       },
 
       updateTrackingPosition: (newPosition) => {
+        // Clear health check timeout on first valid position
+        if (gpsHealthTimeout) {
+          console.log('[TRACKING] GPS Health Check passed: First position received');
+          clearTimeout(gpsHealthTimeout);
+          gpsHealthTimeout = null;
+        }
+
         set((state) => {
           const { tracking } = state;
           if (!tracking.isActive || tracking.isPaused) return state;
@@ -1654,8 +1733,16 @@ export const useDriverStore = create<DriverState>()(
           navigator.geolocation.clearWatch(watchId);
           watchId = null;
         }
+
+        if (gpsHealthTimeout) {
+          clearTimeout(gpsHealthTimeout);
+          gpsHealthTimeout = null;
+        }
         
-        set({ tracking: { ...tracking, isPaused: true } });
+        set({ 
+          tracking: { ...tracking, isPaused: true },
+          isWatching: false
+        });
         console.log('[TRACKING] pausado');
       },
 
@@ -1665,17 +1752,43 @@ export const useDriverStore = create<DriverState>()(
       },
 
       startTracking: async () => {
-        const { tracking, cycles, activeVehicleId } = get();
+        const { tracking, startCycle } = get();
         
-        console.log('[TRACKING] Starting tracking process...', { 
+        // Always read fresh state from get() to avoid race conditions
+        const currentCycles = get().cycles;
+        const activeVehicleId = get().activeVehicleId;
+        
+        let openCycle = currentCycles.find(c => c.status === 'open');
+        
+        console.log('[TRACKING] Attempting to start tracking...', { 
           isActive: tracking.isActive, 
           isPaused: tracking.isPaused,
-          activeVehicleId 
+          activeVehicleId,
+          hasOpenCycle: !!openCycle,
+          openCycleId: openCycle?.id
         });
+        
+        // SMART FALLBACK: If no open cycle, create one automatically
+        if (!openCycle) {
+          console.log('[TRACKING] No open cycle found. Auto-creating cycle...');
+          try {
+            const newCycleId = await startCycle();
+            // Re-read fresh state after startCycle
+            openCycle = get().cycles.find(c => c.id === newCycleId);
+            console.log('[TRACKING] Auto-created cycle:', newCycleId);
+            
+            // Small delay to ensure state propagation if needed
+            await new Promise(resolve => setTimeout(resolve, 100));
+          } catch (error: any) {
+            console.error('[TRACKING] Failed to auto-create cycle:', error);
+            toast.error('Erro ao abrir turno automaticamente. Tente abrir manualmente.');
+            return;
+          }
+        }
 
-        // Se já estiver ativo e NÃO estiver pausado, não faz nada
-        if (tracking.isActive && !tracking.isPaused) {
-          console.log('[TRACKING] Already active and not paused. Skipping.');
+        // Se já estiver ativo, NÃO estiver pausado E o watchId já existir, não faz nada
+        if (tracking.isActive && !tracking.isPaused && watchId !== null) {
+          console.log('[TRACKING] Already active, not paused and watchId exists. Skipping.');
           return;
         }
 
@@ -1684,9 +1797,8 @@ export const useDriverStore = create<DriverState>()(
           throw new Error('Selecione um veículo ativo antes de iniciar o rastreamento.');
         }
         
-        const openCycle = cycles.find(c => c.status === 'open');
         if (!openCycle) {
-          console.warn('[TRACKING] No open cycle found, cannot start tracking');
+          console.warn('[TRACKING] Still no open cycle after fallback. Blocking.');
           toast.error('Abra um turno antes de iniciar o rastreamento');
           return;
         }
@@ -1732,6 +1844,7 @@ export const useDriverStore = create<DriverState>()(
 
         try {
           console.log('[TRACKING] Requesting watchPosition...');
+          localStorage.setItem('driver_dash_tracking_active', 'true');
           watchId = navigator.geolocation.watchPosition(
             (position) => {
               const { latitude, longitude, speed, accuracy } = position.coords;
@@ -1775,10 +1888,44 @@ export const useDriverStore = create<DriverState>()(
             }
           );
           console.log('[TRACKING] watchPosition started successfully, ID:', watchId);
+          set({ isWatching: true });
+
+          // Start GPS health check
+          if (gpsHealthTimeout) clearTimeout(gpsHealthTimeout);
+          gpsHealthTimeout = setTimeout(() => {
+            const state = get();
+            // If still watching but no position received (gpsStatus is not 'active')
+            if (state.isWatching && state.tracking.isActive && state.tracking.gpsStatus !== 'active') {
+              console.error('[TRACKING] GPS Health Check failed: No position received within timeout');
+              
+              // Stop tracking and cleanup
+              if (watchId !== null) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+              }
+              
+              localStorage.setItem('driver_dash_tracking_active', 'false');
+              
+              set((state) => ({
+                isWatching: false,
+                tracking: { 
+                  ...state.tracking, 
+                  isActive: false, 
+                  isLoading: false, 
+                  gpsStatus: 'unavailable' 
+                }
+              }));
+              
+              toast.error("Não foi possível conectar ao GPS. Tente novamente.");
+            }
+            gpsHealthTimeout = null;
+          }, TRACKING_CONFIG.GPS_HEALTH_CHECK_MS);
         } catch (err) {
           console.error('[TRACKING] Failed to start watchPosition:', err);
+          localStorage.setItem('driver_dash_tracking_active', 'false');
           set((state) => ({
             tracking: { ...state.tracking, isActive: false, isLoading: false },
+            isWatching: false
           }));
           throw err;
         }
@@ -1794,6 +1941,11 @@ export const useDriverStore = create<DriverState>()(
         if (watchId !== null) {
           navigator.geolocation.clearWatch(watchId);
           watchId = null;
+        }
+
+        if (gpsHealthTimeout) {
+          clearTimeout(gpsHealthTimeout);
+          gpsHealthTimeout = null;
         }
 
         const { tracking, cycles, updateCycle } = get();
@@ -1826,8 +1978,10 @@ export const useDriverStore = create<DriverState>()(
         } : null;
 
         // 2. Reset tracking state IMMEDIATELY
+        localStorage.setItem('driver_dash_tracking_active', 'false');
         set({
           isQuickActionsOpen: false,
+          isWatching: false,
           tracking: {
             ...INITIAL_TRACKING,
             endTime: Date.now()
@@ -1912,12 +2066,51 @@ export const useDriverStore = create<DriverState>()(
 
         const newActiveVehicleId = data.settings?.currentVehicleProfileId || state.activeVehicleId;
 
+        const newCycles = data.cycles ? mergeByUpdatedAt(state.cycles, data.cycles) : state.cycles;
+        const hasOpenCycle = newCycles.some(c => c.status === 'open');
+
+        // Update localStorage if we found an open cycle
+        const openCycle = newCycles.find(c => c.status === 'open');
+        if (openCycle) {
+          localStorage.setItem('driver_dash_open_cycle', JSON.stringify(openCycle));
+        } else {
+          // If no open cycle in sync, check if we should restore from local
+          const localCycleStr = localStorage.getItem('driver_dash_open_cycle');
+          if (localCycleStr) {
+            try {
+              const localCycle = JSON.parse(localCycleStr);
+              // Only restore if it's not already in the list (to avoid duplicates)
+              if (!newCycles.some(c => c.id === localCycle.id)) {
+                console.log('[CYCLE] Restoring open cycle from localStorage into state:', localCycle.id);
+                newCycles.push(localCycle);
+                return {
+                  ...state,
+                  cycles: [...newCycles],
+                  hasOpenCycle: true,
+                  expenses: data.expenses ? mergeByUpdatedAt(state.expenses, data.expenses) : state.expenses,
+                  fuelings: data.fuelings ? mergeByUpdatedAt(state.fuelings, data.fuelings) : state.fuelings,
+                  maintenances: data.maintenances ? mergeByUpdatedAt(state.maintenances, data.maintenances) : state.maintenances,
+                  importedReports: data.importedReports ? mergeByUpdatedAt(state.importedReports, data.importedReports) : state.importedReports,
+                  vehicles: data.vehicles ? mergeByUpdatedAt(state.vehicles, data.vehicles) : state.vehicles,
+                  faturamentoLogs: data.faturamentoLogs ? mergeByUpdatedAt(state.faturamentoLogs, data.faturamentoLogs) : state.faturamentoLogs,
+                  financialEntries: data.financialEntries ? mergeByUpdatedAt(state.financialEntries, data.financialEntries) : state.financialEntries,
+                  settings: (data.settings?.updated_at && state.settings.updated_at && new Date(data.settings.updated_at) < new Date(state.settings.updated_at)) ? state.settings : newSettings,
+                  activeVehicleId: newActiveVehicleId,
+                };
+              }
+            } catch (e) {
+              console.error('[CYCLE] Error parsing local cycle:', e);
+            }
+          }
+        }
+
         return {
           expenses: data.expenses ? mergeByUpdatedAt(state.expenses, data.expenses) : state.expenses,
           fuelings: data.fuelings ? mergeByUpdatedAt(state.fuelings, data.fuelings) : state.fuelings,
           maintenances: data.maintenances ? mergeByUpdatedAt(state.maintenances, data.maintenances) : state.maintenances,
           importedReports: data.importedReports ? mergeByUpdatedAt(state.importedReports, data.importedReports) : state.importedReports,
-          cycles: data.cycles ? mergeByUpdatedAt(state.cycles, data.cycles) : state.cycles,
+          cycles: newCycles,
+          hasOpenCycle,
           vehicles: data.vehicles ? mergeByUpdatedAt(state.vehicles, data.vehicles) : state.vehicles,
           faturamentoLogs: data.faturamentoLogs ? mergeByUpdatedAt(state.faturamentoLogs, data.faturamentoLogs) : state.faturamentoLogs,
           financialEntries: data.financialEntries ? mergeByUpdatedAt(state.financialEntries, data.financialEntries) : state.financialEntries,
@@ -2526,6 +2719,7 @@ export const useDriverStore = create<DriverState>()(
       name: 'driver-dash-storage',
       partialize: (state) => ({
         cycles: state.cycles,
+        hasOpenCycle: state.hasOpenCycle,
         expenses: state.expenses,
         fuelings: state.fuelings,
         maintenances: state.maintenances,

@@ -496,6 +496,7 @@ export interface DriverState {
   workLogs: WorkLog[];
   faturamentoLogs: FaturamentoLog[];
   cycles: Cycle[];
+  hasOpenCycle: boolean;
   expenses: Expense[];
   fuelings: Fueling[];
   maintenances: Maintenance[];
@@ -503,6 +504,7 @@ export interface DriverState {
   vehicles: VehicleProfile[];
   settings: UserSettings;
   tracking: TrackingSession;
+  isWatching: boolean;
   activeVehicleId: string | undefined;
   isSaving: boolean;
   financialEntries: FinancialEntry[];

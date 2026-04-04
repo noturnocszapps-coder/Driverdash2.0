@@ -85,6 +85,7 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const {
     cycles = [],
+    hasOpenCycle = false,
     settings = {
       dailyGoal: 250,
       name: 'Motorista',
@@ -106,6 +107,7 @@ export const Dashboard = () => {
     },
     startTracking,
     stopTracking,
+    startCycle,
     pauseTracking,
     resumeTracking,
     checkAndCloseCycles,
@@ -164,6 +166,10 @@ export const Dashboard = () => {
 
   const openCycle = useMemo(() => (cycles || []).find((c: any) => c?.status === 'open') || null, [cycles]);
 
+  useEffect(() => {
+    console.log('[CYCLE] Dashboard state:', { hasOpenCycle, openCycleId: openCycle?.id });
+  }, [hasOpenCycle, openCycle?.id]);
+
   const currentVehicle = useMemo(() => {
     return (vehicles || []).find((v: any) => v?.id === activeVehicleId) || null;
   }, [vehicles, activeVehicleId]);
@@ -182,6 +188,21 @@ export const Dashboard = () => {
   const currentEarnings = safeNumber(openCycle?.total_amount || 0);
   const remainingGoal = Math.max(0, dailyGoal - currentEarnings);
   const goalProgress = Math.min((currentEarnings / dailyGoal) * 100, 100);
+
+  const handleStartCycle = async () => {
+    if (isProcessing) return;
+    setIsProcessing(true);
+    console.log('[CYCLE] Manually starting cycle from Dashboard');
+    try {
+      await startCycle();
+      toast.success("Turno aberto com sucesso!");
+    } catch (error: any) {
+      console.error('[CYCLE] Error starting cycle:', error);
+      toast.error(error.message || "Erro ao abrir turno");
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   const handleToggleTracking = async () => {
     if (isProcessing) return;
@@ -344,7 +365,7 @@ export const Dashboard = () => {
                   )}
                 </div>
                 <h3 className="text-xl font-black uppercase tracking-tight">
-                  {locationError ? 'Erro de Permissão' : tracking.isActive ? (tracking.isPaused ? 'Rastreamento Pausado' : 'Rastreamento Ativo') : 'Rastreamento Desativado'}
+                  {locationError ? 'Erro de Permissão' : !hasOpenCycle ? 'Turno não iniciado' : tracking.isActive ? (tracking.isPaused ? 'Rastreamento Pausado' : 'Rastreamento Ativo') : 'Aguardando Início'}
                 </h3>
               </div>
             </div>
@@ -416,7 +437,25 @@ export const Dashboard = () => {
           )}
 
           <div className="grid grid-cols-2 gap-3">
-            {!tracking.isActive && !locationError ? (
+            {!hasOpenCycle ? (
+              <Button 
+                onClick={handleStartCycle}
+                disabled={isProcessing}
+                className="col-span-2 w-full bg-blue-600 text-white hover:bg-blue-700 font-black uppercase tracking-widest text-xs h-14 rounded-2xl border-none shadow-lg flex items-center justify-center gap-2"
+              >
+                {isProcessing ? (
+                  <>
+                    <Loader2 className="animate-spin" size={16} />
+                    Abrindo turno...
+                  </>
+                ) : (
+                  <>
+                    <Play size={16} fill="currentColor" />
+                    Abrir Turno
+                  </>
+                )}
+              </Button>
+            ) : !tracking.isActive && !locationError ? (
               <Button 
                 onClick={handleToggleTracking}
                 disabled={isProcessing}
@@ -429,7 +468,7 @@ export const Dashboard = () => {
                   </>
                 ) : (
                   <>
-                    <Play size={16} fill="currentColor" />
+                    <Zap size={16} fill="currentColor" />
                     Ativar Rastreamento
                   </>
                 )}

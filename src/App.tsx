@@ -223,13 +223,14 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
 function AppRoutes() {
   useWakeLock();
-  const { settings, user, tracking, startTracking } = useDriverStore();
+  const { settings, user, tracking, isWatching, startTracking } = useDriverStore();
   const location = useLocation();
 
   // Resume tracking if it was active before reload
   useEffect(() => {
-    if (tracking.isActive && !tracking.isPaused) {
-      console.log('[TRACKING] Resuming active session after reload');
+    const wasTrackingActive = localStorage.getItem('driver_dash_tracking_active') === 'true';
+    if (wasTrackingActive && tracking.isActive && !isWatching) {
+      console.log('[TRACKING] Resuming active session after reload (flag detected)');
       startTracking();
     }
   }, []);
