@@ -458,8 +458,16 @@ export const useDriverStore = create<DriverState>()(
       },
 
       closeCycle: async (id) => {
-        const { user, isSaving } = get();
+        const { user, isSaving, cycles } = get();
         if (isSaving) return;
+
+        const cycleToClose = cycles.find(c => c.id === id);
+        const prevStatus = cycleToClose?.status;
+        const hasOpenBefore = get().hasOpenCycle;
+        
+        console.log(`[CLOSE_CYCLE] Initiating close for cycle: ${id}`);
+        console.log(`[CLOSE_CYCLE] Previous status: ${prevStatus}`);
+        console.log(`[CLOSE_CYCLE] hasOpenCycle before: ${hasOpenBefore}`);
 
         set({ isSaving: true });
         try {
@@ -469,13 +477,19 @@ export const useDriverStore = create<DriverState>()(
             const updatedCycles = state.cycles.map(c => 
               c.id === id ? { ...c, status: 'closed' as const, end_time: endTime, updated_at: endTime } : c
             );
+            const hasOpenAfter = updatedCycles.some(c => c.status === 'open');
             return {
               cycles: updatedCycles,
-              hasOpenCycle: updatedCycles.some(c => c.status === 'open')
+              hasOpenCycle: hasOpenAfter
             };
           });
 
+          const hasOpenAfter = get().hasOpenCycle;
+          console.log(`[CLOSE_CYCLE] New status: closed`);
+          console.log(`[CLOSE_CYCLE] hasOpenCycle after: ${hasOpenAfter}`);
+
           // Clear localStorage on close
+          console.log(`[CLOSE_CYCLE] Removing cycle from localStorage`);
           localStorage.removeItem('driver_dash_open_cycle');
 
           if (user && isSupabaseConfigured) {
@@ -485,7 +499,13 @@ export const useDriverStore = create<DriverState>()(
               .update({ status: 'closed', end_time: endTime })
               .eq('id', id)
               .eq('user_id', user.id);
-            if (error) console.error('[SYNC] Error (close cycle):', error);
+            
+            if (error) {
+              console.error('[CLOSE_CYCLE] Error syncing to Supabase:', error);
+            } else {
+              console.log('[CLOSE_CYCLE] Successfully synced to Supabase');
+            }
+            
             set({ syncStatus: error ? 'offline' : 'synced' });
             
             // Force refresh to ensure data integrity
@@ -497,12 +517,24 @@ export const useDriverStore = create<DriverState>()(
           }
         } finally {
           set({ isSaving: false });
+          const finalOpenCycle = get().cycles.find(c => c.status === 'open');
+          console.log(`[CLOSE_CYCLE] Flow completed. Current open cycle: ${finalOpenCycle?.id || 'none'}`);
         }
       },
 
       updateCycle: async (id, data) => {
-        const { user, isSaving } = get();
+        const { user, isSaving, cycles } = get();
         
+        const cycleToUpdate = cycles.find(c => c.id === id);
+        const isClosing = data.status === 'closed' && cycleToUpdate?.status === 'open';
+        const hasOpenBefore = get().hasOpenCycle;
+        
+        if (isClosing) {
+          console.log(`[CLOSE_CYCLE] updateCycle detected closing for: ${id}`);
+          console.log(`[CLOSE_CYCLE] Previous status: ${cycleToUpdate?.status}`);
+          console.log(`[CLOSE_CYCLE] hasOpenCycle before: ${hasOpenBefore}`);
+        }
+
         // Always update local state first for responsiveness
         set((state) => {
           const updatedCycles = state.cycles.map(c => {
@@ -541,16 +573,27 @@ export const useDriverStore = create<DriverState>()(
             return c;
           });
 
+          const hasOpenAfter = updatedCycles.some(c => c.status === 'open');
+          if (isClosing) {
+            console.log(`[CLOSE_CYCLE] New status: closed`);
+            console.log(`[CLOSE_CYCLE] hasOpenCycle after: ${hasOpenAfter}`);
+          }
+
           return {
             cycles: updatedCycles,
-            hasOpenCycle: updatedCycles.some(c => c.status === 'open')
+            hasOpenCycle: hasOpenAfter
           };
         });
 
-        // Update localStorage if it's the open cycle
-        const openCycle = get().cycles.find(c => c.status === 'open');
-        if (openCycle && openCycle.id === id) {
-          localStorage.setItem('driver_dash_open_cycle', JSON.stringify(openCycle));
+        // Update localStorage if it's the open cycle, or remove if closing
+        if (isClosing) {
+          console.log(`[CLOSE_CYCLE] updateCycle removing from localStorage`);
+          localStorage.removeItem('driver_dash_open_cycle');
+        } else {
+          const openCycle = get().cycles.find(c => c.status === 'open');
+          if (openCycle && openCycle.id === id) {
+            localStorage.setItem('driver_dash_open_cycle', JSON.stringify(openCycle));
+          }
         }
 
         // If a sync is already in progress, don't start another one

@@ -167,7 +167,7 @@ export const Dashboard = () => {
   const openCycle = useMemo(() => (cycles || []).find((c: any) => c?.status === 'open') || null, [cycles]);
 
   useEffect(() => {
-    console.log('[CYCLE] Dashboard state:', { hasOpenCycle, openCycleId: openCycle?.id });
+    console.log('[CLOSE_CYCLE] Dashboard state:', { hasOpenCycle, openCycleId: openCycle?.id });
   }, [hasOpenCycle, openCycle?.id]);
 
   const currentVehicle = useMemo(() => {
@@ -204,6 +204,32 @@ export const Dashboard = () => {
     }
   };
 
+  useEffect(() => {
+    let permission: PermissionStatus | null = null;
+    
+    const checkPermission = async () => {
+      if (navigator?.permissions?.query) {
+        try {
+          permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+          const handleChange = () => {
+            if (permission?.state === 'granted') {
+              setLocationError(null);
+            }
+          };
+          permission.addEventListener('change', handleChange);
+          return () => permission?.removeEventListener('change', handleChange);
+        } catch (err) {
+          console.warn('[DASHBOARD] Permission listener failed:', err);
+        }
+      }
+    };
+    
+    const cleanup = checkPermission();
+    return () => {
+      cleanup.then(fn => fn?.());
+    };
+  }, []);
+
   const handleToggleTracking = async () => {
     if (isProcessing) return;
     setIsProcessing(true);
@@ -228,12 +254,17 @@ export const Dashboard = () => {
         }
 
         if (navigator?.permissions?.query) {
-          const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
-          if (permission.state === 'denied') {
-            console.error('[DASHBOARD] Geolocation permission denied');
-            setLocationError('Permissão de localização negada. Ative o GPS nas configurações.');
-            setIsProcessing(false);
-            return;
+          try {
+            const permission = await navigator.permissions.query({ name: 'geolocation' as PermissionName });
+            if (permission.state === 'denied') {
+              console.warn('[DASHBOARD] Geolocation permission denied');
+              setLocationError('Acesso à localização negado. Para rastrear suas corridas, por favor ative a permissão de GPS nas configurações do seu navegador.');
+              setIsProcessing(false);
+              return;
+            }
+          } catch (err) {
+            console.warn('[DASHBOARD] navigator.permissions.query failed:', err);
+            // Fallback: continue and let startTracking handle it
           }
         }
 
@@ -289,9 +320,9 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="p-6 pb-32 space-y-6 max-w-lg mx-auto">
+    <div className="p-6 pb-32 space-y-5 max-w-lg mx-auto">
       {/* HEADER */}
-      <header className="flex justify-between items-center">
+      <header className="flex justify-between items-center mb-2">
         <div>
           <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
             {greeting}, {settings.name?.split(' ')[0] || 'Motorista'}
@@ -320,14 +351,14 @@ export const Dashboard = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
         )}
         
-        <CardContent className="p-6 relative z-10">
+        <CardContent className="p-7 relative z-10 space-y-6">
           <AnimatePresence>
             {showResumeMessage && (
               <motion.div 
                 initial={{ height: 0, opacity: 0 }}
                 animate={{ height: 'auto', opacity: 1 }}
                 exit={{ height: 0, opacity: 0 }}
-                className="mb-4 overflow-hidden"
+                className="overflow-hidden"
               >
                 <div className="bg-emerald-500/20 border border-emerald-500/20 rounded-xl p-2 flex items-center justify-center gap-2">
                   <Zap size={14} className="text-emerald-500" />
@@ -337,9 +368,9 @@ export const Dashboard = () => {
             )}
           </AnimatePresence>
 
-          <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <div className="relative">
+              <div className="relative shrink-0">
                 {tracking.isActive && !locationError && !tracking.isPaused && (
                   <motion.div 
                     animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
@@ -354,25 +385,25 @@ export const Dashboard = () => {
                   {locationError ? <AlertTriangle size={28} /> : tracking.isActive ? <Zap size={28} /> : <Play size={28} />}
                 </div>
               </div>
-              <div>
-                <div className="flex items-center gap-2">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">Status Operacional</p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 mb-1">
+                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 truncate">Rastreamento Ativo</p>
                   {tracking.isActive && !locationError && !tracking.isPaused && (
-                    <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2 py-0.5 rounded-full">
+                    <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
                       <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
                       <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">AO VIVO</span>
                     </div>
                   )}
                 </div>
-                <h3 className="text-xl font-black uppercase tracking-tight">
-                  {locationError ? 'Erro de Permissão' : !hasOpenCycle ? 'Turno não iniciado' : tracking.isActive ? (tracking.isPaused ? 'Rastreamento Pausado' : 'Rastreamento Ativo') : 'Aguardando Início'}
+                <h3 className="text-xl font-black uppercase tracking-tight truncate">
+                  {locationError ? 'Erro GPS' : !hasOpenCycle ? 'Turno Fechado' : tracking.isActive ? (tracking.isPaused ? 'Pausado' : 'Ativo') : 'Aguardando'}
                 </h3>
               </div>
             </div>
             
             {tracking.isActive && !locationError && (
-              <div className="text-right">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Tempo Ativo</p>
+              <div className="text-right shrink-0">
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Tempo</p>
                 <p className="text-lg font-black font-mono text-emerald-500">{formatDuration(activeTime)}</p>
               </div>
             )}
@@ -380,7 +411,7 @@ export const Dashboard = () => {
 
           {/* GPS Status Label */}
           {tracking.isActive && !locationError && (
-            <div className="flex items-center gap-2 mb-6 px-1">
+            <div className="flex items-center gap-2 px-1">
               <div className={cn(
                 "w-1.5 h-1.5 rounded-full",
                 tracking.gpsStatus === 'active' ? "bg-emerald-500 animate-pulse" : 
@@ -394,13 +425,12 @@ export const Dashboard = () => {
           )}
 
           {tracking.isActive && !locationError && (
-            <div className="grid grid-cols-2 gap-4 mb-6">
+            <div className="grid grid-cols-2 gap-3">
               <MetricItem 
                 label="KM Total" 
                 value={tracking.distance || 0} 
                 unit="km"
                 icon={Navigation}
-                isLarge
               />
               <MetricItem 
                 label="KM Produtivo" 
@@ -426,7 +456,7 @@ export const Dashboard = () => {
           )}
 
           {tracking.isActive && !locationError && (
-            <div className="mb-6">
+            <div className="mt-2 rounded-2xl overflow-hidden border border-white/5 shadow-inner">
               <LiveTrackingMap 
                 points={tracking.points || []} 
                 stopPoints={tracking.stopPoints || []}
@@ -498,9 +528,14 @@ export const Dashboard = () => {
             <div className="mt-6 space-y-4">
               <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
                 <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
-                <p className="text-sm font-bold text-red-100 leading-tight uppercase tracking-tight">
-                  {locationError}
-                </p>
+                <div className="space-y-1">
+                  <p className="text-sm font-bold text-red-100 leading-tight uppercase tracking-tight">
+                    {locationError}
+                  </p>
+                  <p className="text-[10px] font-medium text-red-200/60 uppercase tracking-widest">
+                    Verifique o ícone de cadeado na barra de endereços para resetar as permissões.
+                  </p>
+                </div>
               </div>
               <Button 
                 onClick={handleToggleTracking}

@@ -8,12 +8,12 @@ export const SyncIndicator = () => {
   if (!user) return null;
 
   const statusConfig = {
-    idle: { icon: Cloud, text: 'Conectado', color: 'text-blue-400' },
-    online: { icon: Cloud, text: 'Online', color: 'text-blue-500' },
-    offline: { icon: CloudOff, text: 'Offline', color: 'text-zinc-500' },
-    syncing: { icon: RefreshCw, text: 'Sincronizando...', color: 'text-amber-500', animate: 'animate-spin' },
-    synced: { icon: CheckCircle, text: 'Sincronizado', color: 'text-emerald-500' },
-    error: { icon: AlertCircle, text: 'Erro de Sincronia', color: 'text-red-500' },
+    idle: { icon: Cloud, text: 'Conectado', color: 'text-blue-500/70' },
+    online: { icon: Cloud, text: 'Online', color: 'text-blue-500/70' },
+    offline: { icon: CloudOff, text: 'Offline', color: 'text-zinc-500/70' },
+    syncing: { icon: RefreshCw, text: 'Sincronizando...', color: 'text-amber-500/70', animate: 'animate-spin' },
+    synced: { icon: CheckCircle, text: 'Sincronizado', color: 'text-emerald-600/70 dark:text-emerald-500/60', animate: 'animate-pulse-slow' },
+    error: { icon: AlertCircle, text: 'Erro de Sincronia', color: 'text-red-500/70' },
   };
 
   const status = syncError ? 'error' : syncStatus;

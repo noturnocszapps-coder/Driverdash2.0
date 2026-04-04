@@ -242,27 +242,27 @@ export const Settings = () => {
         <Card className={cn(
           "border-none bg-white dark:bg-zinc-900 shadow-xl shadow-zinc-200/50 dark:shadow-none rounded-[2.5rem] overflow-hidden border transition-all duration-500",
           settings.isPrivacyMode 
-            ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.05)]" 
+            ? "border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.03)]" 
             : "border-zinc-100 dark:border-zinc-800/50"
         )}>
-          <CardContent className="p-8 space-y-8 relative">
+          <CardContent className="p-8 space-y-10 relative">
             <AnimatePresence>
               {settings.isPrivacyMode && (
                 <motion.div 
                   initial={{ opacity: 0, y: -10 }}
                   animate={{ opacity: 1, y: 0 }}
                   exit={{ opacity: 0, y: -10 }}
-                  className="absolute top-4 right-8 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/10 border border-emerald-500/20 rounded-full"
+                  className="absolute top-4 right-8 flex items-center gap-1.5 px-2.5 py-1 bg-emerald-500/5 border border-emerald-500/10 rounded-full"
                 >
-                  <Shield size={10} className="text-emerald-500" />
-                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-500">Modo Privado Ativo</span>
+                  <Shield size={10} className="text-emerald-500/70" />
+                  <span className="text-[8px] font-black uppercase tracking-[0.2em] text-emerald-500/70">Modo Privado Ativo</span>
                 </motion.div>
               )}
             </AnimatePresence>
 
-            <div className="flex flex-col sm:flex-row items-center gap-5 pb-8 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="flex flex-col sm:flex-row items-center gap-5 pb-10 border-b border-zinc-100 dark:border-zinc-800">
               <div className="relative group">
-                <div className="w-24 h-24 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-[2rem] flex items-center justify-center text-zinc-950 text-4xl font-black overflow-hidden border-4 border-white dark:border-zinc-800 shadow-lg shadow-emerald-500/10">
+                <div className="w-24 h-24 bg-gradient-to-br from-emerald-500/90 to-emerald-700/90 rounded-[2rem] flex items-center justify-center text-zinc-950 text-4xl font-black overflow-hidden border-4 border-white dark:border-zinc-800 shadow-md shadow-emerald-500/5">
                   {settings.photoUrl ? (
                     <img 
                       src={settings.photoUrl} 
@@ -308,26 +308,26 @@ export const Settings = () => {
 
               <div className="flex-1 text-center sm:text-left space-y-3">
                 <div className="space-y-1">
-                  <h3 className="font-black text-3xl tracking-tighter text-zinc-900 dark:text-white leading-none">
+                  <h3 className="font-black text-3xl tracking-tight text-zinc-900 dark:text-white leading-none">
                     {settings.name || 'Motorista'}
                   </h3>
-                  <p className="text-sm text-zinc-500 font-bold tracking-tight opacity-80">
+                  <p className="text-sm text-zinc-500 font-bold tracking-tight opacity-70">
                     {user?.email}
                   </p>
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2">
-                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 dark:bg-zinc-800/50 text-[10px] font-black uppercase rounded-lg tracking-[0.15em] text-zinc-500 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/50">
-                    <Shield size={10} className="text-emerald-500" />
+                  <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-50 dark:bg-zinc-800/50 text-[10px] font-black uppercase rounded-lg tracking-[0.15em] text-zinc-400 dark:text-zinc-500 border border-zinc-200 dark:border-zinc-700/50">
+                    <Shield size={10} className="text-emerald-600/60 dark:text-emerald-500/40" />
                     {settings.role}
                   </div>
                   <div className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase rounded-lg tracking-[0.15em] border",
+                    "flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase rounded-lg tracking-[0.15em] border transition-colors duration-500",
                     settings.status === 'active' 
-                      ? "bg-emerald-500/5 text-emerald-500 border-emerald-500/20" 
-                      : "bg-red-500/5 text-red-500 border-red-500/20"
+                      ? "bg-emerald-500/5 text-emerald-600/80 dark:text-emerald-500/70 border-emerald-500/10" 
+                      : "bg-red-500/5 text-red-600/80 dark:text-red-500/70 border-red-500/10"
                   )}>
-                    <div className={cn("w-1.5 h-1.5 rounded-full", settings.status === 'active' ? "bg-emerald-500 animate-pulse" : "bg-red-500")} />
+                    <div className={cn("w-1.5 h-1.5 rounded-full", settings.status === 'active' ? "bg-emerald-500/60 animate-pulse-slow" : "bg-red-500/60")} />
                     {settings.status}
                   </div>
                 </div>
@@ -338,11 +338,11 @@ export const Settings = () => {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="space-y-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-2.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Nome de Exibição</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500 transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
                     <User size={18} />
                   </div>
                   <Input 
@@ -353,17 +353,17 @@ export const Settings = () => {
                       updateSettings({ name: e.target.value });
                     }}
                     className={cn(
-                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/20 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300",
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300",
                       settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
                     )}
                     placeholder="Seu nome"
                   />
                 </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-2.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Meta Diária Sugerida</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500 transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
                     <Target size={18} />
                   </div>
                   <Input 
@@ -376,7 +376,7 @@ export const Settings = () => {
                       updateSettings({ dailyGoal: val === '' ? 0 : Number(val) });
                     }}
                     className={cn(
-                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/20 rounded-xl font-bold text-xl text-emerald-500 transition-all duration-300",
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-xl text-emerald-500 transition-all duration-300",
                       settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
                     )}
                     placeholder="0"
