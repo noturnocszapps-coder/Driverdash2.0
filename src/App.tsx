@@ -183,7 +183,7 @@ import { useWakeLock } from './hooks/useWakeLock';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
-  const { tracking } = useDriverStore();
+  const { tracking, hasOpenCycle } = useDriverStore();
   const isLanding = location.pathname === '/';
   const isAuth = ['/login', '/register', '/forgot-password'].includes(location.pathname);
   const isOnboarding = location.pathname === '/onboarding';
@@ -198,21 +198,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100">
-      <div className="flex flex-1">
+    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative">
+      <div className="flex flex-1 overflow-hidden">
         <Sidebar />
         <main className={cn(
-          "flex-1 px-4 py-6 md:px-8 max-w-5xl mx-auto w-full transition-all duration-500",
-          tracking.isActive ? "pb-[calc(160px+env(safe-area-inset-bottom))]" : "pb-[calc(80px+env(safe-area-inset-bottom))]"
+          "flex-1 flex flex-col px-4 py-6 md:px-8 max-w-5xl mx-auto w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth",
+          "pb-[calc(100px+env(safe-area-inset-bottom))]"
         )}>
           {children}
         </main>
       </div>
-      {!isOnboarding && tracking.isActive && (
+      {!isOnboarding && hasOpenCycle && (
         <>
-          <div className="hidden md:block">
-            <TripControl />
-          </div>
+          <TripControl />
           <ManualTripFAB />
         </>
       )}

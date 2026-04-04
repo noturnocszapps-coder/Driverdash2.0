@@ -70,7 +70,7 @@ export const TripControl = () => {
   const Icon = config.icon;
 
   return (
-    <div className="fixed bottom-24 left-0 right-0 px-4 z-40 pointer-events-none md:left-72 md:px-8">
+    <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-0 right-0 px-4 z-40 pointer-events-none md:left-72 md:px-8 md:bottom-24">
       <div className="max-w-lg mx-auto pointer-events-auto">
         <motion.div
           layout

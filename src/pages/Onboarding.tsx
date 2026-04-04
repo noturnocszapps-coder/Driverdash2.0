@@ -74,7 +74,7 @@ const Onboarding = () => {
   const currentStep = steps[step];
 
   return (
-    <div className="min-h-[100dvh] bg-[#0A0A0A] text-white flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-[100dvh] bg-[#0A0A0A] text-white flex flex-col items-center justify-center p-6 py-12 pb-40 relative overflow-y-auto">
       {/* Background Glow */}
       <div className={cn(
         "absolute inset-0 bg-gradient-to-b transition-colors duration-700 -z-10",

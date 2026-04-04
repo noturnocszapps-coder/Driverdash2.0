@@ -57,7 +57,7 @@ export const ManualTripFAB = () => {
   return (
     <div className={cn(
       "fixed z-[100] md:hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]",
-      "bottom-[calc(5.5rem+env(safe-area-inset-bottom))] right-6"
+      "bottom-[calc(10.5rem+env(safe-area-inset-bottom))] right-6"
     )}>
       <AnimatePresence mode="wait">
         <motion.button

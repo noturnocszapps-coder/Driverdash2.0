@@ -116,7 +116,7 @@ const HeatmapIntelligence = () => {
   }, [heatmapData]);
 
   return (
-    <div className="min-h-[100dvh] bg-[#0B0B0B] text-white flex flex-col overflow-hidden">
+    <div className="flex-1 flex flex-col bg-[#0B0B0B] text-white">
       {/* Header */}
       <header className="p-4 flex items-center justify-between border-b border-zinc-800 bg-[#0B0B0B] sticky top-0 z-[1001]">
         <div className="flex items-center gap-3">

@@ -53,7 +53,7 @@ function MetricItem({
 }) {
   return (
     <div className={cn(
-      "p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 transition-all duration-300 hover:bg-white/10",
+      "p-3 md:p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 transition-all duration-300 hover:bg-white/10",
       isLarge && "col-span-1 bg-white/10 border-white/10"
     )}>
       <div className="flex items-center gap-2">
@@ -320,7 +320,7 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="p-6 pb-32 space-y-5 max-w-lg mx-auto">
+    <div className="p-4 md:p-6 space-y-5 max-w-lg mx-auto overflow-x-hidden w-full">
       {/* HEADER */}
       <header className="flex justify-between items-center mb-2">
         <div>
@@ -343,7 +343,7 @@ export const Dashboard = () => {
 
       {/* STATUS OPERACIONAL */}
       <Card className={cn(
-        "border-none shadow-xl transition-all duration-500 overflow-hidden relative",
+        "border-none shadow-xl transition-all duration-500 overflow-hidden relative tracking-card w-full max-w-full",
         locationError ? "bg-red-500 text-white" : tracking.isActive ? "bg-zinc-900 text-white" : "bg-zinc-900 text-white"
       )}>
         {/* Background Accent for Active State */}
@@ -351,7 +351,7 @@ export const Dashboard = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
         )}
         
-        <CardContent className="p-7 relative z-10 space-y-6">
+        <CardContent className="p-5 md:p-7 relative z-10 space-y-6">
           <AnimatePresence>
             {showResumeMessage && (
               <motion.div 
@@ -425,7 +425,7 @@ export const Dashboard = () => {
           )}
 
           {tracking.isActive && !locationError && (
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-2 gap-2 md:gap-3">
               <MetricItem 
                 label="KM Total" 
                 value={tracking.distance || 0} 
@@ -456,7 +456,7 @@ export const Dashboard = () => {
           )}
 
           {tracking.isActive && !locationError && (
-            <div className="mt-2 rounded-2xl overflow-hidden border border-white/5 shadow-inner">
+            <div className="mt-2 rounded-2xl overflow-hidden border border-white/5 shadow-inner min-h-[180px]">
               <LiveTrackingMap 
                 points={tracking.points || []} 
                 stopPoints={tracking.stopPoints || []}
@@ -551,7 +551,7 @@ export const Dashboard = () => {
 
       {/* CICLO ATUAL */}
       <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
-        <CardContent className="p-6 space-y-6">
+        <CardContent className="p-4 md:p-6 space-y-6">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Faturamento do Ciclo</p>
