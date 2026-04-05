@@ -1,5 +1,5 @@
 {
   "name": "DriverDash Beta",
   "description": "Aplicativo completo para motoristas de aplicativo gerenciarem ganhos, despesas e manutenção com interface estilo fintech.",
-  "requestFramePermissions": ["geolocation"]
+  "requestFramePermissions": ["geolocation", "screen-wake-lock"]
 }

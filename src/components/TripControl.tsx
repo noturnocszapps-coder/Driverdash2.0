@@ -3,12 +3,22 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Play, Square, Navigation, Search, CircleStop } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { cn } from '../utils';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 export const TripControl = () => {
-  const { tracking, startTrip, endTrip, startTracking, cycles } = useDriverStore();
+  const { tracking, startTrip, endTrip, startTracking, cycles, postTripActionSheet } = useDriverStore();
   const openCycle = cycles.find(c => c.status === 'open');
+  const isMobile = useIsMobile();
 
-  if (!openCycle) return null;
+  React.useEffect(() => {
+    console.log('[TRACKING_LAYOUT] TripControl rendered. Mode:', tracking.mode, 'Active:', tracking.isActive);
+    const container = document.querySelector('.trip-control-container');
+    if (container) {
+      console.log('[TRACKING_LAYOUT] TripControl container width:', container.clientWidth);
+    }
+  }, [tracking.mode, tracking.isActive]);
+
+  if (!openCycle || postTripActionSheet.isOpen) return null;
 
   const getStatusConfig = () => {
     switch (tracking.mode) {
@@ -70,8 +80,13 @@ export const TripControl = () => {
   const Icon = config.icon;
 
   return (
-    <div className="fixed bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-0 right-0 px-4 z-40 pointer-events-none md:left-72 md:px-8 md:bottom-24">
-      <div className="max-w-lg mx-auto pointer-events-auto">
+    <div className={cn(
+      "fixed px-4 z-60 pointer-events-none transition-all duration-500 trip-control-container",
+      isMobile 
+        ? "bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-0 right-0" 
+        : "left-72 right-0 px-8 bottom-24"
+    )}>
+      <div className="max-w-lg mx-auto pointer-events-auto w-full">
         <motion.div
           layout
           className={cn(

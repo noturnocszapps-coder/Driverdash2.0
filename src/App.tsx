@@ -181,12 +181,33 @@ import { TripControl } from './components/TripControl';
 import { ManualTripFAB } from './components/ManualTripFAB';
 import { useWakeLock } from './hooks/useWakeLock';
 
+import { useIsMobile } from './hooks/useIsMobile';
+
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
   const { tracking, hasOpenCycle } = useDriverStore();
+  const isMobile = useIsMobile();
   const isLanding = location.pathname === '/';
   const isAuth = ['/login', '/register', '/forgot-password'].includes(location.pathname);
   const isOnboarding = location.pathname === '/onboarding';
+
+  useEffect(() => {
+    console.log('[LANDSCAPE_LAYOUT] Viewport:', `${window.innerWidth}x${window.innerHeight}`);
+    console.log('[LANDSCAPE_LAYOUT] Is Mobile (Hook):', isMobile);
+    console.log('[LANDSCAPE_LAYOUT] Sidebar Rendered:', !isMobile);
+    console.log('[LANDSCAPE_LAYOUT] BottomNav Rendered:', isMobile);
+    
+    console.log('[TRACKING_LAYOUT] Viewport width:', window.innerWidth);
+    console.log('[TRACKING_LAYOUT] Safe area bottom:', getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom') || 'env(safe-area-inset-bottom)');
+    
+    // Check if bottom nav items are rendered
+    const bottomNav = document.querySelector('nav.fixed.bottom-0');
+    if (bottomNav) {
+      console.log('[BOTTOM_NAV] Bottom navigation rendered. Height:', bottomNav.clientHeight);
+      const items = bottomNav.querySelectorAll('a');
+      console.log('[BOTTOM_NAV] Items count:', items.length);
+    }
+  }, []);
 
   if (isLanding || isAuth || isOnboarding) {
     return (
@@ -198,12 +219,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative">
-      <div className="flex flex-1 overflow-hidden">
+    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative w-full max-w-full">
+      <div className="flex flex-1 w-full max-w-full relative">
         <Sidebar />
         <main className={cn(
-          "flex-1 flex flex-col px-4 py-6 md:px-8 max-w-5xl mx-auto w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth",
-          "pb-[calc(100px+env(safe-area-inset-bottom))]"
+          "flex-1 flex flex-col px-4 py-6 w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth min-w-0 relative",
+          !isMobile && "md:px-8 max-w-5xl mx-auto",
+          isMobile ? "pb-[calc(110px+env(safe-area-inset-bottom))]" : "pb-6"
         )}>
           {children}
         </main>

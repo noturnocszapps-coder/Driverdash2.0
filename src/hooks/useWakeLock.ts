@@ -5,11 +5,15 @@ export function useWakeLock() {
   const { settings } = useDriverStore();
   const wakeLockRef = useRef<any>(null);
 
+  const hasFailedRef = useRef(false);
+
   const requestWakeLock = async () => {
     if (!('wakeLock' in navigator)) {
       console.log('[WAKELOCK] Unsupported');
       return;
     }
+    
+    if (hasFailedRef.current) return;
     
     try {
       if (settings.keepScreenOn) {
@@ -30,7 +34,12 @@ export function useWakeLock() {
         }
       }
     } catch (err: any) {
-      console.error(`[WAKELOCK] Error: ${err.name}, ${err.message}`);
+      if (err.name === 'NotAllowedError') {
+        console.warn('[WAKELOCK] Permission denied by policy (likely iframe restriction)');
+        hasFailedRef.current = true;
+      } else {
+        console.error(`[WAKELOCK] Error: ${err.name}, ${err.message}`);
+      }
     }
   };
 

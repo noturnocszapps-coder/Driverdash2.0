@@ -4,10 +4,12 @@ import { Play, Square, Navigation, Clock, Mic } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { cn, formatDuration } from '../utils';
 import { useVoiceAssistant } from '../hooks/useVoiceAssistant';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 export const ManualTripFAB = () => {
-  const { tracking, startTrip, endTrip, isSaving, setQuickActionsOpen, settings } = useDriverStore();
+  const { tracking, startTrip, endTrip, isSaving, setQuickActionsOpen, settings, postTripActionSheet } = useDriverStore();
   const { listen, isListening } = useVoiceAssistant();
+  const isMobile = useIsMobile();
   const isActive = tracking.isActive;
   const mode = tracking.mode;
 
@@ -52,11 +54,21 @@ export const ManualTripFAB = () => {
     }
   };
 
-  if (tracking.hudState === 'expanded') return null;
+  React.useEffect(() => {
+    console.log('[TRACKING_LAYOUT] ManualTripFAB rendered. Mode:', mode, 'Active:', isActive);
+    const fab = document.querySelector('.manual-trip-fab');
+    if (fab) {
+      const rect = fab.getBoundingClientRect();
+      console.log('[TRACKING_LAYOUT] ManualTripFAB position:', { bottom: rect.bottom, right: rect.right });
+    }
+  }, [mode, isActive]);
+
+  if (tracking.hudState === 'expanded' || postTripActionSheet.isOpen) return null;
 
   return (
     <div className={cn(
-      "fixed z-[100] md:hidden transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)]",
+      "fixed z-[100] transition-all duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] manual-trip-fab",
+      !isMobile && "hidden",
       "bottom-[calc(10.5rem+env(safe-area-inset-bottom))] right-6"
     )}>
       <AnimatePresence mode="wait">

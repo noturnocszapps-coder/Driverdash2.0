@@ -28,7 +28,7 @@ const TRACKING_CONFIG = {
   TRAFFIC_LIGHT_MAX_MS: 90000, // 90 segundos
   WAITING_PASSENGER_MS: 120000, // 120 segundos
   WAITING_PASSENGER_DIST: 0.08, // 80 metros
-  GPS_HEALTH_CHECK_MS: 8000, // 8 segundos para receber a primeira posição
+  GPS_HEALTH_CHECK_MS: 20000, // Aumentado para 20 segundos para dar mais tempo no início
 };
 
 const INITIAL_SETTINGS: UserSettings = {
@@ -1661,19 +1661,27 @@ export const useDriverStore = create<DriverState>()(
           const totalTimeHours = (Date.now() - startTime) / 1000 / 3600;
           const newAvgSpeed = totalTimeHours > 0 ? newKmTotal / totalTimeHours : 0;
 
-          // 5. Stop Detection
+          // 5. Stop Detection & Automatic Trip Mode
           let newStopPoints = [...(tracking.stopPoints || [])];
           let newLastStopTimestamp = tracking.lastStopTimestamp;
-          const isMoving = speedKmh > 2; // Threshold for moving
-
-          if (!isMoving) {
+          const isMoving = speedKmh > TRACKING_CONFIG.MIN_SPEED_STOP;
+          
+          let newConsecutiveMovingPoints = tracking.consecutiveMovingPoints || 0;
+          let newConsecutiveStoppedPoints = tracking.consecutiveStoppedPoints || 0;
+          
+          if (isMoving) {
+            newConsecutiveMovingPoints++;
+            newConsecutiveStoppedPoints = 0;
+            newLastStopTimestamp = undefined;
+          } else {
+            newConsecutiveStoppedPoints++;
+            newConsecutiveMovingPoints = 0;
             if (!newLastStopTimestamp) {
               newLastStopTimestamp = newPosition.timestamp;
             } else {
               const stopDuration = newPosition.timestamp - newLastStopTimestamp;
               if (stopDuration > 60000) { // 60 seconds stop
                 const lastStop = newStopPoints[newStopPoints.length - 1];
-                // If last stop is very close, just update duration
                 if (lastStop && calculateDistance(lastStop.lat, lastStop.lng, newPosition.lat, newPosition.lng) < 0.05) {
                   lastStop.duration = stopDuration;
                 } else {
@@ -1687,13 +1695,46 @@ export const useDriverStore = create<DriverState>()(
                 }
               }
             }
-          } else {
-            newLastStopTimestamp = undefined;
+          }
+
+          // 6. Automatic Trip Start Detection
+          let newMode = tracking.mode;
+          let newIsProductive = tracking.isProductive;
+          let newTripDetectionState = tracking.tripDetectionState;
+
+          if (tracking.isActive && !tracking.isManualOverride) {
+            // Start Detection
+            if (newMode !== 'in_trip' && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
+              const hasSpeed = speedKmh >= TRACKING_CONFIG.MIN_SPEED_START;
+              const hasDisplacement = distance >= TRACKING_CONFIG.MIN_DIST_PRECISION;
+              
+              if (hasSpeed || (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP && hasDisplacement)) {
+                console.log('[AUTO_TRIP] Automatic trip start detected', { speedKmh, consecutivePoints: newConsecutiveMovingPoints });
+                newMode = 'in_trip';
+                newIsProductive = true;
+                newTripDetectionState = 'trip_started';
+                if (navigator.vibrate) navigator.vibrate(200);
+              }
+            }
+            
+            // End Detection (Suggestion or Auto-stop)
+            if (newMode === 'in_trip' && newConsecutiveStoppedPoints >= 10) { // Approx 30-60s stopped
+              const stopDuration = newLastStopTimestamp ? (newPosition.timestamp - newLastStopTimestamp) : 0;
+              if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS) {
+                console.log('[AUTO_TRIP] Automatic trip end suggested (long stop)', { stopDuration });
+                // We don't auto-stop completely to avoid losing data in traffic, 
+                // but we can trigger the action sheet if it's a very long stop
+                if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS * 1.5) {
+                   // Trigger end trip logic if not already triggered
+                   // This will be handled by the component or a side effect
+                }
+              }
+            }
           }
 
           const newPoint = { 
             ...newPosition, 
-            isProductive: tracking.isProductive 
+            isProductive: newIsProductive 
           };
 
           const updatedTracking = {
@@ -1708,10 +1749,15 @@ export const useDriverStore = create<DriverState>()(
             idleDistance: newKmOcioso,
             avgSpeed: newAvgSpeed,
             currentSmoothedSpeed: speedKmh,
-            points: [...(tracking.points || []), newPoint].slice(-2000), // Keep last 2000 points for performance
+            points: [...(tracking.points || []), newPoint].slice(-2000),
             stopPoints: newStopPoints,
             lastStopTimestamp: newLastStopTimestamp,
-            duration: Date.now() - startTime
+            duration: Date.now() - startTime,
+            mode: newMode,
+            isProductive: newIsProductive,
+            tripDetectionState: newTripDetectionState,
+            consecutiveMovingPoints: newConsecutiveMovingPoints,
+            consecutiveStoppedPoints: newConsecutiveStoppedPoints
           };
 
           return { tracking: updatedTracking };
@@ -1903,6 +1949,14 @@ export const useDriverStore = create<DriverState>()(
             },
             (error) => {
               console.error('[TRACKING] Geolocation error:', error);
+              
+              // Clear health check timeout on error too, as we received feedback
+              if (gpsHealthTimeout) {
+                console.log('[TRACKING] GPS Health Check cleared: Received error from watchPosition');
+                clearTimeout(gpsHealthTimeout);
+                gpsHealthTimeout = null;
+              }
+
               let message = 'Erro de GPS';
               if (error.code === error.PERMISSION_DENIED) {
                 message = 'Permissão de GPS negada';
@@ -1927,7 +1981,7 @@ export const useDriverStore = create<DriverState>()(
             {
               enableHighAccuracy: true,
               maximumAge: 0,
-              timeout: 10000 // Aumentado para 10s para dar mais tempo no início
+              timeout: 25000 // Aumentado para 25s para dar mais tempo no início
             }
           );
           console.log('[TRACKING] watchPosition started successfully, ID:', watchId);

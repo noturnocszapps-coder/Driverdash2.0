@@ -8,6 +8,8 @@ import { SyncIndicator } from './SyncIndicator';
 import { motion } from 'motion/react';
 import { UserRole } from '../types';
 
+import { useIsMobile } from '../hooks/useIsMobile';
+
 const navItems = [
   { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
   { icon: DollarSign, label: 'Fechamento', path: '/faturamento' },
@@ -18,6 +20,9 @@ const navItems = [
 export const BottomNav = () => {
   const location = useLocation();
   const { settings } = useDriverStore();
+  const isMobile = useIsMobile();
+  
+  if (!isMobile) return null;
   
   const isAdmin = settings.role === UserRole.ADMIN;
   const items = [...navItems];
@@ -27,7 +32,7 @@ export const BottomNav = () => {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-200 dark:border-zinc-800 px-4 pb-safe pt-3 z-50 md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/80 dark:bg-zinc-950/80 backdrop-blur-xl border-t border-zinc-200 dark:border-zinc-800 px-4 pb-safe pt-3 z-50">
       <div className="flex justify-between items-center max-w-lg mx-auto">
         {items.map((item) => {
           const isActive = location.pathname === item.path;
@@ -36,7 +41,7 @@ export const BottomNav = () => {
               key={item.path} 
               to={item.path}
               className={cn(
-                "relative flex flex-col items-center gap-1.5 px-4 py-1 transition-all active:scale-90",
+                "relative flex flex-col items-center gap-1.5 flex-1 py-1 transition-all active:scale-90 min-w-0",
                 isActive ? "text-emerald-500" : "text-zinc-400"
               )}
             >
@@ -60,6 +65,9 @@ export const Sidebar = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const { user, setUser, settings } = useDriverStore();
+  const isMobile = useIsMobile();
+
+  if (isMobile) return null;
 
   const isAdmin = settings.role === UserRole.ADMIN;
   const items = [...navItems];
@@ -75,7 +83,7 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className="hidden md:flex flex-col w-72 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 h-[100dvh] sticky top-0">
+    <aside className="flex flex-col w-72 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 h-[100dvh] sticky top-0">
       <div className="p-8 flex flex-col gap-6">
         <h1 className="text-2xl font-black text-zinc-900 dark:text-white flex items-center gap-3 tracking-tighter">
           <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-zinc-950 shadow-lg shadow-emerald-500/20 font-black text-xl">

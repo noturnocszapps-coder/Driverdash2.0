@@ -2,6 +2,7 @@ import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useDriverStore } from '../store';
+import { useIsMobile } from '../hooks/useIsMobile';
 import {
   formatCurrency,
   cn,
@@ -83,6 +84,7 @@ function MetricItem({
 
 export const Dashboard = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const {
     cycles = [],
     hasOpenCycle = false,
@@ -298,6 +300,18 @@ export const Dashboard = () => {
     return "Meta batida! Ótimo trabalho, considere descansar ou buscar bônus.";
   }, [openCycle, currentEarnings, goalProgress]);
 
+  useEffect(() => {
+    console.log('[TRACKING_LAYOUT] Dashboard mounted. Viewport width:', window.innerWidth);
+    const trackingCard = document.querySelector('.tracking-card');
+    if (trackingCard) {
+      console.log('[TRACKING_LAYOUT] Tracking card width:', trackingCard.clientWidth);
+      const cardContent = trackingCard.querySelector('.card-content');
+      if (cardContent) {
+        console.log('[TRACKING_LAYOUT] Card content width:', cardContent.clientWidth);
+      }
+    }
+  }, []);
+
   if (isLoading) {
     return (
       <div className="p-6 space-y-6 max-w-lg mx-auto">
@@ -320,7 +334,10 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-5 max-w-lg mx-auto overflow-x-hidden w-full">
+    <div className={cn(
+      "space-y-5 max-w-lg mx-auto overflow-x-hidden w-full min-w-0",
+      isMobile ? "p-4" : "p-6"
+    )}>
       {/* HEADER */}
       <header className="flex justify-between items-center mb-2">
         <div>
@@ -351,7 +368,7 @@ export const Dashboard = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
         )}
         
-        <CardContent className="p-5 md:p-7 relative z-10 space-y-6">
+        <CardContent className="p-4 md:p-7 relative z-10 space-y-6 card-content">
           <AnimatePresence>
             {showResumeMessage && (
               <motion.div 
