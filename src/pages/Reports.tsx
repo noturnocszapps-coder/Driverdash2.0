@@ -258,7 +258,7 @@ export const Reports = () => {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
+      className="space-y-6 pb-[calc(140px+env(safe-area-inset-bottom))]"
     >
       <ReportsHeader 
         onImportClick={() => navigate('/import-report')}

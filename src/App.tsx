@@ -225,7 +225,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         <main className={cn(
           "flex-1 flex flex-col px-4 py-6 w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth min-w-0 relative",
           !isMobile && "md:px-8 max-w-5xl mx-auto",
-          isMobile ? "pb-[calc(110px+env(safe-area-inset-bottom))]" : "pb-6"
+          isMobile ? "pb-[calc(140px+env(safe-area-inset-bottom))]" : "pb-6"
         )}>
           {children}
         </main>

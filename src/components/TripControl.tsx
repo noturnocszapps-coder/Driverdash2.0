@@ -80,12 +80,17 @@ export const TripControl = () => {
   const Icon = config.icon;
 
   return (
-    <div className={cn(
-      "fixed px-4 z-60 pointer-events-none transition-all duration-500 trip-control-container",
-      isMobile 
-        ? "bottom-[calc(5.5rem+env(safe-area-inset-bottom))] left-0 right-0" 
-        : "left-72 right-0 px-8 bottom-24"
-    )}>
+    <div 
+      className={cn(
+        "fixed left-0 w-full px-4 z-60 pointer-events-none transition-all duration-500 trip-control-container",
+        !isMobile && "md:left-72 md:px-8"
+      )}
+      style={{
+        bottom: isMobile 
+          ? 'calc(80px + env(safe-area-inset-bottom))' 
+          : 'calc(96px + env(safe-area-inset-bottom))'
+      }}
+    >
       <div className="max-w-lg mx-auto pointer-events-auto w-full">
         <motion.div
           layout
