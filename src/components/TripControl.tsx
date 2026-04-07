@@ -5,10 +5,15 @@ import { useDriverStore } from '../store';
 import { cn } from '../utils';
 import { useIsMobile } from '../hooks/useIsMobile';
 
+import { useLocation } from 'react-router-dom';
+
 export const TripControl = () => {
   const { tracking, startTrip, endTrip, startTracking, cycles, postTripActionSheet } = useDriverStore();
+  const location = useLocation();
   const openCycle = cycles.find(c => c.status === 'open');
   const isMobile = useIsMobile();
+
+  const isFaturamentoPage = location.pathname.includes('faturamento');
 
   React.useEffect(() => {
     console.log('[TRACKING_LAYOUT] TripControl rendered. Mode:', tracking.mode, 'Active:', tracking.isActive);
@@ -18,7 +23,7 @@ export const TripControl = () => {
     }
   }, [tracking.mode, tracking.isActive]);
 
-  if (!openCycle || postTripActionSheet.isOpen) return null;
+  if (!openCycle || postTripActionSheet.isOpen || isFaturamentoPage) return null;
 
   const getStatusConfig = () => {
     switch (tracking.mode) {
@@ -87,97 +92,81 @@ export const TripControl = () => {
       )}
       style={{
         bottom: isMobile 
-          ? 'calc(80px + env(safe-area-inset-bottom))' 
+          ? 'calc(90px + env(safe-area-inset-bottom))' 
           : 'calc(96px + env(safe-area-inset-bottom))'
       }}
     >
-      <div className="max-w-lg mx-auto pointer-events-auto w-full">
+      <div className="max-w-md mx-auto pointer-events-auto w-full px-4">
         <motion.div
           layout
           className={cn(
-            "bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/50 shadow-xl rounded-[2rem] p-1.5 flex items-center justify-between transition-all duration-500",
+            "bg-zinc-950/40 backdrop-blur-2xl border border-white/5 shadow-2xl rounded-full p-1 flex items-center justify-between transition-all duration-500 hover:bg-zinc-950/60",
             config.shadow.replace('shadow-', 'shadow-sm shadow-')
           )}
         >
           {/* Left Section: Status & Speed */}
-          <div className="flex items-center gap-4 pl-4">
+          <div className="flex items-center gap-2.5 pl-3">
             <div className="relative">
               <motion.div
-                animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0.2, 0.5] }}
-                transition={{ duration: 2, repeat: Infinity }}
+                animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.1, 0.3] }}
+                transition={{ duration: 3, repeat: Infinity }}
                 className={cn("absolute inset-0 rounded-full blur-sm", config.pulse)}
               />
-              <div className={cn("relative w-2.5 h-2.5 rounded-full transition-colors duration-500", config.color)} />
+              <div className={cn("relative w-1.5 h-1.5 rounded-full transition-colors duration-500", config.color)} />
             </div>
 
             <div className="flex flex-col">
-              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-400 leading-none">
-                {config.label}
+              <span className="text-[7px] font-black uppercase tracking-[0.25em] text-zinc-500 leading-none">
+                {config.label.split(' ')[1] || config.label}
               </span>
-              <div className="flex items-center gap-1.5 mt-0.5">
+              <div className="flex items-center gap-1 mt-0.5">
                 <span className={cn(
-                  "text-xl font-black tabular-nums transition-colors duration-500 tracking-tighter",
+                  "text-base font-black tabular-nums transition-colors duration-500 tracking-tighter leading-none",
                   tracking.currentSmoothedSpeed > 20 ? "text-emerald-500" :
                   tracking.currentSmoothedSpeed > 5 ? "text-amber-400" :
                   "text-zinc-200"
                 )}>
                   {tracking.currentSmoothedSpeed.toFixed(0)}
                 </span>
-                <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-tighter">km/h</span>
+                <span className="text-[6px] font-black text-zinc-600 uppercase tracking-tighter">km/h</span>
               </div>
             </div>
 
-            {/* Trip Intelligence Status Dot */}
-            {tracking.isActive && tracking.tripIntelligence && (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/5">
-                <div className={cn(
-                  "w-1.5 h-1.5 rounded-full",
-                  tracking.tripIntelligence.status === 'good' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
-                  tracking.tripIntelligence.status === 'acceptable' ? "bg-blue-500 shadow-[0_0_8px_rgba(59,130,246,0.5)]" :
-                  tracking.tripIntelligence.status === 'bad' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
-                  "bg-zinc-500 animate-pulse"
-                )} />
-                <span className={cn(
-                  "text-[8px] font-black uppercase tracking-widest",
-                  tracking.tripIntelligence.status === 'good' ? "text-emerald-500" :
-                  tracking.tripIntelligence.status === 'acceptable' ? "text-blue-500" :
-                  tracking.tripIntelligence.status === 'bad' ? "text-red-500" :
-                  "text-zinc-500"
-                )}>
-                  {tracking.tripIntelligence.status === 'analyzing' ? 'IA' : tracking.tripIntelligence.status}
-                </span>
-              </div>
-            )}
-
-            {/* Zone Intelligence Status Dot */}
-            {tracking.isActive && tracking.zoneIntelligence && (
-              <div className="flex items-center gap-1.5 px-2 py-1 rounded-full bg-white/5 border border-white/5">
-                <div className={cn(
-                  "w-1.5 h-1.5 rounded-full",
-                  tracking.zoneIntelligence.status === 'good_zone' ? "bg-emerald-500 shadow-[0_0_8px_rgba(16,185,129,0.5)]" :
-                  tracking.zoneIntelligence.status === 'neutral_zone' ? "bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.5)]" :
-                  tracking.zoneIntelligence.status === 'bad_zone' ? "bg-red-500 shadow-[0_0_8px_rgba(239,68,68,0.5)]" :
-                  "bg-zinc-500 animate-pulse"
-                )} />
-                <span className={cn(
-                  "text-[8px] font-black uppercase tracking-widest",
-                  tracking.zoneIntelligence.status === 'good_zone' ? "text-emerald-500" :
-                  tracking.zoneIntelligence.status === 'neutral_zone' ? "text-amber-500" :
-                  tracking.zoneIntelligence.status === 'bad_zone' ? "text-red-500" :
-                  "text-zinc-500"
-                )}>
-                  {tracking.zoneIntelligence.status === 'monitoring' ? 'Zona' : 
-                   tracking.zoneIntelligence.status === 'good_zone' ? 'Boa' :
-                   tracking.zoneIntelligence.status === 'neutral_zone' ? 'Atenção' : 'Ruim'}
-                </span>
-              </div>
-            )}
+            {/* Intelligence Indicators - Ultra Compact */}
+            <div className="flex items-center gap-1 ml-0.5">
+              {tracking.isActive && tracking.tripIntelligence && (
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className={cn(
+                    "w-1 h-1 rounded-full",
+                    tracking.tripIntelligence.status === 'good' ? "bg-emerald-500" :
+                    tracking.tripIntelligence.status === 'acceptable' ? "bg-blue-500" :
+                    tracking.tripIntelligence.status === 'bad' ? "bg-red-500" :
+                    "bg-zinc-700 animate-pulse"
+                  )} 
+                />
+              )}
+              {tracking.isActive && tracking.zoneIntelligence && (
+                <motion.div 
+                  initial={{ scale: 0 }}
+                  animate={{ scale: 1 }}
+                  className={cn(
+                    "w-1 h-1 rounded-full",
+                    tracking.zoneIntelligence.status === 'good_zone' ? "bg-emerald-500" :
+                    tracking.zoneIntelligence.status === 'neutral_zone' ? "bg-amber-500" :
+                    tracking.zoneIntelligence.status === 'bad_zone' ? "bg-red-500" :
+                    "bg-zinc-700 animate-pulse"
+                  )} 
+                />
+              )}
+            </div>
           </div>
 
           {/* Right Section: Action Button */}
           <motion.button
-            whileHover={{ scale: 1.01 }}
-            whileTap={{ scale: 0.98 }}
+            whileHover={{ scale: 1.02 }}
+            whileTap={{ scale: 0.96 }}
             onClick={() => {
               if (tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') {
                 endTrip();
@@ -186,55 +175,47 @@ export const TripControl = () => {
               }
             }}
             className={cn(
-              "h-12 px-5 rounded-[1.5rem] flex items-center gap-3 transition-all duration-500 shadow-md group overflow-hidden relative",
+              "h-9 px-3.5 rounded-full flex items-center gap-2 transition-all duration-500 shadow-lg group overflow-hidden relative",
               (tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition')
-                ? "bg-red-500 text-white shadow-red-500/10" 
-                : "bg-emerald-500 text-zinc-950 shadow-emerald-500/10"
+                ? "bg-red-500/90 text-white" 
+                : "bg-emerald-500/90 text-zinc-950"
             )}
           >
             <div className="flex flex-col items-start relative z-10">
-              <span className="text-[7px] font-black uppercase tracking-[0.15em] opacity-60 leading-none">
+              <span className="text-[5px] font-black uppercase tracking-[0.2em] opacity-60 leading-none">
                 {(tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') ? 'Encerrar' : 'Iniciar'}
               </span>
-              <span className="text-[10px] font-black tracking-tight mt-0.5">
+              <span className="text-[8px] font-black tracking-tight mt-0.5">
                 {(tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') ? 'Corrida' : 'Nova Corrida'}
               </span>
             </div>
             
             <div className={cn(
-              "w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-500 group-hover:scale-105 relative z-10",
+              "w-5 h-5 rounded-lg flex items-center justify-center transition-all duration-500 group-hover:scale-110 relative z-10",
               (tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') ? "bg-white/20" : "bg-zinc-950/10"
             )}>
               <AnimatePresence mode="wait">
                 {(tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') ? (
                   <motion.div
                     key="stop"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 90, opacity: 0 }}
+                    initial={{ scale: 0, rotate: -90 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0, rotate: 90 }}
                   >
-                    <Square size={16} fill="currentColor" />
+                    <Square size={10} fill="currentColor" />
                   </motion.div>
                 ) : (
                   <motion.div
                     key="play"
-                    initial={{ rotate: -90, opacity: 0 }}
-                    animate={{ rotate: 0, opacity: 1 }}
-                    exit={{ rotate: 90, opacity: 0 }}
+                    initial={{ scale: 0, rotate: -90 }}
+                    animate={{ scale: 1, rotate: 0 }}
+                    exit={{ scale: 0, rotate: 90 }}
                   >
-                    <Play size={16} fill="currentColor" className="ml-0.5" />
+                    <Play size={10} fill="currentColor" className="ml-0.5" />
                   </motion.div>
                 )}
               </AnimatePresence>
             </div>
-
-            {/* Shine effect */}
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: '200%' }}
-              transition={{ duration: 2, repeat: Infinity, repeatDelay: 3 }}
-              className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent skew-x-12"
-            />
           </motion.button>
         </motion.div>
       </div>

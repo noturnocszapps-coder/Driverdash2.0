@@ -186,51 +186,55 @@ export const QuickActionsMenu: React.FC = () => {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 {isCustomizing ? (
                   allActions.map((action) => {
                     const isSelected = userActionIds.includes(action.id);
                     return (
-                      <button
+                      <motion.button
                         key={action.id}
+                        whileTap={{ scale: 0.95 }}
                         onClick={() => toggleAction(action.id)}
                         className={cn(
-                          "flex flex-col items-center justify-center p-4 rounded-[2rem] border transition-all relative overflow-hidden active:scale-95",
+                          "flex flex-col items-center justify-center p-4 rounded-[2.5rem] border transition-all relative overflow-hidden",
                           isSelected 
-                            ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.05)]" 
+                            ? "bg-emerald-500/10 border-emerald-500/30" 
                             : "bg-white/5 border-white/5 opacity-50"
                         )}
                       >
                         {isSelected && (
-                          <div className="absolute top-2 right-2">
+                          <div className="absolute top-3 right-3">
                             <Check size={12} className="text-emerald-500" />
                           </div>
                         )}
                         <div className={cn(
-                          "w-10 h-10 rounded-2xl flex items-center justify-center mb-2 shadow-lg bg-gradient-to-br",
+                          "w-12 h-12 rounded-2xl flex items-center justify-center mb-2 shadow-lg bg-gradient-to-br",
                           action.gradient
                         )}>
                           <action.icon className="text-white" size={20} />
                         </div>
                         <span className="text-zinc-300 text-[10px] font-black uppercase tracking-widest leading-none">{action.label}</span>
-                      </button>
+                      </motion.button>
                     );
                   })
                 ) : (
                   activeActions.map((action) => (
-                    <button
+                    <motion.button
                       key={action.id}
+                      whileHover={{ scale: 1.02, y: -2 }}
+                      whileTap={{ scale: 0.95 }}
                       onClick={action.action}
-                      className="flex flex-col items-center justify-center p-5 rounded-[2rem] bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all active:scale-95 hover:scale-[1.02] group shadow-xl shadow-black/20"
+                      className="flex flex-col items-center justify-center p-6 rounded-[2.5rem] bg-zinc-800/50 border border-white/5 hover:bg-zinc-800 hover:border-white/10 transition-all group shadow-xl shadow-black/40 relative overflow-hidden"
                     >
+                      <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
                       <div className={cn(
-                        "w-12 h-12 rounded-2xl flex items-center justify-center mb-3 shadow-lg bg-gradient-to-br group-hover:scale-110 transition-transform duration-300",
+                        "w-14 h-14 rounded-[1.25rem] flex items-center justify-center mb-3 shadow-2xl bg-gradient-to-br group-hover:shadow-emerald-500/20 transition-all duration-500 relative z-10",
                         action.gradient
                       )}>
                         <action.icon className="text-white" size={24} />
                       </div>
-                      <span className="text-zinc-300 text-[10px] font-black uppercase tracking-widest leading-none group-hover:text-white transition-colors">{action.label}</span>
-                    </button>
+                      <span className="text-zinc-400 text-[10px] font-black uppercase tracking-[0.2em] leading-none group-hover:text-white transition-colors relative z-10">{action.label}</span>
+                    </motion.button>
                   ))
                 )}
               </div>

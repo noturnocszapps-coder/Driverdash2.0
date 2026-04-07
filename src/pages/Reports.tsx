@@ -5,7 +5,7 @@ import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperati
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
-  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check, AlertCircle, Clock
+  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check, AlertCircle, Clock, Target
 } from 'lucide-react';
 import { 
   startOfDay, isSameDay, parseISO, format, subDays, startOfWeek, addDays
@@ -258,7 +258,7 @@ export const Reports = () => {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-6 pb-[calc(140px+env(safe-area-inset-bottom))]"
+      className="space-y-4 md:space-y-6"
     >
       <ReportsHeader 
         onImportClick={() => navigate('/import-report')}
@@ -303,8 +303,37 @@ export const Reports = () => {
         isCollecting={stats.maturity.status === 'coletando'}
       />
 
+      {/* METAS DA SEMANA - NOVO PARA PREENCHER ESPAÇO */}
+      <div className="px-1 space-y-3">
+        <div className="flex items-center gap-2">
+          <Target size={14} className="text-emerald-500" />
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Progresso da Meta Semanal</h3>
+        </div>
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl rounded-[2rem] overflow-hidden">
+          <CardContent className="p-6 space-y-4">
+            <div className="flex justify-between items-end">
+              <div className="space-y-1">
+                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Meta: {formatCurrency(settings.dailyGoal * 7)}</p>
+                <p className="text-2xl font-black text-zinc-900 dark:text-white">{formatCurrency(stats.total)}</p>
+              </div>
+              <div className="text-right">
+                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Faltam</p>
+                <p className="text-lg font-black text-orange-500">{formatCurrency(Math.max(0, (settings.dailyGoal * 7) - stats.total))}</p>
+              </div>
+            </div>
+            <div className="h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-zinc-200/50 dark:border-zinc-800">
+              <motion.div 
+                initial={{ width: 0 }}
+                animate={{ width: `${Math.min(100, (stats.total / (settings.dailyGoal * 7)) * 100)}%` }}
+                className="h-full bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+              />
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+
       {/* 3. Insights Inteligentes */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-8">
         <InsightsCard 
           aiIntelligence={{
             ...aiIntelligence,
@@ -317,7 +346,7 @@ export const Reports = () => {
           aiTip={stats.aiTip}
         />
 
-        <div className="space-y-6">
+        <div className="space-y-4 md:space-y-6">
           {/* 4. Melhores Horários */}
           <BestHoursCard 
             bestHourByDay={aiIntelligence.bestHourByDay}
@@ -406,7 +435,7 @@ export const Reports = () => {
       )}
 
       {/* 7. Faturamento Diário / Gráfico */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <DailyRevenueCard 
           bestDay={stats.best}
           currentWeek={currentWeek}
@@ -416,7 +445,7 @@ export const Reports = () => {
       </div>
 
       {/* 8. Mix de Plataformas */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <PlatformMixCard 
           platformTotals={stats.platformTotals}
           total={stats.total}
@@ -425,7 +454,7 @@ export const Reports = () => {
       </div>
 
       {/* 9. Histórico Recente */}
-      <div className="space-y-6">
+      <div className="space-y-4 md:space-y-6">
         <RecentHistoryCardList 
           recentDays={recentDays}
           isPrivacyMode={settings.isPrivacyMode}
@@ -596,9 +625,9 @@ export const Reports = () => {
 
 const SummaryCard = ({ label, value, color }: any) => (
   <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-    <CardContent className="p-4 space-y-1">
-      <p className="text-[9px] font-black uppercase text-zinc-400 tracking-widest">{label}</p>
-      <p className={cn("text-sm font-black tracking-tight truncate", color)}>{value}</p>
+    <CardContent className="p-3 md:p-4 space-y-0.5 md:space-y-1">
+      <p className="text-[8px] md:text-[9px] font-black uppercase text-zinc-400 tracking-widest">{label}</p>
+      <p className={cn("text-xs md:text-sm font-black tracking-tight truncate", color)}>{value}</p>
     </CardContent>
   </Card>
 );

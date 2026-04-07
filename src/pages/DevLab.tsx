@@ -46,24 +46,24 @@ const DevLab = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-[#0B0B0B] text-white flex flex-col">
-      <header className="p-4 flex items-center gap-3 border-b border-zinc-800 bg-[#0B0B0B] sticky top-0 z-[1001]">
+    <div className="space-y-6">
+      <header className="flex items-center gap-3 px-1 pt-2 pb-4 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-[1001] bg-zinc-50 dark:bg-zinc-950">
         <button 
           onClick={() => navigate(-1)}
-          className="p-2 hover:bg-zinc-800 rounded-full transition-colors"
+          className="w-11 h-11 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/50 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-95"
         >
-          <ChevronLeft size={24} />
+          <ChevronLeft size={20} />
         </button>
         <div>
-          <h1 className="text-lg font-bold flex items-center gap-2">
+          <h1 className="text-lg font-black tracking-tight flex items-center gap-2 text-zinc-900 dark:text-white">
             <FlaskConical size={20} className="text-emerald-500" />
             Developer Lab
           </h1>
-          <p className="text-xs text-zinc-500">Área de testes e depuração</p>
+          <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Área de testes e depuração</p>
         </div>
       </header>
 
-      <div className="p-6 space-y-6 max-w-2xl mx-auto w-full">
+      <div className="space-y-6 max-w-2xl mx-auto w-full">
         <section className="space-y-4">
           <h2 className="text-xs font-black uppercase tracking-widest text-zinc-500 px-1">Controles de Dados</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

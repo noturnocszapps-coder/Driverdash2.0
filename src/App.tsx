@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncManager } from './components/SyncManager';
@@ -236,9 +236,9 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex flex-1 w-full max-w-full relative">
         <Sidebar />
         <main className={cn(
-          "flex-1 flex flex-col px-4 py-6 w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth min-w-0 relative",
-          !isMobile && "md:px-8 max-w-5xl mx-auto",
-          isMobile ? "pb-[calc(140px+env(safe-area-inset-bottom))]" : "pb-6"
+          "flex-1 flex flex-col px-4 pt-4 pb-6 w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth min-w-0 relative",
+          !isMobile && "md:px-10 md:pt-10 md:pb-12 max-w-6xl mx-auto",
+          isMobile ? "pb-[calc(180px+env(safe-area-inset-bottom))]" : "pb-12"
         )}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDriverStore } from '../store';
 import { Button } from './UI';
-import { X, MessageSquare, Zap } from 'lucide-react';
+import { X, MessageSquare, Zap, Calendar } from 'lucide-react';
 import { cn } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -22,14 +22,24 @@ export const QuickEntryModal = ({ isOpen, onClose, editEntry, suggestedValue }: 
   const [tips, setTips] = useState('');
   const [bonuses, setBonuses] = useState('');
   const [platformFee, setPlatformFee] = useState('');
+  const [timestamp, setTimestamp] = useState('');
+  const [dateError, setDateError] = useState<string | null>(null);
+
+  // Helper to format date for datetime-local input
+  const formatForInput = (date: Date) => {
+    const pad = (n: number) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
+  };
 
   // Reset state when opening or editing
   useEffect(() => {
     if (isOpen) {
+      setDateError(null);
       if (editEntry) {
         setAmount(editEntry.value.toString().replace('.', ','));
         setPlatform(editEntry.platform === '99' ? 'noventanove' : editEntry.platform);
         setNote(editEntry.origin || '');
+        setTimestamp(formatForInput(new Date(editEntry.timestamp)));
         
         if (editEntry.gross_value !== undefined) {
           setIsDetailed(true);
@@ -53,6 +63,7 @@ export const QuickEntryModal = ({ isOpen, onClose, editEntry, suggestedValue }: 
         setTips('');
         setBonuses('');
         setPlatformFee('');
+        setTimestamp(formatForInput(new Date()));
       } else {
         setAmount('');
         setNote('');
@@ -62,12 +73,30 @@ export const QuickEntryModal = ({ isOpen, onClose, editEntry, suggestedValue }: 
         setTips('');
         setBonuses('');
         setPlatformFee('');
+        setTimestamp(formatForInput(new Date()));
       }
     }
   }, [isOpen, editEntry, suggestedValue]);
 
   const handleSave = async () => {
     if (isSaving) return;
+
+    // Validate date
+    if (!timestamp) {
+      setDateError('Data e horário são obrigatórios');
+      return;
+    }
+
+    const selectedDate = new Date(timestamp);
+    if (isNaN(selectedDate.getTime())) {
+      setDateError('Data ou horário inválidos');
+      return;
+    }
+
+    if (selectedDate > new Date()) {
+      setDateError('A data não pode ser no futuro');
+      return;
+    }
     
     const parseVal = (s: string) => {
       const val = parseFloat(s.replace(',', '.'));
@@ -99,7 +128,10 @@ export const QuickEntryModal = ({ isOpen, onClose, editEntry, suggestedValue }: 
     }
 
     if (editEntry) {
-      await updateFinancialEntry(editEntry.id, entryData);
+      await updateFinancialEntry(editEntry.id, {
+        ...entryData,
+        timestamp: new Date(timestamp).toISOString()
+      });
     } else {
       let openCycle = cycles.find(c => c.status === 'open');
       let cycleId = openCycle?.id;
@@ -111,7 +143,7 @@ export const QuickEntryModal = ({ isOpen, onClose, editEntry, suggestedValue }: 
       await addFinancialEntry({
         ...entryData,
         cycle_id: cycleId,
-        timestamp: new Date().toISOString(),
+        timestamp: new Date(timestamp).toISOString(),
       });
     }
     onClose();
@@ -297,6 +329,29 @@ export const QuickEntryModal = ({ isOpen, onClose, editEntry, suggestedValue }: 
                       color="bg-blue-500" 
                     />
                   </div>
+                </div>
+
+                {/* Date and Time Selection */}
+                <div className="space-y-2">
+                  <label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 ml-2">Data e Horário</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400" size={18} />
+                    <input 
+                      type="datetime-local" 
+                      value={timestamp}
+                      onChange={(e) => {
+                        setTimestamp(e.target.value);
+                        setDateError(null);
+                      }}
+                      className={cn(
+                        "w-full bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl py-4 pl-12 pr-4 text-sm font-medium focus:ring-2 transition-all",
+                        dateError ? "focus:ring-red-500 bg-red-50/30 dark:bg-red-500/5" : "focus:ring-emerald-500"
+                      )}
+                    />
+                  </div>
+                  {dateError && (
+                    <p className="text-[10px] font-bold text-red-500 ml-2 uppercase tracking-tight">{dateError}</p>
+                  )}
                 </div>
 
                 {/* Note Input */}

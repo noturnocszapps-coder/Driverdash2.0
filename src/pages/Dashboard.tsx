@@ -29,9 +29,12 @@ import {
   Timer,
   Activity,
   Loader2,
-  Rocket
+  Rocket,
+  History,
+  BarChart2,
+  Trophy
 } from 'lucide-react';
-import { startOfDay, format } from 'date-fns';
+import { startOfDay, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { motion, AnimatePresence } from 'motion/react';
 import { QuickActionsMenu } from '../components/QuickActionsMenu';
@@ -54,13 +57,16 @@ function MetricItem({
   isLarge?: boolean;
 }) {
   return (
-    <div className={cn(
-      "p-3 md:p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-0.5 transition-all duration-300 hover:bg-white/10",
-      isLarge && "col-span-1 bg-white/10 border-white/10"
-    )}>
-      <div className="flex items-center gap-1.5">
-        <Icon size={10} className={cn(accent, "opacity-40")} />
-        <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">{label}</p>
+    <motion.div 
+      whileTap={{ scale: 0.98 }}
+      className={cn(
+        "p-2.5 md:p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50 flex flex-col gap-0.5 md:gap-1 transition-all duration-300",
+        isLarge && "col-span-1 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
+      )}
+    >
+      <div className="flex items-center gap-1.5 md:gap-2">
+        <Icon size={10} className={cn(accent, "opacity-50")} />
+        <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.15em] text-zinc-500 truncate">{label}</p>
       </div>
       <div className="flex items-baseline gap-1">
         <motion.p 
@@ -68,18 +74,19 @@ function MetricItem({
           initial={{ opacity: 0.5, y: 2 }}
           animate={{ opacity: 1, y: 0 }}
           className={cn(
-            "font-black tracking-tighter metric-value",
-            isLarge ? "text-2xl text-white" : "text-lg text-zinc-100",
+            "font-black tracking-tighter tabular-nums truncate",
+            isLarge ? "text-2xl md:text-3xl text-zinc-900 dark:text-white" : "text-lg md:text-xl text-zinc-800 dark:text-zinc-100",
             accent !== "text-white" && !isLarge && accent
           )}
         >
+          {/* Formatar números para ter sempre uma casa decimal se for km */}
           {typeof value === 'number' ? value.toFixed(1) : value}
         </motion.p>
         {unit && (
-          <span className="text-[9px] font-bold text-zinc-500 uppercase">{unit}</span>
+          <span className="text-[8px] md:text-[10px] font-black text-zinc-500 uppercase tracking-tight shrink-0">{unit}</span>
         )}
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -303,6 +310,13 @@ export const Dashboard = () => {
     return "Meta batida! Ótimo trabalho, considere descansar ou buscar bônus.";
   }, [openCycle, currentEarnings, goalProgress]);
 
+  const weeklyStats = useMemo(() => {
+    const last7Days = cycles.slice(0, 7);
+    const totalRevenue = last7Days.reduce((acc, c) => acc + safeNumber(c.total_amount), 0);
+    const totalKm = last7Days.reduce((acc, c) => acc + safeNumber(c.total_km), 0);
+    return { totalRevenue, totalKm };
+  }, [cycles]);
+
   useEffect(() => {
     console.log('[TRACKING_LAYOUT] Dashboard mounted. Viewport width:', window.innerWidth);
     const trackingCard = document.querySelector('.tracking-card');
@@ -337,117 +351,151 @@ export const Dashboard = () => {
   }
 
   return (
-    <div className={cn(
-      "space-y-6 max-w-lg mx-auto overflow-x-hidden w-full min-w-0",
-      isMobile ? "p-4" : "p-6"
-    )}>
-      {/* HEADER */}
-      <header className="flex justify-between items-center">
-        <div className="space-y-1">
-          <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
-            {greeting}, {settings.name?.split(' ')[0] || 'Motorista'}
+    <div className="space-y-6 md:space-y-10 max-w-lg mx-auto overflow-x-hidden w-full min-w-0">
+      {/* HEADER / HERO SECTION */}
+      <header className="flex justify-between items-start px-1 pt-4 mb-4">
+        <div className="space-y-2 relative">
+          <div className="absolute -left-8 -top-8 w-32 h-32 bg-emerald-500/10 blur-[60px] rounded-full pointer-events-none" />
+          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-zinc-900 dark:text-white leading-none relative">
+            {greeting}, <span className="text-emerald-500">{settings.name?.split(' ')[0] || 'Motorista'}</span>
           </h1>
-          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+          <p className="text-[10px] md:text-xs font-black text-zinc-400 uppercase tracking-[0.3em] flex items-center gap-2">
+            <span className="w-4 h-[1px] bg-zinc-200 dark:bg-zinc-800" />
             {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
           </p>
         </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
+        <motion.button 
+          whileTap={{ scale: 0.9 }}
           onClick={() => navigate('/settings')}
-          className="rounded-full bg-zinc-100 dark:bg-zinc-900 w-9 h-9"
+          className="rounded-2xl bg-white dark:bg-zinc-900 w-12 h-12 flex items-center justify-center border border-zinc-200 dark:border-zinc-800 shadow-xl shadow-zinc-200/50 dark:shadow-none transition-all hover:border-emerald-500/30 group"
         >
-          <Settings size={18} />
-        </Button>
+          <Settings size={20} className="text-zinc-400 group-hover:text-emerald-500 transition-colors" />
+        </motion.button>
       </header>
 
-      {/* STATUS OPERACIONAL */}
-      <Card className={cn(
-        "border-none shadow-xl transition-all duration-500 overflow-hidden relative tracking-card w-full max-w-full",
-        locationError ? "bg-red-500 text-white" : tracking.isActive ? "bg-zinc-900 text-white" : "bg-zinc-900 text-white"
-      )}>
-        {/* Background Accent for Active State */}
-        {tracking.isActive && !locationError && (
-          <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
-        )}
-        
-        <CardContent className="p-6 md:p-8 relative z-10 space-y-6 card-content">
-          <AnimatePresence>
-            {showResumeMessage && (
-              <motion.div 
-                initial={{ height: 0, opacity: 0 }}
-                animate={{ height: 'auto', opacity: 1 }}
-                exit={{ height: 0, opacity: 0 }}
-                className="overflow-hidden"
-              >
-                <div className="bg-emerald-500/20 border border-emerald-500/20 rounded-xl p-2 flex items-center justify-center gap-2">
-                  <Zap size={14} className="text-emerald-500" />
-                  <p className="text-[10px] font-black uppercase tracking-widest text-emerald-500">Rastreamento em andamento</p>
+      {/* MAIN VALUE CARD (PRIMARY FOCUS) */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="relative group px-1 md:px-0 mb-2"
+      >
+        <div className="absolute -inset-4 bg-gradient-to-br from-emerald-500/5 via-transparent to-blue-500/5 rounded-[3rem] blur-3xl opacity-50 pointer-events-none" />
+        <div className="absolute -inset-[1px] bg-gradient-to-br from-emerald-500/10 via-transparent to-zinc-500/10 rounded-[2.6rem] blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-2xl shadow-zinc-200/50 dark:shadow-none rounded-[2.5rem] overflow-hidden relative border border-zinc-100 dark:border-zinc-800/50">
+          <CardContent className="p-8 md:p-10 space-y-8 md:space-y-10">
+            <div className="flex justify-between items-start gap-4">
+              <div className="space-y-2 md:space-y-3 min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-2 h-2 rounded-full bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.6)]" />
+                  <p className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.25em] text-zinc-400 truncate">Ganhos de Hoje</p>
                 </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
+                <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-zinc-900 dark:text-white tabular-nums truncate leading-none">
+                  {formatCurrency(currentEarnings)}
+                </h2>
+              </div>
+              <div className="bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 shadow-sm shrink-0 flex items-center gap-2">
+                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                Ciclo Ativo
+              </div>
+            </div>
 
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
+            {profitStats && (
+              <div className="grid grid-cols-2 gap-6 pt-6 border-t border-zinc-100 dark:border-zinc-800/50">
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.15em]">Despesas</p>
+                  <p className="text-xl font-black text-rose-500 tabular-nums">
+                    {formatCurrency(profitStats.expenses + profitStats.dailyFixed)}
+                  </p>
+                </div>
+                <div className="space-y-1">
+                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.15em]">Lucro Real</p>
+                  <p className="text-xl font-black text-emerald-500 tabular-nums">
+                    {formatCurrency(profitStats.profit)}
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-3">
+              <div className="flex justify-between items-end">
+                <span className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em]">Meta Diária</span>
+                <span className="text-xs font-black text-emerald-500 tabular-nums">{Math.round(goalProgress)}%</span>
+              </div>
+              <div className="h-2.5 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden p-0.5 border border-zinc-200/50 dark:border-zinc-800">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${goalProgress}%` }}
+                  transition={{ duration: 1, ease: "easeOut" }}
+                  className="h-full bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+                />
+              </div>
+            </div>
+
+            <Button 
+              onClick={() => navigate('/faturamento')}
+              className="w-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:opacity-90 border-none font-black uppercase tracking-widest text-[10px] h-14 rounded-2xl shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+            >
+              Ver Detalhes do Turno <ChevronRight size={14} />
+            </Button>
+          </CardContent>
+        </Card>
+      </motion.div>
+
+      {/* STATUS OPERACIONAL / TRACKING */}
+      <div className="pt-4 md:pt-6">
+        <Card className={cn(
+          "border-none shadow-xl transition-all duration-500 overflow-hidden relative tracking-card w-full max-w-full rounded-[2.5rem]",
+          locationError ? "bg-rose-500 text-white" : "bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50"
+        )}>
+        <CardContent className="p-4 md:p-8 relative z-10 space-y-5 md:space-y-8 card-content">
+          <div className="flex items-center justify-between gap-2 md:gap-3">
+            <div className="flex items-center gap-2 md:gap-5 min-w-0">
               <div className="relative shrink-0">
                 {tracking.isActive && !locationError && !tracking.isPaused && (
                   <motion.div 
-                    animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
+                    animate={{ scale: [1, 1.4, 1], opacity: [0.2, 0, 0.2] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                     className="absolute inset-0 bg-emerald-500 rounded-2xl z-0"
                   />
                 )}
                 <div className={cn(
-                  "w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all duration-500 relative z-10",
-                  locationError ? "bg-white/20" : tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-white/5"
+                  "w-10 h-10 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-500 relative z-10 border",
+                  locationError ? "bg-white/20 border-white/30" : tracking.isActive ? "bg-emerald-500 text-zinc-950 border-emerald-400" : "bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
                 )}>
-                  {locationError ? <AlertTriangle size={24} /> : tracking.isActive ? <Zap size={24} /> : <Play size={24} />}
+                  {locationError ? <AlertTriangle size={20} /> : tracking.isActive ? <Zap size={20} /> : <Play size={20} className="text-zinc-400" />}
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40 truncate">Rastreamento</p>
+                <div className="flex items-center gap-1.5 mb-0.5 md:mb-1">
+                  <p className="text-[8px] md:text-[10px] font-black uppercase tracking-[0.15em] text-zinc-500">Status</p>
                   {tracking.isActive && !locationError && !tracking.isPaused && (
-                    <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded-full shrink-0">
+                    <div className="flex items-center gap-1 bg-emerald-500/10 px-1 py-0.5 rounded-full shrink-0 border border-emerald-500/20">
                       <span className="flex h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[7px] font-black text-emerald-500 uppercase tracking-tighter">LIVE</span>
+                      <span className="text-[6px] md:text-[8px] font-black text-emerald-500 uppercase tracking-widest">LIVE</span>
                     </div>
                   )}
                 </div>
-                <h3 className="text-lg font-black uppercase tracking-tight truncate">
-                  {locationError ? 'Erro GPS' : !hasOpenCycle ? 'Turno Fechado' : tracking.isActive ? (tracking.isPaused ? 'Pausado' : 'Ativo') : 'Aguardando'}
+                <h3 className={cn(
+                  "text-lg md:text-2xl font-black uppercase tracking-tight truncate",
+                  locationError ? "text-white" : tracking.isActive ? "text-zinc-900 dark:text-white" : "text-zinc-400"
+                )}>
+                  {locationError ? 'Erro' : !hasOpenCycle ? 'Fechado' : tracking.isActive ? (tracking.isPaused ? 'Pausado' : 'Ativo') : 'Inativo'}
                 </h3>
               </div>
             </div>
             
             {tracking.isActive && !locationError && (
-              <div className="text-right shrink-0">
-                <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500 mb-0.5">Tempo</p>
-                <p className="text-base font-black font-mono text-emerald-500">{formatDuration(activeTime)}</p>
+              <div className="text-right shrink-0 bg-zinc-100 dark:bg-zinc-800/50 px-2.5 md:px-4 py-1 md:py-2 rounded-xl md:rounded-2xl border border-zinc-200 dark:border-zinc-700 shadow-sm">
+                <p className="text-[7px] md:text-[9px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">Duração</p>
+                <p className="text-xs md:text-lg font-black font-mono text-emerald-500 tabular-nums">{formatDuration(activeTime)}</p>
               </div>
             )}
           </div>
 
-          {/* GPS Status Label */}
           {tracking.isActive && !locationError && (
-            <div className="flex items-center gap-2 px-1">
-              <div className={cn(
-                "w-1.5 h-1.5 rounded-full",
-                tracking.gpsStatus === 'active' ? "bg-emerald-500 animate-pulse" : 
-                tracking.gpsStatus === 'connecting' ? "bg-amber-500 animate-pulse" : "bg-red-500"
-              )} />
-              <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
-                {tracking.gpsStatus === 'active' ? 'GPS Ativo' : 
-                 tracking.gpsStatus === 'connecting' ? 'Conectando ao GPS...' : 'Sem sinal de GPS'}
-              </p>
-            </div>
-          )}
-
-          {tracking.isActive && !locationError && (
-            <div className="grid grid-cols-2 gap-2 md:gap-3">
+            <div className="grid grid-cols-2 gap-3">
               <MetricItem 
-                label="KM Total" 
+                label="Distância Total" 
                 value={tracking.distance || 0} 
                 unit="km"
                 icon={Navigation}
@@ -467,7 +515,7 @@ export const Dashboard = () => {
                 accent="text-orange-500"
               />
               <MetricItem 
-                label="Velocidade Média" 
+                label="Velocidade" 
                 value={Math.round(tracking.avgSpeed || 0)} 
                 unit="km/h"
                 icon={TrendingUp}
@@ -476,7 +524,7 @@ export const Dashboard = () => {
           )}
 
           {tracking.isActive && !locationError && (
-            <div className="mt-2 rounded-2xl overflow-hidden border border-white/5 shadow-inner min-h-[180px]">
+            <div className="mt-2 rounded-[2rem] overflow-hidden border border-zinc-200 dark:border-zinc-800 shadow-inner min-h-[200px]">
               <LiveTrackingMap 
                 points={tracking.points || []} 
                 stopPoints={tracking.stopPoints || []}
@@ -489,21 +537,21 @@ export const Dashboard = () => {
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-2 gap-4">
             {!hasOpenCycle ? (
               <Button 
                 onClick={handleStartCycle}
                 disabled={isProcessing}
-                className="col-span-2 w-full bg-blue-600 text-white hover:bg-blue-700 font-black uppercase tracking-widest text-xs h-14 rounded-2xl border-none shadow-lg flex items-center justify-center gap-2"
+                className="col-span-2 w-full bg-blue-600 text-white hover:bg-blue-700 font-black uppercase tracking-widest text-[10px] h-16 rounded-2xl border-none shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
               >
                 {isProcessing ? (
                   <>
-                    <Loader2 className="animate-spin" size={16} />
+                    <Loader2 className="animate-spin" size={18} />
                     Abrindo turno...
                   </>
                 ) : (
                   <>
-                    <Play size={16} fill="currentColor" />
+                    <Play size={18} fill="currentColor" />
                     Abrir Turno
                   </>
                 )}
@@ -512,16 +560,16 @@ export const Dashboard = () => {
               <Button 
                 onClick={handleToggleTracking}
                 disabled={isProcessing}
-                className="col-span-2 w-full bg-emerald-500 text-zinc-950 hover:bg-emerald-600 font-black uppercase tracking-widest text-xs h-14 rounded-2xl border-none shadow-lg flex items-center justify-center gap-2"
+                className="col-span-2 w-full bg-emerald-500 text-zinc-950 hover:bg-emerald-600 font-black uppercase tracking-widest text-[10px] h-16 rounded-2xl border-none shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
               >
                 {isProcessing ? (
                   <>
-                    <Loader2 className="animate-spin" size={16} />
-                    Iniciando rastreamento...
+                    <Loader2 className="animate-spin" size={18} />
+                    Iniciando...
                   </>
                 ) : (
                   <>
-                    <Zap size={16} fill="currentColor" />
+                    <Zap size={18} fill="currentColor" />
                     Ativar Rastreamento
                   </>
                 )}
@@ -531,17 +579,17 @@ export const Dashboard = () => {
                 <Button 
                   onClick={() => tracking.isPaused ? resumeTracking?.() : pauseTracking?.()}
                   disabled={isProcessing}
-                  className="bg-zinc-800 text-white hover:bg-zinc-700 border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg flex items-center justify-center gap-2"
+                  className="bg-zinc-200 dark:bg-zinc-800 text-zinc-900 dark:text-white hover:opacity-80 border-none font-black uppercase tracking-widest text-[10px] h-16 rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
-                  {tracking.isPaused ? <><Play size={14} fill="currentColor" /> Retomar</> : <><Pause size={14} fill="currentColor" /> Pausar</>}
+                  {tracking.isPaused ? <><Play size={16} fill="currentColor" /> Retomar</> : <><Pause size={16} fill="currentColor" /> Pausar</>}
                 </Button>
                 <Button 
                   onClick={handleToggleTracking}
                   disabled={isProcessing}
                   variant="danger"
-                  className="bg-red-500/10 hover:bg-red-500/20 text-red-500 border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg flex items-center justify-center gap-2"
+                  className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border-none font-black uppercase tracking-widest text-[10px] h-16 rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
-                  {isProcessing ? <Loader2 className="animate-spin" size={14} /> : <><Square size={14} fill="currentColor" /> Encerrar</>}
+                  {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <><Square size={16} fill="currentColor" /> Encerrar</>}
                 </Button>
               </>
             ) : null}
@@ -549,144 +597,192 @@ export const Dashboard = () => {
           
           {locationError && (
             <div className="mt-6 space-y-4">
-              <div className="p-4 rounded-2xl bg-red-500/10 border border-red-500/20 flex items-start gap-3">
-                <AlertTriangle className="text-red-500 shrink-0 mt-0.5" size={18} />
-                <div className="space-y-1">
-                  <p className="text-sm font-bold text-red-100 leading-tight uppercase tracking-tight">
+              <div className="p-5 rounded-[2rem] bg-rose-500/10 border border-rose-500/20 flex items-start gap-4">
+                <AlertTriangle className="text-rose-500 shrink-0 mt-1" size={20} />
+                <div className="space-y-1.5">
+                  <p className="text-sm font-black text-rose-100 leading-tight uppercase tracking-tight">
                     {locationError}
                   </p>
-                  <p className="text-[10px] font-medium text-red-200/60 uppercase tracking-widest">
-                    Verifique o ícone de cadeado na barra de endereços para resetar as permissões.
+                  <p className="text-[10px] font-bold text-rose-200/50 uppercase tracking-widest leading-relaxed">
+                    Verifique as permissões de GPS nas configurações do seu navegador.
                   </p>
                 </div>
               </div>
               <Button 
                 onClick={handleToggleTracking}
                 disabled={isProcessing}
-                className="w-full h-14 rounded-2xl bg-white text-zinc-950 font-black uppercase tracking-widest hover:bg-zinc-100 flex items-center justify-center gap-2"
+                className="w-full h-16 rounded-2xl bg-white text-zinc-950 font-black uppercase tracking-widest hover:bg-zinc-100 flex items-center justify-center gap-2 active:scale-95 transition-all shadow-xl"
               >
-                {isProcessing ? <Loader2 className="animate-spin" size={18} /> : 'Tentar Novamente'}
+                {isProcessing ? <Loader2 className="animate-spin" size={20} /> : 'Tentar Novamente'}
               </Button>
             </div>
           )}
         </CardContent>
       </Card>
-
-      {/* CICLO ATUAL */}
-      <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
-        <CardContent className="p-6 space-y-6">
-          <div className="flex justify-between items-start">
-            <div className="space-y-1">
-              <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Faturamento do Ciclo</p>
-              <h2 className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-white">
-                {formatCurrency(currentEarnings)}
-              </h2>
-            </div>
-            <div className="bg-emerald-500/10 text-emerald-500 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest border border-emerald-500/20">
-              24 Horas
-            </div>
-          </div>
-
-          {profitStats && (
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-zinc-100 dark:border-zinc-800">
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Despesas Totais</p>
-                <p className="text-lg font-black text-red-500">
-                  {formatCurrency(profitStats.expenses + profitStats.dailyFixed)}
-                </p>
-              </div>
-              <div className="space-y-1">
-                <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Lucro Estimado</p>
-                <p className="text-lg font-black text-emerald-500">
-                  {formatCurrency(profitStats.profit)}
-                </p>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-2">
-            <div className="flex justify-between items-end">
-              <span className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Progresso da Meta</span>
-              <span className="text-xs font-black text-emerald-500">{Math.round(goalProgress)}%</span>
-            </div>
-            <div className="h-3 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden border border-zinc-200 dark:border-zinc-800">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${goalProgress}%` }}
-                className="h-full bg-emerald-500 rounded-full shadow-[0_0_15px_rgba(16,185,129,0.5)]"
-              />
-            </div>
-          </div>
-
-          <Button 
-            onClick={() => navigate('/faturamento')}
-            className="w-full bg-zinc-900 dark:bg-zinc-100 text-white dark:text-zinc-950 hover:bg-zinc-800 dark:hover:bg-zinc-200 border-none font-black uppercase tracking-widest text-xs h-14 rounded-2xl shadow-lg flex items-center justify-center gap-2"
-          >
-            Ir para Fechamento <ChevronRight size={16} />
-          </Button>
-        </CardContent>
-      </Card>
-
-      {/* META DO DIA */}
-      <div className="grid grid-cols-2 gap-4">
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-lg">
-          <CardContent className="p-6 space-y-1">
-            <div className="flex items-center gap-2 text-zinc-400 mb-1">
-              <Target size={14} />
-              <p className="text-[10px] font-black uppercase tracking-widest">Sua Meta</p>
-            </div>
-            <p className="text-2xl font-black tracking-tighter text-zinc-900 dark:text-white">
-              {formatCurrency(dailyGoal)}
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-lg">
-          <CardContent className="p-6 space-y-1">
-            <div className="flex items-center gap-2 text-zinc-400 mb-1">
-              <TrendingUp size={14} />
-              <p className="text-[10px] font-black uppercase tracking-widest">Faltam</p>
-            </div>
-            <p className="text-2xl font-black tracking-tighter text-orange-500">
-              {formatCurrency(remainingGoal)}
-            </p>
-          </CardContent>
-        </Card>
       </div>
 
-      {/* INSIGHT */}
-      <Card 
-        onClick={() => plan === 'free' && setPaywallOpen(true)}
-        className={cn(
-          "border-none shadow-xl overflow-hidden relative transition-all active:scale-[0.98]",
-          plan === 'pro' ? "bg-indigo-600 text-white" : "bg-zinc-900 border border-white/5 text-zinc-400"
-        )}
-      >
-        <div className="absolute top-0 right-0 p-4 opacity-10">
-          <Zap size={60} />
-        </div>
-        <CardContent className="p-6 flex items-start gap-4 relative z-10">
-          <div className={cn(
-            "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner",
-            plan === 'pro' ? "bg-white/20" : "bg-white/5"
-          )}>
-            {plan === 'pro' ? <Info size={24} /> : <Rocket className="text-emerald-500" size={24} />}
-          </div>
-          <div className="space-y-1.5">
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
-              {plan === 'pro' ? 'Insight do Assistente' : 'Recurso Premium'}
-            </p>
-            <p className="text-sm font-bold leading-relaxed">
-              {plan === 'pro' ? activeInsight : 'Desbloqueie insights inteligentes e análise de performance com o DriverDash PRO.'}
-            </p>
-            {plan === 'free' && (
-              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-2 flex items-center gap-1">
-                Conhecer o Plano PRO <ChevronRight size={10} />
+      {/* META DO DIA / RESUMO */}
+      <div className="grid grid-cols-2 gap-3 md:gap-4">
+        <motion.div whileTap={{ scale: 0.98 }} className="col-span-1">
+          <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl rounded-[2rem] overflow-hidden h-full">
+            <CardContent className="p-4 md:p-6 space-y-1.5 md:space-y-2">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <Target size={12} className="opacity-50" />
+                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em]">Sua Meta</p>
+              </div>
+              <p className="text-xl md:text-2xl font-black tracking-tighter text-zinc-900 dark:text-white tabular-nums">
+                {formatCurrency(dailyGoal)}
               </p>
-            )}
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div whileTap={{ scale: 0.98 }} className="col-span-1">
+          <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl rounded-[2rem] overflow-hidden h-full">
+            <CardContent className="p-4 md:p-6 space-y-1.5 md:space-y-2">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <TrendingUp size={12} className="opacity-50" />
+                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em]">Faltam</p>
+              </div>
+              <p className="text-xl md:text-2xl font-black tracking-tighter text-orange-500 tabular-nums">
+                {formatCurrency(remainingGoal)}
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        {/* NOVAS MÉTRICAS PARA PREENCHER A TELA */}
+        <motion.div whileTap={{ scale: 0.98 }} className="col-span-1">
+          <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl rounded-[2rem] overflow-hidden h-full">
+            <CardContent className="p-4 md:p-6 space-y-1.5 md:space-y-2">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <Clock size={12} className="opacity-50" />
+                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em]">Tempo Total</p>
+              </div>
+              <p className="text-xl md:text-2xl font-black tracking-tighter text-zinc-900 dark:text-white tabular-nums">
+                {formatDuration(activeTime).split(':').slice(0, 2).join(':')}h
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div whileTap={{ scale: 0.98 }} className="col-span-1">
+          <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl rounded-[2rem] overflow-hidden h-full">
+            <CardContent className="p-4 md:p-6 space-y-1.5 md:space-y-2">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <Trophy size={12} className="opacity-50" />
+                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em]">Score Driver</p>
+              </div>
+              <p className="text-xl md:text-2xl font-black tracking-tighter text-emerald-500 tabular-nums">
+                9.8
+              </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* RESUMO SEMANAL RÁPIDO */}
+      <section className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <div className="flex items-center gap-2">
+            <BarChart2 size={14} className="text-emerald-500" />
+            <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Resumo da Semana</h3>
           </div>
-        </CardContent>
-      </Card>
+          <button onClick={() => navigate('/reports')} className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">Ver Tudo</button>
+        </div>
+        <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50 rounded-[2rem] overflow-hidden">
+          <CardContent className="p-5 flex items-center justify-between">
+            <div className="space-y-1">
+              <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Faturamento Total</p>
+              <p className="text-xl font-black text-zinc-900 dark:text-white">{formatCurrency(weeklyStats.totalRevenue)}</p>
+            </div>
+            <div className="text-right space-y-1">
+              <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">KM Rodados</p>
+              <p className="text-xl font-black text-zinc-900 dark:text-white">{weeklyStats.totalKm.toFixed(1)} km</p>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* HISTÓRICO RECENTE RÁPIDO */}
+      {cycles.length > 0 && (
+        <section className="space-y-3">
+          <div className="flex items-center justify-between px-1">
+            <div className="flex items-center gap-2">
+              <History size={14} className="text-emerald-500" />
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Últimos Turnos</h3>
+            </div>
+          </div>
+          <div className="space-y-2">
+            {cycles.slice(0, 3).map((cycle) => (
+              <motion.div
+                key={cycle.id}
+                whileTap={{ scale: 0.98 }}
+                onClick={() => navigate(`/cycle/${cycle.id}`)}
+                className="p-4 rounded-2xl bg-white dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800 shadow-sm flex items-center justify-between group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 group-hover:bg-emerald-500 group-hover:text-zinc-950 transition-colors">
+                    <Calendar size={18} />
+                  </div>
+                  <div>
+                    <p className="text-xs font-black text-zinc-900 dark:text-white">
+                      {cycle.start_time ? format(parseISO(cycle.start_time), "dd 'de' MMM", { locale: ptBR }) : 'Data Indisponível'}
+                    </p>
+                    <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                      {cycle.total_km?.toFixed(1)} km • {formatCurrency(cycle.total_amount)}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight size={16} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />
+              </motion.div>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* INSIGHT SECTION */}
+      <motion.div
+        whileTap={{ scale: 0.98 }}
+        onClick={() => plan === 'free' && setPaywallOpen(true)}
+        className="relative group cursor-pointer"
+      >
+        <div className={cn(
+          "absolute -inset-0.5 rounded-[2.5rem] blur opacity-20 transition duration-1000",
+          plan === 'pro' ? "bg-indigo-500" : "bg-emerald-500"
+        )} />
+        <Card 
+          className={cn(
+            "border-none shadow-2xl overflow-hidden relative rounded-[2.5rem]",
+            plan === 'pro' ? "bg-indigo-600 text-white" : "bg-zinc-900 border border-white/5 text-zinc-400"
+          )}
+        >
+          <div className="absolute top-0 right-0 p-6 opacity-10">
+            <Zap size={80} />
+          </div>
+          <CardContent className="p-5 md:p-8 flex items-start gap-4 md:gap-5 relative z-10">
+            <div className={cn(
+              "w-12 h-12 md:w-14 md:h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-inner border",
+              plan === 'pro' ? "bg-white/20 border-white/30" : "bg-white/5 border-white/10"
+            )}>
+              {plan === 'pro' ? <Info size={24} /> : <Rocket className="text-emerald-500" size={24} />}
+            </div>
+            <div className="space-y-1.5 md:space-y-2">
+              <p className="text-[9px] md:text-[10px] font-black uppercase tracking-[0.2em] opacity-60">
+                {plan === 'pro' ? 'Assistente DriverDash' : 'DriverDash PRO'}
+              </p>
+              <p className="text-xs md:text-sm font-bold leading-relaxed text-zinc-100">
+                {plan === 'pro' ? activeInsight : 'Desbloqueie insights inteligentes e análise de performance em tempo real.'}
+              </p>
+              {plan === 'free' && (
+                <p className="text-[9px] md:text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em] mt-2 md:mt-3 flex items-center gap-1.5">
+                  Conhecer o Plano PRO <ChevronRight size={10} />
+                </p>
+              )}
+            </div>
+          </CardContent>
+        </Card>
+      </motion.div>
 
       <QuickActionsMenu />
       <PostTripActionSheet />

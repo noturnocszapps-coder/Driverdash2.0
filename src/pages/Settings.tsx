@@ -5,7 +5,8 @@ import {
   User, Car, Target, Trash2, LogOut, Download, Database, 
   Upload, RefreshCw, AlertCircle, FlaskConical,
   Zap, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
-  DollarSign, Plus, CheckCircle2, Eye, EyeOff, Mic, Volume2
+  DollarSign, Plus, CheckCircle2, Eye, EyeOff, Mic, Volume2,
+  LayoutGrid, Minus, Map, Maximize2, Play, Lightbulb
 } from 'lucide-react';
 import { downloadFile, formatCurrency, calculateDailyFixedCost, calculateMonthlyFixedCost } from '../utils';
 import { supabase } from '../lib/supabase';
@@ -225,13 +226,44 @@ export const Settings = () => {
     }
   };
 
+  const allQuickActions = [
+    { id: 'gain', label: 'Ganho', icon: Plus, gradient: 'from-emerald-500 to-emerald-600' },
+    { id: 'expense', label: 'Despesa', icon: Minus, gradient: 'from-rose-500 to-rose-600' },
+    { id: 'reports', label: 'Relatórios', icon: LayoutGrid, gradient: 'from-zinc-700 to-zinc-800' },
+    { id: 'status', label: 'Produtividade', icon: CheckCircle2, gradient: 'from-zinc-500 to-zinc-600' },
+    { id: 'map', label: 'Mapa', icon: Map, gradient: 'from-blue-500 to-blue-600' },
+    { id: 'hud', label: 'HUD', icon: Maximize2, gradient: 'from-emerald-500 to-emerald-600' },
+    { id: 'start_trip', label: 'Iniciar', icon: Play, gradient: 'from-emerald-600 to-emerald-700' },
+    { id: 'last_trip', label: 'Última', icon: History, gradient: 'from-amber-500 to-amber-600' },
+  ];
+
+  const toggleQuickAction = (id: string) => {
+    const currentActions = settings.quickActions || ['gain', 'expense', 'reports', 'map'];
+    let newActions = [...currentActions];
+    
+    if (newActions.includes(id)) {
+      if (newActions.length <= 2) {
+        toast.error("Mínimo de 2 ações necessárias");
+        return;
+      }
+      newActions = newActions.filter(a => a !== id);
+    } else {
+      if (newActions.length >= 6) {
+        toast.error("Máximo de 6 ações permitido");
+        return;
+      }
+      newActions.push(id);
+    }
+    updateSettings({ quickActions: newActions });
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
       className="space-y-6"
     >
-      <header className="px-1">
+      <header className="px-1 pt-2">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Configurações</p>
         <h1 className="text-3xl font-black tracking-tighter">Ajustes</h1>
       </header>
@@ -492,6 +524,68 @@ export const Settings = () => {
                   settings.keepScreenOn ? "left-7" : "left-1"
                 )} />
               </button>
+            </div>
+          </CardContent>
+        </Card>
+      </section>
+
+      {/* Quick Actions Customization */}
+      <section className="space-y-4">
+        <SectionHeader icon={LayoutGrid} title="Ações Rápidas" />
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-[2rem] overflow-hidden">
+          <CardContent className="p-6 md:p-8 space-y-6">
+            <div className="space-y-1">
+              <p className="text-sm font-bold">Personalizar Menu</p>
+              <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Selecione de 2 a 6 ações para o menu rápido</p>
+            </div>
+
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {allQuickActions.map((action) => {
+                const isSelected = (settings.quickActions || ['gain', 'expense', 'reports', 'map']).includes(action.id);
+                return (
+                  <button
+                    key={action.id}
+                    onClick={() => toggleQuickAction(action.id)}
+                    className={cn(
+                      "flex flex-col items-center justify-center p-4 rounded-3xl border-2 transition-all relative group",
+                      isSelected 
+                        ? "bg-emerald-500/5 border-emerald-500/30 shadow-lg shadow-emerald-500/5" 
+                        : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
+                    )}
+                  >
+                    {isSelected && (
+                      <div className="absolute top-2 right-2">
+                        <CheckCircle2 size={12} className="text-emerald-500" />
+                      </div>
+                    )}
+                    <div className={cn(
+                      "w-10 h-10 rounded-xl flex items-center justify-center mb-2 shadow-md bg-gradient-to-br transition-transform group-hover:scale-110",
+                      action.gradient
+                    )}>
+                      <action.icon className="text-white" size={18} />
+                    </div>
+                    <span className={cn(
+                      "text-[10px] font-black uppercase tracking-widest leading-none text-center",
+                      isSelected ? "text-zinc-900 dark:text-white" : "text-zinc-500"
+                    )}>
+                      {action.label}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+            
+            <div className="flex items-center justify-center gap-2 pt-2">
+              <div className="h-1 flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden max-w-[100px]">
+                <motion.div 
+                  initial={false}
+                  animate={{ width: `${((settings.quickActions || ['gain', 'expense', 'reports', 'map']).length / 6) * 100}%` }}
+                  className="h-full bg-emerald-500"
+                />
+              </div>
+              <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">
+                {(settings.quickActions || ['gain', 'expense', 'reports', 'map']).length}/6 selecionadas
+              </p>
             </div>
           </CardContent>
         </Card>
@@ -831,11 +925,33 @@ export const Settings = () => {
         </Card>
       </section>
 
+      {/* Dicas de Configuração - NOVO PARA PREENCHER ESPAÇO */}
+      <section className="space-y-3">
+        <div className="flex items-center gap-2 px-1">
+          <Lightbulb size={14} className="text-amber-500" />
+          <h3 className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Dicas de Configuração</h3>
+        </div>
+        <div className="grid grid-cols-1 gap-3">
+          {[
+            { title: "Metas Realistas", desc: "Defina metas diárias que cubram seus custos e garantam lucro." },
+            { title: "Custos Fixos", desc: "Não esqueça de incluir seguro e manutenção nos custos do veículo." },
+            { title: "Privacidade", desc: "Use o modo oculto se costuma mostrar a tela para passageiros." }
+          ].map((tip, i) => (
+            <Card key={i} className="border-none bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50">
+              <CardContent className="p-4 space-y-1">
+                <p className="text-[10px] font-black uppercase text-zinc-900 dark:text-white tracking-tight">{tip.title}</p>
+                <p className="text-[10px] font-bold text-zinc-500 leading-relaxed">{tip.desc}</p>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      </section>
+
       {/* Danger Zone */}
-      <section className="space-y-4">
+      <section className="space-y-3 md:space-y-4">
         <SectionHeader icon={Shield} title="Zona de Perigo" />
         <Card className="border-none bg-red-50 dark:bg-red-500/5 border-red-100 dark:border-red-500/10">
-          <CardContent className="p-6 space-y-4">
+          <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
             <button 
               onClick={() => setShowDeleteConfirm(true)}
               className="flex items-center justify-between w-full group"
@@ -1126,9 +1242,9 @@ export const Settings = () => {
 };
 
 const SectionHeader = ({ icon: Icon, title }: any) => (
-  <div className="flex items-center gap-2 px-1">
-    <Icon size={16} className="text-emerald-500" />
-    <h3 className="text-xs font-black uppercase tracking-widest text-zinc-500">{title}</h3>
+  <div className="flex items-center gap-2 px-1 mb-1 md:mb-2">
+    <Icon size={14} className="text-emerald-500" />
+    <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-500">{title}</h3>
   </div>
 );
 

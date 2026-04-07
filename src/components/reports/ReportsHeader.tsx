@@ -15,7 +15,7 @@ export const ReportsHeader: React.FC<ReportsHeaderProps> = ({
   filter 
 }) => {
   return (
-    <header className="flex justify-between items-end px-1 mb-8">
+    <header className="flex justify-between items-end px-1 pt-2 mb-8">
       <div className="space-y-1">
         <h1 className="text-4xl font-black tracking-tighter text-zinc-900 dark:text-white">
           Relatórios

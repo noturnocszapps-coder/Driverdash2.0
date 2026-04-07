@@ -36,16 +36,16 @@ export const AnalyticsPro: React.FC = () => {
   }, [cycles]);
 
   return (
-    <div className="min-h-[100dvh] bg-zinc-950 text-white p-6 pb-32">
-      <header className="flex items-center justify-between mb-8">
+    <div className="space-y-6">
+      <header className="flex items-center justify-between px-1 pt-2 mb-8">
         <button 
           onClick={() => navigate(-1)}
-          className="p-2 rounded-full bg-white/5 border border-white/10 text-zinc-400"
+          className="w-11 h-11 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/50 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-95"
         >
           <ChevronLeft size={20} />
         </button>
-        <h1 className="text-xl font-black tracking-tight">Analytics Pro</h1>
-        <div className="w-10" />
+        <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">Analytics Pro</h1>
+        <div className="w-11" />
       </header>
 
       <div className="grid grid-cols-1 gap-4 mb-8">

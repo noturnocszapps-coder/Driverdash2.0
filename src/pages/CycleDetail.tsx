@@ -91,9 +91,9 @@ export const CycleDetail = () => {
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl mx-auto space-y-6 pb-12"
+      className="max-w-2xl mx-auto space-y-6"
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between px-1 pt-2">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate(-1)}
