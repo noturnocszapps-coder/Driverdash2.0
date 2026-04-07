@@ -1,9 +1,11 @@
-import React, { useEffect, useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, useMap, CircleMarker, Popup } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 import { TrackingPoint, StopPoint } from '../types';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Navigation, Crosshair, Clock, TrendingUp, Maximize2, Minimize2 } from 'lucide-react';
+import { formatDistanceToNow } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 // Fix Leaflet marker icon issue
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
@@ -36,12 +38,12 @@ const createCarIcon = (heading: number = 0) => L.divIcon({
 });
 
 // Component to handle map centering and auto-zoom
-const MapController = ({ center, zoom }: { center: [number, number], zoom: number }) => {
+const MapController = ({ center, zoom, autoCenter }: { center: [number, number], zoom: number, autoCenter: boolean }) => {
   const map = useMap();
   const lastCenter = React.useRef<[number, number] | null>(null);
   
   useEffect(() => {
-    if (center && center[0] !== 0) {
+    if (center && center[0] !== 0 && autoCenter) {
       // Only pan if the distance is significant to avoid jitter
       if (!lastCenter.current || 
           Math.abs(lastCenter.current[0] - center[0]) > 0.0001 || 
@@ -51,7 +53,7 @@ const MapController = ({ center, zoom }: { center: [number, number], zoom: numbe
         lastCenter.current = center;
       }
     }
-  }, [center, map]);
+  }, [center, map, autoCenter]);
   
   return null;
 };
@@ -61,9 +63,23 @@ interface LiveTrackingMapProps {
   stopPoints: StopPoint[];
   isActive: boolean;
   isPaused?: boolean;
+  currentSpeed?: number;
+  totalDistance?: number;
+  duration?: number;
 }
 
-export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ points, stopPoints, isActive, isPaused }) => {
+export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ 
+  points, 
+  stopPoints, 
+  isActive, 
+  isPaused,
+  currentSpeed = 0,
+  totalDistance = 0,
+  duration = 0
+}) => {
+  const [autoCenter, setAutoCenter] = useState(true);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
   const lastPoint = points[points.length - 1];
   const center: [number, number] = lastPoint ? [lastPoint.lat, lastPoint.lng] : [0, 0];
   
@@ -87,8 +103,22 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ points, stopPo
 
   if (!isActive || points.length === 0) return null;
 
+  const formatDuration = (ms: number) => {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    
+    if (hours > 0) return `${hours}h ${minutes}m`;
+    if (minutes > 0) return `${minutes}m ${seconds}s`;
+    return `${seconds}s`;
+  };
+
   return (
-    <div className="w-full h-64 rounded-3xl overflow-hidden relative border border-zinc-200 dark:border-zinc-800 shadow-inner">
+    <div className={cn(
+      "w-full rounded-3xl overflow-hidden relative border border-zinc-200 dark:border-zinc-800 shadow-inner transition-all duration-500",
+      isFullscreen ? "fixed inset-0 z-[9999] rounded-none h-screen" : "h-80"
+    )}>
       <MapContainer 
         center={center} 
         zoom={16} 
@@ -101,7 +131,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ points, stopPo
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
         />
         
-        <MapController center={center} zoom={16} />
+        <MapController center={center} zoom={16} autoCenter={autoCenter} />
         
         {/* Route Path */}
         <Polyline 
@@ -145,17 +175,74 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({ points, stopPo
       </MapContainer>
       
       {/* Overlay for UI Consistency */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-zinc-950/40 to-transparent" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-zinc-950/60 via-transparent to-zinc-950/40" />
       
-      {/* Map Badge */}
-      <div className="absolute top-4 left-4 z-[1000] flex items-center gap-2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur-md rounded-full border border-white/10 shadow-lg">
-        <div className={cn(
-          "w-2 h-2 rounded-full",
-          isPaused ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
-        )} />
-        <span className="text-[10px] font-black text-white uppercase tracking-widest">
-          {isPaused ? 'Pausado' : 'Ao Vivo'}
-        </span>
+      {/* Map Badge & Controls */}
+      <div className="absolute top-4 left-4 right-4 z-[1000] flex items-center justify-between pointer-events-none">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur-md rounded-full border border-white/10 shadow-lg pointer-events-auto">
+          <div className={cn(
+            "w-2 h-2 rounded-full",
+            isPaused ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
+          )} />
+          <span className="text-[10px] font-black text-white uppercase tracking-widest">
+            {isPaused ? 'Pausado' : 'Ao Vivo'}
+          </span>
+        </div>
+
+        <div className="flex items-center gap-2 pointer-events-auto">
+          <button 
+            onClick={() => setAutoCenter(!autoCenter)}
+            className={cn(
+              "w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg border",
+              autoCenter 
+                ? "bg-emerald-500 text-zinc-950 border-emerald-400" 
+                : "bg-zinc-900/80 text-white border-white/10 backdrop-blur-md"
+            )}
+          >
+            <Crosshair size={18} />
+          </button>
+          <button 
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="w-10 h-10 rounded-full bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md flex items-center justify-center transition-all shadow-lg"
+          >
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+          </button>
+        </div>
+      </div>
+
+      {/* Real-time Stats Overlay */}
+      <div className="absolute bottom-4 left-4 right-4 z-[1000] grid grid-cols-3 gap-2 pointer-events-none">
+        <div className="bg-zinc-900/80 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
+          <div className="flex items-center gap-1.5 mb-1">
+            <TrendingUp size={12} className="text-emerald-500" />
+            <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Velocidade</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black text-white tracking-tighter">{Math.round(currentSpeed)}</span>
+            <span className="text-[8px] font-black text-zinc-500 uppercase">km/h</span>
+          </div>
+        </div>
+
+        <div className="bg-zinc-900/80 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
+          <div className="flex items-center gap-1.5 mb-1">
+            <MapPin size={12} className="text-blue-500" />
+            <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Distância</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black text-white tracking-tighter">{totalDistance.toFixed(1)}</span>
+            <span className="text-[8px] font-black text-zinc-500 uppercase">km</span>
+          </div>
+        </div>
+
+        <div className="bg-zinc-900/80 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
+          <div className="flex items-center gap-1.5 mb-1">
+            <Clock size={12} className="text-amber-500" />
+            <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Tempo</span>
+          </div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-xl font-black text-white tracking-tighter">{formatDuration(duration)}</span>
+          </div>
+        </div>
       </div>
     </div>
   );

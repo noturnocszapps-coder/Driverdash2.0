@@ -24,7 +24,7 @@ export const Settings = () => {
     settings, updateSettings, clearData, clearCloudData, 
     cycles, importData, user, setUser, syncStatus, syncData, isSaving,
     vehicles, addVehicle, updateVehicle, deleteVehicle, setActiveVehicle,
-    activeVehicleId
+    activeVehicleId, plan, setPaywallOpen
   } = useDriverStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -433,21 +433,23 @@ export const Settings = () => {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <p className="text-sm font-bold text-orange-500">DriverDash PRO</p>
-                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Acesso a recursos avançados</p>
+                <p className={cn("text-sm font-bold", plan === 'pro' ? "text-emerald-500" : "text-orange-500")}>
+                  DriverDash {plan === 'pro' ? 'PRO' : 'FREE'}
+                </p>
+                <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
+                  {plan === 'pro' ? 'Assinatura Ativa' : 'Acesso a recursos avançados'}
+                </p>
               </div>
-              <button
-                onClick={() => updateSettings({ isPro: !settings.isPro })}
+              <Button
+                onClick={() => plan === 'free' && setPaywallOpen(true)}
+                variant={plan === 'pro' ? 'ghost' : 'primary'}
                 className={cn(
-                  "w-12 h-6 rounded-full transition-colors relative",
-                  settings.isPro ? "bg-orange-500" : "bg-zinc-200 dark:bg-zinc-800"
+                  "h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl",
+                  plan === 'pro' ? "bg-emerald-500/10 text-emerald-500" : "bg-orange-500 text-white"
                 )}
               >
-                <div className={cn(
-                  "absolute top-1 w-4 h-4 rounded-full bg-white transition-all shadow-sm",
-                  settings.isPro ? "left-7" : "left-1"
-                )} />
-              </button>
+                {plan === 'pro' ? 'Gerenciar' : 'Upgrade'}
+              </Button>
             </div>
 
             <div className="h-px bg-zinc-100 dark:bg-zinc-800" />

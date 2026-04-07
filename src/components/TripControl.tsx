@@ -95,8 +95,8 @@ export const TripControl = () => {
         <motion.div
           layout
           className={cn(
-            "bg-zinc-900/90 backdrop-blur-xl border border-zinc-800 shadow-2xl rounded-[2.5rem] p-2 flex items-center justify-between transition-all duration-500",
-            config.shadow
+            "bg-zinc-900/95 backdrop-blur-xl border border-zinc-800/50 shadow-xl rounded-[2rem] p-1.5 flex items-center justify-between transition-all duration-500",
+            config.shadow.replace('shadow-', 'shadow-sm shadow-')
           )}
         >
           {/* Left Section: Status & Speed */}
@@ -111,19 +111,19 @@ export const TripControl = () => {
             </div>
 
             <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-white leading-none">
+              <span className="text-[9px] font-bold uppercase tracking-[0.15em] text-zinc-400 leading-none">
                 {config.label}
               </span>
-              <div className="flex items-center gap-2 mt-1">
+              <div className="flex items-center gap-1.5 mt-0.5">
                 <span className={cn(
-                  "text-2xl font-black tabular-nums transition-colors duration-500 tracking-tighter",
+                  "text-xl font-black tabular-nums transition-colors duration-500 tracking-tighter",
                   tracking.currentSmoothedSpeed > 20 ? "text-emerald-500" :
                   tracking.currentSmoothedSpeed > 5 ? "text-amber-400" :
-                  "text-zinc-500"
+                  "text-zinc-200"
                 )}>
                   {tracking.currentSmoothedSpeed.toFixed(0)}
                 </span>
-                <span className="text-[8px] font-black text-zinc-500 uppercase tracking-tighter">km/h</span>
+                <span className="text-[8px] font-bold text-zinc-500 uppercase tracking-tighter">km/h</span>
               </div>
             </div>
 
@@ -176,8 +176,8 @@ export const TripControl = () => {
 
           {/* Right Section: Action Button */}
           <motion.button
-            whileHover={{ scale: 1.02 }}
-            whileTap={{ scale: 0.95 }}
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
             onClick={() => {
               if (tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') {
                 endTrip();
@@ -186,23 +186,23 @@ export const TripControl = () => {
               }
             }}
             className={cn(
-              "h-14 px-6 rounded-[2rem] flex items-center gap-3 transition-all duration-500 shadow-lg group overflow-hidden relative",
+              "h-12 px-5 rounded-[1.5rem] flex items-center gap-3 transition-all duration-500 shadow-md group overflow-hidden relative",
               (tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition')
-                ? "bg-red-500 text-white shadow-red-500/20" 
-                : "bg-emerald-500 text-zinc-950 shadow-emerald-500/20"
+                ? "bg-red-500 text-white shadow-red-500/10" 
+                : "bg-emerald-500 text-zinc-950 shadow-emerald-500/10"
             )}
           >
             <div className="flex flex-col items-start relative z-10">
-              <span className="text-[8px] font-black uppercase tracking-[0.2em] opacity-70 leading-none">
+              <span className="text-[7px] font-black uppercase tracking-[0.15em] opacity-60 leading-none">
                 {(tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') ? 'Encerrar' : 'Iniciar'}
               </span>
-              <span className="text-xs font-black tracking-tight mt-0.5">
+              <span className="text-[10px] font-black tracking-tight mt-0.5">
                 {(tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') ? 'Corrida' : 'Nova Corrida'}
               </span>
             </div>
             
             <div className={cn(
-              "w-8 h-8 rounded-xl flex items-center justify-center transition-all duration-500 group-hover:scale-110 relative z-10",
+              "w-7 h-7 rounded-lg flex items-center justify-center transition-all duration-500 group-hover:scale-105 relative z-10",
               (tracking.mode === 'in_trip' || tracking.mode === 'waiting' || tracking.mode === 'transition') ? "bg-white/20" : "bg-zinc-950/10"
             )}>
               <AnimatePresence mode="wait">

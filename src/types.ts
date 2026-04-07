@@ -82,6 +82,7 @@ export interface Cycle {
   driver_score?: number;
   route_points?: TrackingPoint[];
   segments?: TrackingSegment[];
+  stop_points?: StopPoint[];
 }
 
 export interface WorkLog {
@@ -210,6 +211,7 @@ export interface UserSettings {
   onboardingCompleted?: boolean;
   isPro?: boolean;
   uiMode?: 'simple' | 'pro';
+  quickActions?: string[];
 }
 
 export type HUDState = 'expanded' | 'minimized' | 'hidden';
@@ -357,6 +359,8 @@ export interface ZoneIntelligence {
 }
 
 export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced';
+
+export type PlanType = 'free' | 'pro';
 
 export enum UserRole {
   ADMIN = 'admin',
@@ -510,6 +514,12 @@ export interface DriverState {
   financialEntries: FinancialEntry[];
   performanceRecords: DriverPerformanceRecord[];
   driverProfile: DriverProfile;
+  
+  // Plan & Paywall
+  plan: PlanType;
+  setPlan: (plan: PlanType) => void;
+  isPaywallOpen: boolean;
+  setPaywallOpen: (isOpen: boolean) => void;
   
   // HUD Interaction State
   isQuickActionsOpen: boolean;

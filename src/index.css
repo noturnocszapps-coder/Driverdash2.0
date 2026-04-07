@@ -13,10 +13,22 @@
   }
 
   body {
-    @apply antialiased selection:bg-emerald-100 selection:text-emerald-900;
+    @apply antialiased selection:bg-emerald-100 selection:text-emerald-900 text-zinc-900 dark:text-zinc-100;
     -webkit-tap-highlight-color: transparent;
     user-select: none;
     touch-action: manipulation;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply tracking-tight;
+  }
+
+  .tracking-tighter {
+    letter-spacing: -0.05em;
+  }
+
+  .tracking-tight {
+    letter-spacing: -0.025em;
   }
 
   /* Smooth scrolling for the whole page */

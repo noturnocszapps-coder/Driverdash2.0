@@ -12,15 +12,21 @@ import { motion } from 'motion/react';
 import 'leaflet/dist/leaflet.css';
 
 // Custom markers using DivIcon for better reliability and styling
-const createMarkerIcon = (color: string) => L.divIcon({
+const createMarkerIcon = (color: string, pulsing = false) => L.divIcon({
   className: 'custom-div-icon',
-  html: `<div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 4px rgba(0,0,0,0.3);"></div>`,
+  html: `
+    <div style="position: relative; width: 12px; height: 12px; display: flex; align-items: center; justify-content: center;">
+      ${pulsing ? `<div class="pulse-ring" style="color: ${color};"></div>` : ''}
+      <div style="background-color: ${color}; width: 12px; height: 12px; border-radius: 50%; border: 2px solid white; box-shadow: 0 0 6px rgba(0,0,0,0.4); position: relative; z-index: 2;"></div>
+    </div>
+  `,
   iconSize: [12, 12],
   iconAnchor: [6, 6]
 });
 
 const startIcon = createMarkerIcon('#10b981'); // Emerald 500
 const endIcon = createMarkerIcon('#ef4444');   // Red 500
+const stopIcon = createMarkerIcon('#f59e0b', true); // Amber 500 with pulse
 
 // Component to auto-center map on points
 const MapAutoCenter = ({ points }: { points: { lat: number, lng: number }[] }) => {
@@ -76,6 +82,11 @@ const CycleMap = () => {
   const polylinePositions = useMemo(() => 
     points.map(p => [p.lat, p.lng] as [number, number]), 
   [points]);
+
+  const stopPoints = useMemo(() => {
+    if (isLive) return tracking.stopPoints || [];
+    return cycle?.stop_points || [];
+  }, [isLive, tracking.stopPoints, cycle]);
 
   const metrics = useMemo(() => {
     if (isLive) {
@@ -162,13 +173,26 @@ const CycleMap = () => {
           {points.length > 0 && (
             <>
               {!showHeatmap && (
-                <Polyline 
-                  positions={polylinePositions} 
-                  color="#10b981" 
-                  weight={4} 
-                  opacity={0.8}
-                  lineJoin="round"
-                />
+                <>
+                  {/* Outer glow polyline */}
+                  <Polyline 
+                    positions={polylinePositions} 
+                    color="#10b981" 
+                    weight={8} 
+                    opacity={0.15}
+                    lineJoin="round"
+                    smoothFactor={2}
+                  />
+                  {/* Main polyline */}
+                  <Polyline 
+                    positions={polylinePositions} 
+                    color="#10b981" 
+                    weight={4} 
+                    opacity={0.9}
+                    lineJoin="round"
+                    smoothFactor={1}
+                  />
+                </>
               )}
 
               {showHeatmap && points.map((p, i) => (
@@ -185,6 +209,15 @@ const CycleMap = () => {
                 />
               ))}
 
+              {/* Stop points */}
+              {!showHeatmap && stopPoints.map((stop, i) => (
+                <Marker 
+                  key={`stop-${i}`}
+                  position={[stop.lat, stop.lng]}
+                  icon={stopIcon}
+                />
+              ))}
+
               {/* Start point */}
               <Marker position={[points[0].lat, points[0].lng]} icon={startIcon} />
 
@@ -192,7 +225,7 @@ const CycleMap = () => {
               {points.length > 1 && (
                 <Marker 
                   position={[points[points.length - 1].lat, points[points.length - 1].lng]} 
-                  icon={isLive && metrics.isActive ? createMarkerIcon('#3b82f6') : endIcon} 
+                  icon={isLive && metrics.isActive ? createMarkerIcon('#3b82f6', true) : endIcon} 
                 />
               )}
 
@@ -281,6 +314,21 @@ const CycleMap = () => {
         .custom-div-icon {
           background: transparent;
           border: none;
+        }
+        
+        @keyframes marker-pulse {
+          0% { transform: scale(0.6); opacity: 1; }
+          100% { transform: scale(2.2); opacity: 0; }
+        }
+        
+        .pulse-ring {
+          position: absolute;
+          width: 20px;
+          height: 20px;
+          border-radius: 50%;
+          background-color: currentColor;
+          animation: marker-pulse 3s infinite ease-out;
+          pointer-events: none;
         }
       `}} />
     </div>

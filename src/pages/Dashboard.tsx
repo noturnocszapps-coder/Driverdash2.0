@@ -28,7 +28,8 @@ import {
   Navigation,
   Timer,
   Activity,
-  Loader2
+  Loader2,
+  Rocket
 } from 'lucide-react';
 import { startOfDay, format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -54,12 +55,12 @@ function MetricItem({
 }) {
   return (
     <div className={cn(
-      "p-3 md:p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-1 transition-all duration-300 hover:bg-white/10",
+      "p-3 md:p-4 rounded-2xl bg-white/5 border border-white/5 flex flex-col gap-0.5 transition-all duration-300 hover:bg-white/10",
       isLarge && "col-span-1 bg-white/10 border-white/10"
     )}>
-      <div className="flex items-center gap-2">
-        <Icon size={12} className={accent} />
-        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{label}</p>
+      <div className="flex items-center gap-1.5">
+        <Icon size={10} className={cn(accent, "opacity-40")} />
+        <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500">{label}</p>
       </div>
       <div className="flex items-baseline gap-1">
         <motion.p 
@@ -68,14 +69,14 @@ function MetricItem({
           animate={{ opacity: 1, y: 0 }}
           className={cn(
             "font-black tracking-tighter metric-value",
-            isLarge ? "text-2xl text-white" : "text-lg text-zinc-200",
+            isLarge ? "text-2xl text-white" : "text-lg text-zinc-100",
             accent !== "text-white" && !isLarge && accent
           )}
         >
           {typeof value === 'number' ? value.toFixed(1) : value}
         </motion.p>
         {unit && (
-          <span className="text-[10px] font-bold text-zinc-500 uppercase">{unit}</span>
+          <span className="text-[9px] font-bold text-zinc-500 uppercase">{unit}</span>
         )}
       </div>
     </div>
@@ -115,6 +116,8 @@ export const Dashboard = () => {
     checkAndCloseCycles,
     vehicles = [],
     activeVehicleId,
+    plan,
+    setPaywallOpen
   } = useDriverStore();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -339,12 +342,12 @@ export const Dashboard = () => {
       isMobile ? "p-4" : "p-6"
     )}>
       {/* HEADER */}
-      <header className="flex justify-between items-center mb-2">
+      <header className="flex justify-between items-center mb-1">
         <div>
-          <h1 className="text-2xl font-black tracking-tight text-zinc-900 dark:text-white">
+          <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
             {greeting}, {settings.name?.split(' ')[0] || 'Motorista'}
           </h1>
-          <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest">
+          <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
             {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
           </p>
         </div>
@@ -352,9 +355,9 @@ export const Dashboard = () => {
           variant="ghost" 
           size="icon" 
           onClick={() => navigate('/settings')}
-          className="rounded-full bg-zinc-100 dark:bg-zinc-900"
+          className="rounded-full bg-zinc-100 dark:bg-zinc-900 w-9 h-9"
         >
-          <Settings size={20} />
+          <Settings size={18} />
         </Button>
       </header>
 
@@ -390,29 +393,29 @@ export const Dashboard = () => {
               <div className="relative shrink-0">
                 {tracking.isActive && !locationError && !tracking.isPaused && (
                   <motion.div 
-                    animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                    animate={{ scale: [1, 1.3, 1], opacity: [0.3, 0, 0.3] }}
                     transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
                     className="absolute inset-0 bg-emerald-500 rounded-2xl z-0"
                   />
                 )}
                 <div className={cn(
-                  "w-14 h-14 rounded-2xl flex items-center justify-center shadow-lg transition-all duration-500 relative z-10",
+                  "w-12 h-12 rounded-2xl flex items-center justify-center shadow-md transition-all duration-500 relative z-10",
                   locationError ? "bg-white/20" : tracking.isActive ? "bg-emerald-500 text-zinc-950" : "bg-white/5"
                 )}>
-                  {locationError ? <AlertTriangle size={28} /> : tracking.isActive ? <Zap size={28} /> : <Play size={28} />}
+                  {locationError ? <AlertTriangle size={24} /> : tracking.isActive ? <Zap size={24} /> : <Play size={24} />}
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-1">
-                  <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 truncate">Rastreamento Ativo</p>
+                <div className="flex items-center gap-2 mb-0.5">
+                  <p className="text-[9px] font-bold uppercase tracking-[0.15em] opacity-40 truncate">Rastreamento</p>
                   {tracking.isActive && !locationError && !tracking.isPaused && (
-                    <div className="flex items-center gap-1.5 bg-emerald-500/20 px-2 py-0.5 rounded-full shrink-0">
-                      <span className="flex h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[8px] font-black text-emerald-500 uppercase tracking-tighter">AO VIVO</span>
+                    <div className="flex items-center gap-1 bg-emerald-500/10 px-1.5 py-0.5 rounded-full shrink-0">
+                      <span className="flex h-1 w-1 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[7px] font-black text-emerald-500 uppercase tracking-tighter">LIVE</span>
                     </div>
                   )}
                 </div>
-                <h3 className="text-xl font-black uppercase tracking-tight truncate">
+                <h3 className="text-lg font-black uppercase tracking-tight truncate">
                   {locationError ? 'Erro GPS' : !hasOpenCycle ? 'Turno Fechado' : tracking.isActive ? (tracking.isPaused ? 'Pausado' : 'Ativo') : 'Aguardando'}
                 </h3>
               </div>
@@ -420,8 +423,8 @@ export const Dashboard = () => {
             
             {tracking.isActive && !locationError && (
               <div className="text-right shrink-0">
-                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500 mb-1">Tempo</p>
-                <p className="text-lg font-black font-mono text-emerald-500">{formatDuration(activeTime)}</p>
+                <p className="text-[8px] font-bold uppercase tracking-widest text-zinc-500 mb-0.5">Tempo</p>
+                <p className="text-base font-black font-mono text-emerald-500">{formatDuration(activeTime)}</p>
               </div>
             )}
           </div>
@@ -479,6 +482,9 @@ export const Dashboard = () => {
                 stopPoints={tracking.stopPoints || []}
                 isActive={tracking.isActive}
                 isPaused={tracking.isPaused}
+                currentSpeed={tracking.currentSmoothedSpeed || 0}
+                totalDistance={tracking.distance || 0}
+                duration={activeTime}
               />
             </div>
           )}
@@ -649,19 +655,35 @@ export const Dashboard = () => {
       </div>
 
       {/* INSIGHT */}
-      <Card className="border-none bg-indigo-600 text-white shadow-xl overflow-hidden relative">
+      <Card 
+        onClick={() => plan === 'free' && setPaywallOpen(true)}
+        className={cn(
+          "border-none shadow-xl overflow-hidden relative transition-all active:scale-[0.98]",
+          plan === 'pro' ? "bg-indigo-600 text-white" : "bg-zinc-900 border border-white/5 text-zinc-400"
+        )}
+      >
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <Zap size={60} />
         </div>
         <CardContent className="p-5 flex items-start gap-4 relative z-10">
-          <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center shrink-0 shadow-inner">
-            <Info size={24} />
+          <div className={cn(
+            "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner",
+            plan === 'pro' ? "bg-white/20" : "bg-white/5"
+          )}>
+            {plan === 'pro' ? <Info size={24} /> : <Rocket className="text-emerald-500" size={24} />}
           </div>
           <div className="space-y-1">
-            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">Insight do Assistente</p>
-            <p className="text-sm font-bold leading-relaxed">
-              {activeInsight}
+            <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
+              {plan === 'pro' ? 'Insight do Assistente' : 'Recurso Premium'}
             </p>
+            <p className="text-sm font-bold leading-relaxed">
+              {plan === 'pro' ? activeInsight : 'Desbloqueie insights inteligentes e análise de performance com o DriverDash PRO.'}
+            </p>
+            {plan === 'free' && (
+              <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mt-2 flex items-center gap-1">
+                Conhecer o Plano PRO <ChevronRight size={10} />
+              </p>
+            )}
           </div>
         </CardContent>
       </Card>

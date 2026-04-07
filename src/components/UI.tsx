@@ -10,7 +10,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const Card = ({ children, className, ...props }: CardProps) => (
   <div 
-    className={cn("bg-white dark:bg-zinc-900 rounded-2xl border border-zinc-200 dark:border-zinc-800 shadow-sm overflow-hidden", className)} 
+    className={cn("bg-white/95 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm overflow-hidden transition-all duration-300", className)} 
     {...props}
   >
     {children}
@@ -45,11 +45,11 @@ export const Button = ({
   loading?: boolean;
 }) => {
   const variants = {
-    primary: 'bg-emerald-600 text-white hover:bg-emerald-700',
-    secondary: 'bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-emerald-500 dark:hover:bg-emerald-600',
-    outline: 'border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-800',
-    ghost: 'hover:bg-zinc-100 dark:hover:bg-zinc-800',
-    danger: 'bg-red-500 text-white hover:bg-red-600',
+    primary: 'bg-emerald-500 text-zinc-950 hover:bg-emerald-400 font-bold',
+    secondary: 'bg-zinc-900 text-white hover:bg-zinc-800 dark:bg-zinc-800 dark:hover:bg-zinc-700 font-bold',
+    outline: 'border border-zinc-200 dark:border-zinc-800 hover:bg-zinc-50 dark:hover:bg-zinc-900 font-bold',
+    ghost: 'hover:bg-zinc-100 dark:hover:bg-zinc-900 font-bold',
+    danger: 'bg-red-500/10 text-red-500 hover:bg-red-500/20 font-bold',
   };
 
   const sizes = {

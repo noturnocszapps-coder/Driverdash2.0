@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus, PlanType, StopPoint } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
@@ -59,6 +59,7 @@ const INITIAL_SETTINGS: UserSettings = {
   onboardingCompleted: false,
   isPro: false,
   uiMode: 'simple',
+  quickActions: ['gain', 'expense', 'reports', 'map'],
 };
 
 const INITIAL_TRACKING: TrackingSession = {
@@ -138,6 +139,8 @@ export const useDriverStore = create<DriverState>()(
       financialEntries: [],
       isSaving: false,
       isQuickActionsOpen: false,
+      isPaywallOpen: false,
+      plan: (localStorage.getItem('driverdash_plan') as PlanType) || 'free',
       postTripActionSheet: { isOpen: false },
       miniMapOpen: false,
       voiceState: {
@@ -153,6 +156,11 @@ export const useDriverStore = create<DriverState>()(
       },
       
       setQuickActionsOpen: (isOpen) => set({ isQuickActionsOpen: isOpen }),
+      setPaywallOpen: (isOpen) => set({ isPaywallOpen: isOpen }),
+      setPlan: (plan) => {
+        localStorage.setItem('driverdash_plan', plan);
+        set({ plan });
+      },
       setPostTripActionSheet: (data) => set((state) => ({
         postTripActionSheet: { ...state.postTripActionSheet, ...data }
       })),
@@ -1547,6 +1555,7 @@ export const useDriverStore = create<DriverState>()(
             if (newSettings.role !== undefined) updateObj.role = newSettings.role;
             if (newSettings.status !== undefined) updateObj.status = newSettings.status;
             if (newSettings.onboardingCompleted !== undefined) updateObj.onboarding_completed = newSettings.onboardingCompleted;
+            if (newSettings.quickActions !== undefined) updateObj.quick_actions = newSettings.quickActions;
 
             const { error } = await supabase
               .from('profiles')
@@ -1703,30 +1712,38 @@ export const useDriverStore = create<DriverState>()(
           let newTripDetectionState = tracking.tripDetectionState;
 
           if (tracking.isActive && !tracking.isManualOverride) {
-            // Start Detection
-            if (newMode !== 'in_trip' && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
-              const hasSpeed = speedKmh >= TRACKING_CONFIG.MIN_SPEED_START;
-              const hasDisplacement = distance >= TRACKING_CONFIG.MIN_DIST_PRECISION;
-              
-              if (hasSpeed || (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP && hasDisplacement)) {
-                console.log('[AUTO_TRIP] Automatic trip start detected', { speedKmh, consecutivePoints: newConsecutiveMovingPoints });
-                newMode = 'in_trip';
-                newIsProductive = true;
-                newTripDetectionState = 'trip_started';
-                if (navigator.vibrate) navigator.vibrate(200);
+            // PRO FEATURE: Automatic Trip Detection
+            if (get().plan !== 'pro') {
+              // If free plan, we don't auto-detect, but we might want to nudge the user
+              // We don't trigger paywall on every point to avoid spam, maybe just once per session
+              if (newConsecutiveMovingPoints === TRACKING_CONFIG.MIN_POINTS_SEARCHING && !get().isPaywallOpen) {
+                set({ isPaywallOpen: true });
               }
-            }
-            
-            // End Detection (Suggestion or Auto-stop)
-            if (newMode === 'in_trip' && newConsecutiveStoppedPoints >= 10) { // Approx 30-60s stopped
-              const stopDuration = newLastStopTimestamp ? (newPosition.timestamp - newLastStopTimestamp) : 0;
-              if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS) {
-                console.log('[AUTO_TRIP] Automatic trip end suggested (long stop)', { stopDuration });
-                // We don't auto-stop completely to avoid losing data in traffic, 
-                // but we can trigger the action sheet if it's a very long stop
-                if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS * 1.5) {
-                   // Trigger end trip logic if not already triggered
-                   // This will be handled by the component or a side effect
+            } else {
+              // Start Detection
+              if (newMode !== 'in_trip' && newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_SEARCHING) {
+                const hasSpeed = speedKmh >= TRACKING_CONFIG.MIN_SPEED_START;
+                const hasDisplacement = distance >= TRACKING_CONFIG.MIN_DIST_PRECISION;
+                
+                if (hasSpeed || (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP && hasDisplacement)) {
+                  console.log('[AUTO_TRIP] Automatic trip start detected', { speedKmh, consecutivePoints: newConsecutiveMovingPoints });
+                  newMode = 'in_trip';
+                  newIsProductive = true;
+                  newTripDetectionState = 'trip_started';
+                  if (navigator.vibrate) navigator.vibrate(200);
+                }
+              }
+              
+              // End Detection (Suggestion or Auto-stop)
+              if (newMode === 'in_trip' && newConsecutiveStoppedPoints >= 10) { // Approx 30-60s stopped
+                const stopDuration = newLastStopTimestamp ? (newPosition.timestamp - newLastStopTimestamp) : 0;
+                if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS) {
+                  console.log('[AUTO_TRIP] Automatic trip end suggested (long stop)', { stopDuration });
+                  // We don't auto-stop completely to avoid losing data in traffic, 
+                  // but we can trigger the action sheet if it's a very long stop
+                  if (stopDuration > TRACKING_CONFIG.STOP_BUFFER_MS * 1.5) {
+                    // Trigger end trip logic if not already triggered
+                  }
                 }
               }
             }
@@ -2071,7 +2088,8 @@ export const useDriverStore = create<DriverState>()(
           efficiency_percentage: tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0,
           driver_score: Math.min(100, Math.round(tracking.distance > 0 ? (tracking.productiveDistance / tracking.distance) * 100 : 0)),
           route_points: [...(openCycle.route_points || []), ...tracking.points],
-          segments: [...(openCycle.segments || []), ...finalSegments]
+          segments: [...(openCycle.segments || []), ...finalSegments],
+          stop_points: [...(openCycle.stop_points || []), ...tracking.stopPoints]
         } : null;
 
         // 2. Reset tracking state IMMEDIATELY

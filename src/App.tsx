@@ -179,6 +179,7 @@ const SafeRoute = ({
 
 import { TripControl } from './components/TripControl';
 import { ManualTripFAB } from './components/ManualTripFAB';
+import { Paywall } from './components/Paywall';
 import { useWakeLock } from './hooks/useWakeLock';
 
 import { useIsMobile } from './hooks/useIsMobile';
@@ -237,14 +238,22 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         </>
       )}
       <BottomNav />
+      <Paywall />
     </div>
   );
 };
 
 function AppRoutes() {
   useWakeLock();
-  const { settings, user, tracking, isWatching, startTracking } = useDriverStore();
+  const { settings, user, tracking, isWatching, startTracking, plan, setPaywallOpen } = useDriverStore();
   const location = useLocation();
+
+  // Auto-trigger paywall for Reports page if on free plan
+  useEffect(() => {
+    if (location.pathname === '/reports' && plan === 'free') {
+      setPaywallOpen(true);
+    }
+  }, [location.pathname, plan, setPaywallOpen]);
 
   // Resume tracking if it was active before reload
   useEffect(() => {
