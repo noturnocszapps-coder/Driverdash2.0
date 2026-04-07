@@ -338,12 +338,12 @@ export const Dashboard = () => {
 
   return (
     <div className={cn(
-      "space-y-5 max-w-lg mx-auto overflow-x-hidden w-full min-w-0",
+      "space-y-6 max-w-lg mx-auto overflow-x-hidden w-full min-w-0",
       isMobile ? "p-4" : "p-6"
     )}>
       {/* HEADER */}
-      <header className="flex justify-between items-center mb-1">
-        <div>
+      <header className="flex justify-between items-center">
+        <div className="space-y-1">
           <h1 className="text-xl font-black tracking-tight text-zinc-900 dark:text-white">
             {greeting}, {settings.name?.split(' ')[0] || 'Motorista'}
           </h1>
@@ -371,7 +371,7 @@ export const Dashboard = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/10 via-transparent to-transparent pointer-events-none" />
         )}
         
-        <CardContent className="p-4 md:p-7 relative z-10 space-y-6 card-content">
+        <CardContent className="p-6 md:p-8 relative z-10 space-y-6 card-content">
           <AnimatePresence>
             {showResumeMessage && (
               <motion.div 
@@ -574,7 +574,7 @@ export const Dashboard = () => {
 
       {/* CICLO ATUAL */}
       <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl overflow-hidden">
-        <CardContent className="p-4 md:p-6 space-y-6">
+        <CardContent className="p-6 space-y-6">
           <div className="flex justify-between items-start">
             <div className="space-y-1">
               <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Faturamento do Ciclo</p>
@@ -630,7 +630,7 @@ export const Dashboard = () => {
       {/* META DO DIA */}
       <div className="grid grid-cols-2 gap-4">
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-lg">
-          <CardContent className="p-5 space-y-1">
+          <CardContent className="p-6 space-y-1">
             <div className="flex items-center gap-2 text-zinc-400 mb-1">
               <Target size={14} />
               <p className="text-[10px] font-black uppercase tracking-widest">Sua Meta</p>
@@ -642,7 +642,7 @@ export const Dashboard = () => {
         </Card>
 
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-lg">
-          <CardContent className="p-5 space-y-1">
+          <CardContent className="p-6 space-y-1">
             <div className="flex items-center gap-2 text-zinc-400 mb-1">
               <TrendingUp size={14} />
               <p className="text-[10px] font-black uppercase tracking-widest">Faltam</p>
@@ -665,14 +665,14 @@ export const Dashboard = () => {
         <div className="absolute top-0 right-0 p-4 opacity-10">
           <Zap size={60} />
         </div>
-        <CardContent className="p-5 flex items-start gap-4 relative z-10">
+        <CardContent className="p-6 flex items-start gap-4 relative z-10">
           <div className={cn(
             "w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 shadow-inner",
             plan === 'pro' ? "bg-white/20" : "bg-white/5"
           )}>
             {plan === 'pro' ? <Info size={24} /> : <Rocket className="text-emerald-500" size={24} />}
           </div>
-          <div className="space-y-1">
+          <div className="space-y-1.5">
             <p className="text-[10px] font-black uppercase tracking-widest opacity-60">
               {plan === 'pro' ? 'Insight do Assistente' : 'Recurso Premium'}
             </p>

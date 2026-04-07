@@ -10,7 +10,7 @@ interface QuickAction {
   id: string;
   label: string;
   icon: React.ElementType;
-  color: string;
+  gradient: string;
   action: () => void;
 }
 
@@ -24,7 +24,7 @@ export const QuickActionsMenu: React.FC = () => {
       id: 'gain',
       label: 'Ganho',
       icon: Plus,
-      color: 'bg-emerald-500',
+      gradient: 'from-emerald-500 to-emerald-600',
       action: () => {
         window.dispatchEvent(new CustomEvent('open-quick-entry', { detail: { type: 'gain' } }));
         setQuickActionsOpen(false);
@@ -34,7 +34,7 @@ export const QuickActionsMenu: React.FC = () => {
       id: 'expense',
       label: 'Despesa',
       icon: Minus,
-      color: 'bg-rose-500',
+      gradient: 'from-rose-500 to-rose-600',
       action: () => {
         window.dispatchEvent(new CustomEvent('open-quick-entry', { detail: { type: 'expense' } }));
         setQuickActionsOpen(false);
@@ -44,7 +44,7 @@ export const QuickActionsMenu: React.FC = () => {
       id: 'reports',
       label: 'Relatórios',
       icon: LayoutGrid,
-      color: 'bg-zinc-700',
+      gradient: 'from-zinc-700 to-zinc-800',
       action: () => {
         navigate('/faturamento');
         setQuickActionsOpen(false);
@@ -54,7 +54,7 @@ export const QuickActionsMenu: React.FC = () => {
       id: 'status',
       label: 'Produtividade',
       icon: CheckCircle2,
-      color: tracking.isProductive ? 'bg-emerald-500' : 'bg-zinc-500',
+      gradient: tracking.isProductive ? 'from-emerald-500 to-emerald-600' : 'from-zinc-500 to-zinc-600',
       action: () => {
         useDriverStore.getState().updateTracking({ isProductive: !tracking.isProductive });
         setQuickActionsOpen(false);
@@ -64,7 +64,7 @@ export const QuickActionsMenu: React.FC = () => {
       id: 'map',
       label: 'Mapa',
       icon: MapIcon,
-      color: 'bg-blue-500',
+      gradient: 'from-blue-500 to-blue-600',
       action: () => {
         navigate('/cycle-map/active');
         setQuickActionsOpen(false);
@@ -74,7 +74,7 @@ export const QuickActionsMenu: React.FC = () => {
       id: 'hud',
       label: 'HUD',
       icon: Maximize2,
-      color: 'bg-emerald-500',
+      gradient: 'from-emerald-500 to-emerald-600',
       action: () => {
         useDriverStore.getState().updateTracking({ hudState: 'expanded' });
         setQuickActionsOpen(false);
@@ -84,7 +84,7 @@ export const QuickActionsMenu: React.FC = () => {
       id: 'start_trip',
       label: 'Iniciar',
       icon: Play,
-      color: 'bg-emerald-600',
+      gradient: 'from-emerald-600 to-emerald-700',
       action: () => {
         startTrip();
         setQuickActionsOpen(false);
@@ -94,7 +94,7 @@ export const QuickActionsMenu: React.FC = () => {
       id: 'last_trip',
       label: 'Última',
       icon: History,
-      color: 'bg-amber-500',
+      gradient: 'from-amber-500 to-amber-600',
       action: () => {
         navigate('/reports'); // Or a specific last trip view if available
         setQuickActionsOpen(false);
@@ -195,20 +195,20 @@ export const QuickActionsMenu: React.FC = () => {
                         key={action.id}
                         onClick={() => toggleAction(action.id)}
                         className={cn(
-                          "flex flex-col items-center justify-center p-3 rounded-2xl border transition-all relative overflow-hidden",
+                          "flex flex-col items-center justify-center p-4 rounded-[2rem] border transition-all relative overflow-hidden active:scale-95",
                           isSelected 
-                            ? "bg-emerald-500/10 border-emerald-500/30" 
+                            ? "bg-emerald-500/10 border-emerald-500/30 shadow-[0_0_15px_rgba(16,185,129,0.05)]" 
                             : "bg-white/5 border-white/5 opacity-50"
                         )}
                       >
                         {isSelected && (
-                          <div className="absolute top-1 right-1">
-                            <Check size={10} className="text-emerald-500" />
+                          <div className="absolute top-2 right-2">
+                            <Check size={12} className="text-emerald-500" />
                           </div>
                         )}
                         <div className={cn(
-                          "w-10 h-10 rounded-full flex items-center justify-center mb-1.5 shadow-sm",
-                          action.color
+                          "w-10 h-10 rounded-2xl flex items-center justify-center mb-2 shadow-lg bg-gradient-to-br",
+                          action.gradient
                         )}>
                           <action.icon className="text-white" size={20} />
                         </div>
@@ -221,15 +221,15 @@ export const QuickActionsMenu: React.FC = () => {
                     <button
                       key={action.id}
                       onClick={action.action}
-                      className="flex flex-col items-center justify-center p-4 rounded-2xl bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/10 transition-all active:scale-95 group"
+                      className="flex flex-col items-center justify-center p-5 rounded-[2rem] bg-white/5 border border-white/5 hover:bg-white/10 hover:border-white/20 transition-all active:scale-95 hover:scale-[1.02] group shadow-xl shadow-black/20"
                     >
                       <div className={cn(
-                        "w-12 h-12 rounded-full flex items-center justify-center mb-2 shadow-lg group-hover:scale-110 transition-transform",
-                        action.color
+                        "w-12 h-12 rounded-2xl flex items-center justify-center mb-3 shadow-lg bg-gradient-to-br group-hover:scale-110 transition-transform duration-300",
+                        action.gradient
                       )}>
                         <action.icon className="text-white" size={24} />
                       </div>
-                      <span className="text-zinc-300 text-[10px] font-black uppercase tracking-widest leading-none">{action.label}</span>
+                      <span className="text-zinc-300 text-[10px] font-black uppercase tracking-widest leading-none group-hover:text-white transition-colors">{action.label}</span>
                     </button>
                   ))
                 )}

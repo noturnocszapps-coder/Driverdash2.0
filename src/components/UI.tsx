@@ -24,7 +24,7 @@ export const CardHeader = ({ children, className }: CardProps) => (
 );
 
 export const CardContent = ({ children, className }: CardProps) => (
-  <div className={cn("p-4", className)}>
+  <div className={cn("p-6", className)}>
     {children}
   </div>
 );

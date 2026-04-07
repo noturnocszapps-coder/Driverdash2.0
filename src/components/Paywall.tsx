@@ -25,11 +25,11 @@ export const Paywall: React.FC<PaywallProps> = ({ onSubscribe, onClose }) => {
   };
 
   const benefits = [
-    { icon: Brain, text: "Detecção automática de corridas (IA)" },
-    { icon: BarChart3, text: "Relatórios completos" },
-    { icon: Zap, text: "Insights inteligentes" },
+    { icon: Brain, text: "Detecção automática de corridas" },
+    { icon: BarChart3, text: "Relatórios completos do seu dia" },
+    { icon: Zap, text: "Insights para ganhar mais" },
     { icon: BarChart3, text: "Comparação semanal e mensal" },
-    { icon: Cloud, text: "Backup na nuvem" },
+    { icon: Cloud, text: "Backup seguro dos seus dados" },
   ];
 
   return (
@@ -53,7 +53,7 @@ export const Paywall: React.FC<PaywallProps> = ({ onSubscribe, onClose }) => {
             transition={{ type: "spring", damping: 25, stiffness: 200 }}
             className="fixed bottom-0 left-0 right-0 z-[101] bg-zinc-950 border-t border-white/10 rounded-t-[2.5rem] overflow-hidden max-w-lg mx-auto"
           >
-            <div className="relative p-8 pt-10">
+            <div className="relative p-8 pt-12">
               {/* Close Button */}
               <button 
                 onClick={handleClose}
@@ -64,59 +64,70 @@ export const Paywall: React.FC<PaywallProps> = ({ onSubscribe, onClose }) => {
 
               {/* Header */}
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-emerald-500/10 mb-4">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-emerald-500/10 mb-6">
                   <Rocket className="text-emerald-500" size={32} />
                 </div>
-                <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-2">
-                  🚀 DIRIJA COM CONTROLE TOTAL
+                <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-3 leading-tight">
+                  DESCUBRA QUANTO VOCÊ REALMENTE LUCRA
                 </h2>
-                <p className="text-zinc-400 text-sm font-medium">
-                  Saiba exatamente quanto você lucra por dia
+                <p className="text-zinc-400 text-sm font-medium leading-relaxed px-4">
+                  Pare de dirigir no escuro. O DriverDash PRO mostra seus ganhos reais, automatiza a análise e ajuda você a tomar decisões melhores.
                 </p>
               </div>
 
-              {/* Price */}
-              <div className="bg-white/5 border border-white/10 rounded-3xl p-6 text-center mb-8">
+              {/* Price Block - Conversion Focused */}
+              <div className="bg-emerald-500/5 border border-emerald-500/20 rounded-[2rem] p-6 text-center mb-8 relative overflow-hidden">
+                <div className="absolute top-0 left-0 w-full h-1 bg-emerald-500/30" />
+                <p className="text-emerald-500 text-xl font-black uppercase tracking-widest mb-1">
+                  7 DIAS GRÁTIS
+                </p>
                 <div className="flex items-baseline justify-center gap-1 mb-1">
-                  <span className="text-zinc-400 text-lg font-bold">R$</span>
-                  <span className="text-4xl font-black text-white tracking-tighter">9,90</span>
-                  <span className="text-zinc-500 font-medium">/mês</span>
+                  <span className="text-zinc-400 text-sm font-bold">Depois, R$</span>
+                  <span className="text-2xl font-black text-white tracking-tighter">9,90</span>
+                  <span className="text-zinc-500 text-sm font-medium">/mês</span>
                 </div>
-                <p className="text-emerald-500 text-xs font-bold uppercase tracking-widest">
-                  7 dias grátis • cancele quando quiser
+                <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-widest">
+                  Cancele quando quiser
                 </p>
               </div>
 
               {/* Benefits */}
-              <div className="space-y-4 mb-10">
+              <div className="space-y-4 mb-8">
                 {benefits.map((benefit, index) => (
-                  <div key={index} className="flex items-center gap-3">
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center">
-                      <benefit.icon className="text-emerald-500" size={16} />
+                  <div key={index} className="flex items-center gap-4">
+                    <div className="flex-shrink-0 w-6 h-6 rounded-full bg-emerald-500/10 flex items-center justify-center">
+                      <Check className="text-emerald-500" size={12} />
                     </div>
-                    <span className="text-zinc-300 text-sm font-medium">{benefit.text}</span>
+                    <span className="text-zinc-300 text-sm font-bold tracking-tight">{benefit.text}</span>
                   </div>
                 ))}
+              </div>
+
+              {/* Emotional Reinforcement */}
+              <div className="text-center mb-8">
+                <p className="text-zinc-500 text-[11px] font-bold italic">
+                  "Quanto vale descobrir onde você está perdendo dinheiro todos os dias?"
+                </p>
               </div>
 
               {/* Actions */}
               <div className="space-y-4">
                 <Button 
                   onClick={handleSubscribe}
-                  className="w-full py-6 text-lg font-black tracking-widest uppercase bg-emerald-500 hover:bg-emerald-600 text-zinc-950 shadow-[0_0_20px_rgba(16,185,129,0.3)] active:scale-95 transition-all"
+                  className="w-full py-7 text-lg font-black tracking-widest uppercase bg-emerald-500 hover:bg-emerald-600 text-zinc-950 shadow-[0_10px_30px_rgba(16,185,129,0.2)] active:scale-95 transition-all rounded-2xl"
                 >
-                  COMEÇAR AGORA
+                  TESTAR PRO GRÁTIS
                 </Button>
                 <button 
                   onClick={handleClose}
-                  className="w-full py-2 text-zinc-500 hover:text-zinc-300 text-xs font-bold uppercase tracking-widest transition-colors"
+                  className="w-full py-2 text-zinc-500 hover:text-zinc-300 text-[10px] font-black uppercase tracking-[0.2em] transition-colors"
                 >
                   Continuar no plano grátis
                 </button>
               </div>
 
               {/* Security Footer */}
-              <div className="mt-8 flex items-center justify-center gap-2 text-[10px] font-bold text-zinc-600 uppercase tracking-widest">
+              <div className="mt-8 flex items-center justify-center gap-2 text-[9px] font-black text-zinc-700 uppercase tracking-widest">
                 <ShieldCheck size={12} />
                 <span>Pagamento Seguro • SSL Encrypted</span>
               </div>

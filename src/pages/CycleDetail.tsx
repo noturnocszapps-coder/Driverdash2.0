@@ -28,10 +28,25 @@ import { ConfirmationModal } from '../components/ConfirmationModal';
 export const CycleDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { cycles, deleteCycle } = useDriverStore();
+  const { cycles, deleteCycle, settings, importedReports } = useDriverStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
 
   const cycle = useMemo(() => cycles.find(c => c.id === id), [cycles, id]);
+
+  const dayDate = useMemo(() => {
+    if (!cycle?.start_time) return new Date();
+    return parseISO(cycle.start_time);
+  }, [cycle?.start_time]);
+
+  const consolidatedDay = useMemo(() => {
+    return consolidateDailyData(dayDate, cycles, importedReports, settings);
+  }, [dayDate, cycles, importedReports, settings]);
+
+  const hasOtherData = useMemo(() => {
+    const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), dayDate));
+    const dayImports = importedReports.filter(r => r.report_type === 'daily' && isSameDay(parseISO(r.period_start), dayDate));
+    return dayCycles.length > 1 || dayImports.length > 0;
+  }, [cycles, importedReports, dayDate]);
 
   if (!cycle) {
     return (
@@ -51,6 +66,7 @@ export const CycleDetail = () => {
   }
 
   const handleDelete = async () => {
+    if (!cycle) return;
     await deleteCycle(cycle.id);
     navigate('/reports');
   };
@@ -71,25 +87,13 @@ export const CycleDetail = () => {
   const totalExpenses = (cycle.fuel_expense || 0) + (cycle.food_expense || 0) + (cycle.other_expense || 0);
   const profit = cycle.total_amount - totalExpenses;
 
-  const { settings, importedReports } = useDriverStore();
-  const dayDate = useMemo(() => parseISO(cycle.start_time), [cycle.start_time]);
-  const consolidatedDay = useMemo(() => {
-    return consolidateDailyData(dayDate, cycles, importedReports, settings);
-  }, [dayDate, cycles, importedReports, settings]);
-
-  const hasOtherData = useMemo(() => {
-    const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), dayDate));
-    const dayImports = importedReports.filter(r => r.report_type === 'daily' && isSameDay(parseISO(r.period_start), dayDate));
-    return dayCycles.length > 1 || dayImports.length > 0;
-  }, [cycles, importedReports, dayDate]);
-
   return (
     <motion.div 
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="max-w-2xl mx-auto space-y-6"
+      className="max-w-2xl mx-auto space-y-6 pb-12"
     >
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex items-center justify-between">
         <div className="flex items-center gap-4">
           <button 
             onClick={() => navigate(-1)}
@@ -123,8 +127,8 @@ export const CycleDetail = () => {
       />
 
       {hasOtherData && (
-        <Card className="border-none bg-blue-500/5 border border-blue-500/10">
-          <CardContent className="p-4 space-y-3">
+        <Card className="border-none bg-blue-500/5 border border-blue-500/10 shadow-sm">
+          <CardContent className="p-6 space-y-4">
             <div className="flex justify-between items-center">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-blue-500 flex items-center gap-2">
                 <TrendingUp size={14} />
@@ -169,7 +173,7 @@ export const CycleDetail = () => {
       {/* Info Grid */}
       <div className="grid grid-cols-2 gap-4">
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
+          <CardContent className="p-6 flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center text-blue-500">
               <Navigation size={20} />
             </div>
@@ -180,7 +184,7 @@ export const CycleDetail = () => {
           </CardContent>
         </Card>
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-          <CardContent className="p-4 flex items-center gap-3">
+          <CardContent className="p-6 flex items-center gap-4">
             <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center text-amber-500">
               <Clock size={20} />
             </div>

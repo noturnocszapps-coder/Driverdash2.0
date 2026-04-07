@@ -229,7 +229,7 @@ export const Settings = () => {
     <motion.div 
       initial={{ opacity: 0, y: 10 }}
       animate={{ opacity: 1, y: 0 }}
-      className="space-y-8"
+      className="space-y-6"
     >
       <header className="px-1">
         <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Configurações</p>
@@ -245,7 +245,7 @@ export const Settings = () => {
             ? "border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.03)]" 
             : "border-zinc-100 dark:border-zinc-800/50"
         )}>
-          <CardContent className="p-8 space-y-10 relative">
+          <CardContent className="p-6 md:p-8 space-y-8 relative">
             <AnimatePresence>
               {settings.isPrivacyMode && (
                 <motion.div 
@@ -260,7 +260,7 @@ export const Settings = () => {
               )}
             </AnimatePresence>
 
-            <div className="flex flex-col sm:flex-row items-center gap-5 pb-10 border-b border-zinc-100 dark:border-zinc-800">
+            <div className="flex flex-col sm:flex-row items-center gap-6 pb-8 border-b border-zinc-100 dark:border-zinc-800">
               <div className="relative group">
                 <div className="w-24 h-24 bg-gradient-to-br from-emerald-500/90 to-emerald-700/90 rounded-[2rem] flex items-center justify-center text-zinc-950 text-4xl font-black overflow-hidden border-4 border-white dark:border-zinc-800 shadow-md shadow-emerald-500/5">
                   {settings.photoUrl ? (
@@ -395,7 +395,7 @@ export const Settings = () => {
       <section className="space-y-4">
         <SectionHeader icon={Layout} title="Preferências" />
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-          <CardContent className="p-6 space-y-6">
+          <CardContent className="p-6 md:p-8 space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <p className="text-sm font-bold">Modo de Interface</p>
@@ -501,7 +501,7 @@ export const Settings = () => {
       <section className="space-y-4">
         <SectionHeader icon={Volume2} title="Modo Voz (Copiloto)" />
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
-          <CardContent className="p-6 space-y-6">
+          <CardContent className="p-6 md:p-8 space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
                 <p className="text-sm font-bold">Voz do Aplicativo (TTS)</p>
@@ -582,7 +582,7 @@ export const Settings = () => {
             ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.05)]" 
             : "border-zinc-100 dark:border-zinc-800/50"
         )}>
-          <CardContent className="p-6 space-y-6 relative">
+          <CardContent className="p-6 md:p-8 space-y-6 relative">
             <AnimatePresence>
               {settings.isPrivacyMode && (
                 <motion.div 

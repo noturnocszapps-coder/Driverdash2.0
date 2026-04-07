@@ -160,7 +160,7 @@ export const Faturamento = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-4 max-w-lg mx-auto pb-[160px]"
+      className="space-y-6 max-w-lg mx-auto pb-[160px]"
     >
       {/* HEADER PREMIUM & COMPACTO */}
       <header className="flex items-center justify-between px-2 pt-2">
@@ -186,7 +186,7 @@ export const Faturamento = () => {
         <SyncIndicator />
       </header>
 
-      <div className="px-2 space-y-4">
+      <div className="px-2 space-y-6">
         {/* AVISOS E ALERTAS */}
         <AnimatePresence>
           {!activeVehicleId && (
@@ -227,9 +227,9 @@ export const Faturamento = () => {
         </AnimatePresence>
 
         {/* FATURAMENTO - MODO ULTRA RÁPIDO */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <SectionHeader icon={Smartphone} title="Faturamento" />
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-100 dark:border-zinc-800/50">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-100 dark:border-zinc-800/50 shadow-sm">
             <PlatformInput 
               label="Uber" 
               value={amounts.uber} 
@@ -263,7 +263,7 @@ export const Faturamento = () => {
         </div>
 
         {/* DISTÂNCIA - MINI DASHBOARD */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <div className="flex justify-between items-center px-1">
             <SectionHeader icon={TrendingUp} title="Distância" />
             <button 
@@ -305,9 +305,9 @@ export const Faturamento = () => {
         </div>
 
         {/* DESPESAS INTELIGENTES */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <SectionHeader icon={Fuel} title="Despesas" />
-          <div className="bg-white dark:bg-zinc-900 rounded-2xl overflow-hidden border border-zinc-100 dark:border-zinc-800/50">
+          <div className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-100 dark:border-zinc-800/50 shadow-sm">
             <ExpenseRow 
               icon={Fuel}
               label="Combustível" 
@@ -331,16 +331,16 @@ export const Faturamento = () => {
         </div>
 
         {/* MENSAGENS E INSTRUÇÕES */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           {(total === 0 || kmRideFinal === 0) && (
-            <div className="p-3 rounded-xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/50 flex items-center gap-3">
+            <div className="p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/50 flex items-center gap-3">
               <Info size={14} className="text-zinc-400 shrink-0" />
               <p className="text-[9px] text-zinc-500 font-medium leading-tight uppercase tracking-wider">
                 Sem ganhos registrados. O custo fixo diário ({formatCurrency(dailyFixed, settings.isPrivacyMode)}) está sendo aplicado.
               </p>
             </div>
           )}
-          <div className="p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/20 flex items-center gap-3">
+          <div className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/20 flex items-center gap-3">
             <AlertCircle size={14} className="text-zinc-400 shrink-0" />
             <p className="text-[9px] text-zinc-500 font-medium leading-tight uppercase tracking-wider">
               Insira o valor bruto de cada plataforma no momento do fechamento.
@@ -464,7 +464,7 @@ const PlatformInput = ({ label, value, onChange, onAdjust, accent, isLast }: any
 
   return (
     <div className={cn(
-      "px-4 py-3 flex items-center justify-between gap-3",
+      "px-5 py-4 flex items-center justify-between gap-3",
       !isLast && "border-b border-zinc-50 dark:border-zinc-800/50"
     )}>
       <div className="flex items-center gap-3">
@@ -514,7 +514,7 @@ const PlatformInput = ({ label, value, onChange, onAdjust, accent, isLast }: any
 
 const ExpenseRow = ({ icon: Icon, label, value, onChange, isLast }: any) => (
   <div className={cn(
-    "px-4 py-3 flex items-center justify-between transition-colors",
+    "px-5 py-4 flex items-center justify-between transition-colors",
     !isLast && "border-b border-zinc-50 dark:border-zinc-800/50",
     value > 0 && "bg-emerald-500/5"
   )}>
@@ -555,7 +555,7 @@ const KmCard = ({ label, value, onChange, isTracked }: any) => {
     : 0;
 
   return (
-    <div className="bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 relative overflow-hidden group">
+    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 relative overflow-hidden group shadow-sm">
       <div className="flex flex-col gap-1 relative z-10">
         <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{label}</span>
         <div className="flex items-baseline gap-1">

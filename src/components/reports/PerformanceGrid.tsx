@@ -23,14 +23,14 @@ export const PerformanceGrid: React.FC<PerformanceGridProps> = ({
   isCollecting
 }) => {
   return (
-    <section className="space-y-4 mb-8">
+    <section className="space-y-6 mb-8">
       <div className="flex items-center justify-between px-1">
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
           Performance Operacional
         </h3>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+      <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
         <MiniMetricCard 
           label="KM Total" 
           value={formatKm(totalKm)} 

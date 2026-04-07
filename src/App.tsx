@@ -1,5 +1,6 @@
 import React, { useEffect, Suspense } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncManager } from './components/SyncManager';
 import { ReloadPrompt } from './ReloadPrompt';
@@ -212,8 +213,19 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   if (isLanding || isAuth || isOnboarding) {
     return (
-      <div className="min-h-[100dvh] flex flex-col">
-        {children}
+      <div className="min-h-[100dvh] flex flex-col overflow-x-hidden">
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={{ opacity: 0, x: 20 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: -20 }}
+            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+            className="flex-1 flex flex-col w-full"
+          >
+            {children}
+          </motion.div>
+        </AnimatePresence>
         {isLanding && <Footer />}
       </div>
     );
@@ -228,7 +240,18 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           !isMobile && "md:px-8 max-w-5xl mx-auto",
           isMobile ? "pb-[calc(140px+env(safe-area-inset-bottom))]" : "pb-6"
         )}>
-          {children}
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={location.pathname}
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -10 }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              className="flex-1 flex flex-col w-full"
+            >
+              {children}
+            </motion.div>
+          </AnimatePresence>
         </main>
       </div>
       {!isOnboarding && hasOpenCycle && (
@@ -295,7 +318,7 @@ function AppRoutes() {
   return (
     <Layout>
       <Suspense fallback={<PageLoader />}>
-        <Routes>
+        <Routes location={location} key={location.pathname}>
           <Route
             path="/"
             element={

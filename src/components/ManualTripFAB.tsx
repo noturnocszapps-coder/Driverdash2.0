@@ -18,8 +18,10 @@ export const ManualTripFAB = () => {
     
     if (tracking.isProductive) {
       endTrip();
+      if (navigator.vibrate) navigator.vibrate(40);
     } else {
       startTrip();
+      if (navigator.vibrate) navigator.vibrate([40, 30, 40]);
     }
   };
 

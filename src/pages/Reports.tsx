@@ -406,32 +406,38 @@ export const Reports = () => {
       )}
 
       {/* 7. Faturamento Diário / Gráfico */}
-      <DailyRevenueCard 
-        bestDay={stats.best}
-        currentWeek={currentWeek}
-        settings={settings}
-        today={today}
-      />
+      <div className="space-y-6">
+        <DailyRevenueCard 
+          bestDay={stats.best}
+          currentWeek={currentWeek}
+          settings={settings}
+          today={today}
+        />
+      </div>
 
       {/* 8. Mix de Plataformas */}
-      <PlatformMixCard 
-        platformTotals={stats.platformTotals}
-        total={stats.total}
-        isPrivacyMode={settings.isPrivacyMode}
-      />
+      <div className="space-y-6">
+        <PlatformMixCard 
+          platformTotals={stats.platformTotals}
+          total={stats.total}
+          isPrivacyMode={settings.isPrivacyMode}
+        />
+      </div>
 
       {/* 9. Histórico Recente */}
-      <RecentHistoryCardList 
-        recentDays={recentDays}
-        isPrivacyMode={settings.isPrivacyMode}
-        onDayClick={(day) => {
-          if (day.cycles.length === 1) {
-            navigate(`/cycle/${day.cycles[0].id}`);
-          } else if (day.cycles.length > 1) {
-            navigate(`/cycle/${day.cycles[0].id}`);
-          }
-        }}
-      />
+      <div className="space-y-6">
+        <RecentHistoryCardList 
+          recentDays={recentDays}
+          isPrivacyMode={settings.isPrivacyMode}
+          onDayClick={(day) => {
+            if (day.cycles.length === 1) {
+              navigate(`/cycle/${day.cycles[0].id}`);
+            } else if (day.cycles.length > 1) {
+              navigate(`/cycle/${day.cycles[0].id}`);
+            }
+          }}
+        />
+      </div>
 
       {/* Imported Reports List */}
       {importedReports.length > 0 && (
