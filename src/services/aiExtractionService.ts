@@ -1,4 +1,5 @@
 import { GoogleGenAI, Type } from "@google/genai";
+import { useDriverStore } from "../store";
 
 export interface ExtractedReportData {
   report_type: 'daily' | 'weekly' | 'ride_offer' | 'ride_detail';
@@ -23,10 +24,13 @@ export interface ExtractedReportData {
 }
 
 const getAIClient = () => {
-  const apiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const storeApiKey = useDriverStore.getState().settings.geminiApiKey;
+  const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
+  const apiKey = storeApiKey || envApiKey;
+
   if (!apiKey) {
-    console.error("[Gemini] VITE_GEMINI_API_KEY não encontrada no runtime");
-    throw new Error("API Key do Gemini não configurada. Verifique as configurações do projeto.");
+    console.error("[Gemini] API Key não encontrada");
+    throw new Error("API Key do Gemini não configurada. Configure-a nas configurações do aplicativo.");
   }
   return new GoogleGenAI({ apiKey });
 };

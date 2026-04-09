@@ -6,7 +6,8 @@ import {
   Upload, RefreshCw, AlertCircle, FlaskConical,
   Zap, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
   DollarSign, Plus, CheckCircle2, Eye, EyeOff, Mic, Volume2,
-  LayoutGrid, Minus, Map, Maximize2, Play, Lightbulb
+  LayoutGrid, Minus, Map, Maximize2, Play, Lightbulb, AlertTriangle,
+  Phone, MapPin, Briefcase, Calendar, Settings as SettingsIcon, Users, Activity, Sparkles, Info
 } from 'lucide-react';
 import { downloadFile, formatCurrency, calculateDailyFixedCost, calculateMonthlyFixedCost } from '../utils';
 import { supabase } from '../lib/supabase';
@@ -14,10 +15,13 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
-import { VehicleProfile } from '../types';
+import { VehicleProfile, UserRole, UserStatus } from '../types';
 
 import { toast } from 'sonner';
 import { ConfirmationModal } from '../components/ConfirmationModal';
+
+import { format } from 'date-fns';
+import { ptBR } from 'date-fns/locale';
 
 export const Settings = () => {
   const navigate = useNavigate();
@@ -25,7 +29,10 @@ export const Settings = () => {
     settings, updateSettings, clearData, clearCloudData, 
     cycles, importData, user, setUser, syncStatus, syncData, isSaving,
     vehicles, addVehicle, updateVehicle, deleteVehicle, setActiveVehicle,
-    activeVehicleId, plan, setPaywallOpen
+    activeVehicleId, plan, setPaywallOpen, adminStats, fetchAdminStats,
+    mapMarkers, loadMapMarkers, approveMapMarker, rejectMapMarker,
+    allUsers, fetchAllUsers, updateUserRole, updateUserStatus,
+    systemLogs, fetchSystemLogs, globalConfigs, loadGlobalConfigs, updateGlobalConfig
   } = useDriverStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +48,53 @@ export const Settings = () => {
 
   const [showVehicleSelector, setShowVehicleSelector] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
+  const [activeTab, setActiveTab] = useState<'profile' | 'vehicle' | 'preferences' | 'system' | 'admin'>('profile');
+  const [adminView, setAdminView] = useState<'stats' | 'users' | 'logs' | 'configs'>('stats');
+
+  useEffect(() => {
+    if (activeTab === 'admin') {
+      fetchAdminStats();
+      loadMapMarkers();
+      if (adminView === 'users') fetchAllUsers();
+      if (adminView === 'logs') fetchSystemLogs();
+      if (adminView === 'configs') loadGlobalConfigs();
+    }
+  }, [activeTab, adminView, fetchAdminStats, loadMapMarkers, fetchAllUsers, fetchSystemLogs, loadGlobalConfigs]);
+
+  const [vehicleErrors, setVehicleErrors] = useState<{
+    name?: string;
+    year?: string;
+    plate?: string;
+  }>({});
+
+  const validateVehicleField = (field: string, value: string) => {
+    const newErrors = { ...vehicleErrors };
+    
+    if (field === 'name') {
+      if (!value.trim()) newErrors.name = 'Nome é obrigatório';
+      else if (value.length < 2) newErrors.name = 'Nome muito curto';
+      else delete newErrors.name;
+    }
+    
+    if (field === 'year') {
+      const year = parseInt(value);
+      const currentYear = new Date().getFullYear();
+      if (!value) newErrors.year = 'Ano é obrigatório';
+      else if (isNaN(year) || year < 1900 || year > currentYear + 1) newErrors.year = 'Ano inválido';
+      else delete newErrors.year;
+    }
+    
+    if (field === 'plate') {
+      if (value && !/^[A-Z]{3}-?[0-9][A-Z0-9][0-9]{2}$/i.test(value)) {
+        newErrors.plate = 'Placa inválida (ex: ABC-1234)';
+      } else {
+        delete newErrors.plate;
+      }
+    }
+    
+    setVehicleErrors(newErrors);
+    return !newErrors[field as keyof typeof newErrors];
+  };
 
   const handleSelectVehicle = async (id: string) => {
     try {
@@ -55,8 +109,12 @@ export const Settings = () => {
   const handleSaveVehicle = async () => {
     if (!currentVehicle) return;
     
-    if (!currentVehicle.name.trim()) {
-      toast.error('O nome do veículo não pode estar vazio.');
+    const isNameValid = validateVehicleField('name', currentVehicle.name);
+    const isYearValid = validateVehicleField('year', currentVehicle.year);
+    const isPlateValid = validateVehicleField('plate', currentVehicle.plate || '');
+
+    if (!isNameValid || !isYearValid || !isPlateValid) {
+      toast.error('Por favor, corrija os erros no formulário.');
       return;
     }
 
@@ -268,8 +326,44 @@ export const Settings = () => {
         <h1 className="text-3xl font-black tracking-tighter">Ajustes</h1>
       </header>
 
-      {/* Profile Section */}
-      <section className="space-y-4">
+      {/* Tab Navigation */}
+      <div className="sticky top-0 z-50 bg-zinc-50/80 dark:bg-zinc-950/80 backdrop-blur-md py-4 -mx-4 px-4 border-b border-zinc-100 dark:border-zinc-800">
+        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
+          {[
+            { id: 'profile', label: 'Perfil', icon: User },
+            { id: 'vehicle', label: 'Veículo', icon: Car },
+            { id: 'preferences', label: 'Preferências', icon: LayoutGrid },
+            { id: 'system', label: 'Sistema', icon: Database },
+            ...(settings.role === 'admin' ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id as any)}
+              className={cn(
+                "flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shrink-0",
+                activeTab === tab.id
+                  ? "bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20"
+                  : "bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-900 dark:hover:text-white border border-zinc-100 dark:border-zinc-800"
+              )}
+            >
+              <tab.icon size={14} />
+              {tab.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <AnimatePresence mode="wait">
+        {activeTab === 'profile' && (
+          <motion.div
+            key="profile"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="space-y-6"
+          >
+            {/* Profile Section */}
+            <section className="space-y-4">
         <SectionHeader icon={User} title="Conta e Perfil" />
         <Card className={cn(
           "border-none bg-white dark:bg-zinc-900 shadow-xl shadow-zinc-200/50 dark:shadow-none rounded-[2.5rem] overflow-hidden border transition-all duration-500",
@@ -378,7 +472,7 @@ export const Settings = () => {
                     <User size={18} />
                   </div>
                   <Input 
-                    value={settings.isPrivacyMode ? "• • • • • • • •" : settings.name} 
+                    value={settings.isPrivacyMode ? "• • • • • • • •" : (settings.name || '')} 
                     readOnly={settings.isPrivacyMode}
                     onChange={e => {
                       if (settings.isPrivacyMode) return;
@@ -393,6 +487,75 @@ export const Settings = () => {
                 </div>
               </div>
               <div className="space-y-2.5">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Telefone / WhatsApp</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
+                    <Phone size={18} />
+                  </div>
+                  <Input 
+                    value={settings.isPrivacyMode ? "• • • • • • • •" : (settings.phone || '')} 
+                    readOnly={settings.isPrivacyMode}
+                    onChange={e => {
+                      if (settings.isPrivacyMode) return;
+                      updateSettings({ phone: e.target.value });
+                    }}
+                    className={cn(
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300",
+                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                    )}
+                    placeholder="(00) 00000-0000"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2.5">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Cidade / Região</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
+                    <MapPin size={18} />
+                  </div>
+                  <Input 
+                    value={settings.isPrivacyMode ? "• • • • • • • •" : (settings.city || '')} 
+                    readOnly={settings.isPrivacyMode}
+                    onChange={e => {
+                      if (settings.isPrivacyMode) return;
+                      updateSettings({ city: e.target.value });
+                    }}
+                    className={cn(
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300",
+                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                    )}
+                    placeholder="Sua cidade"
+                  />
+                </div>
+              </div>
+              <div className="space-y-2.5">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Plataforma Principal</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
+                    <Briefcase size={18} />
+                  </div>
+                  <Select
+                    value={settings.mainPlatform || 'Uber'}
+                    onChange={e => updateSettings({ mainPlatform: e.target.value })}
+                    className="h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300"
+                  >
+                    <option value="Uber">Uber</option>
+                    <option value="99">99</option>
+                    <option value="inDrive">inDrive</option>
+                    <option value="Particular">Particular</option>
+                  </Select>
+                </div>
+              </div>
+              <div className="space-y-2.5 md:col-span-2">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Bio / Descrição</label>
+                <textarea 
+                  value={settings.bio || ''}
+                  onChange={e => updateSettings({ bio: e.target.value })}
+                  className="w-full p-4 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300 min-h-[100px] resize-none"
+                  placeholder="Conte um pouco sobre você..."
+                />
+              </div>
+              <div className="space-y-2.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Meta Diária Sugerida</label>
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
@@ -400,6 +563,7 @@ export const Settings = () => {
                   </div>
                   <Input 
                     type={settings.isPrivacyMode ? "text" : "number"}
+                    inputMode="decimal"
                     value={settings.isPrivacyMode ? "• • • • •" : (settings.dailyGoal === 0 ? '' : settings.dailyGoal)} 
                     readOnly={settings.isPrivacyMode}
                     onChange={e => {
@@ -418,13 +582,34 @@ export const Settings = () => {
                   </div>
                 </div>
               </div>
+              <div className="space-y-2.5">
+                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Membro desde</label>
+                <div className="relative group">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400">
+                    <Calendar size={18} />
+                  </div>
+                  <div className="h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent rounded-xl font-bold text-zinc-500 flex items-center">
+                    {user?.createdAt ? format(new Date(user.createdAt), "MMMM 'de' yyyy", { locale: ptBR }) : 'N/A'}
+                  </div>
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>
       </section>
+          </motion.div>
+        )}
 
-      {/* Preferences Section */}
-      <section className="space-y-4">
+        {activeTab === 'preferences' && (
+          <motion.div
+            key="preferences"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="space-y-6"
+          >
+            {/* Preferences Section */}
+            <section className="space-y-4">
         <SectionHeader icon={Layout} title="Preferências" />
         <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
           <CardContent className="p-6 md:p-8 space-y-6">
@@ -657,9 +842,20 @@ export const Settings = () => {
           </CardContent>
         </Card>
       </section>
-      <section className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <SectionHeader icon={Car} title="Perfil do Veículo" />
+          </motion.div>
+        )}
+
+        {activeTab === 'vehicle' && (
+          <motion.div
+            key="vehicle"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="space-y-6"
+          >
+            <section className="space-y-4">
+              <div className="flex items-center justify-between px-1">
+                <SectionHeader icon={Car} title="Perfil do Veículo" />
           <Button 
             variant="ghost" 
             size="sm" 
@@ -717,7 +913,20 @@ export const Settings = () => {
                       <p className="text-lg font-black tracking-tight leading-none">
                         {currentVehicle?.name || 'Selecionar Veículo'}
                       </p>
-                      {currentVehicle && (
+                      <AnimatePresence>
+                        {saveSuccess && (
+                          <motion.div
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            exit={{ opacity: 0, x: 10 }}
+                            className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500 text-zinc-950 text-[9px] font-black uppercase rounded-full tracking-widest"
+                          >
+                            <CheckCircle2 size={10} />
+                            Salvo
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                      {currentVehicle && !saveSuccess && (
                         <div className="flex items-center gap-1 px-2 py-0.5 bg-emerald-500 text-zinc-950 text-[9px] font-black uppercase rounded-full tracking-widest animate-pulse">
                           <div className="w-1 h-1 bg-zinc-950 rounded-full" />
                           Ativo
@@ -740,38 +949,97 @@ export const Settings = () => {
 
             {currentVehicle && (
               <div className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome do Carro</label>
-                    <Input 
-                      value={settings.isPrivacyMode ? "• • • • • • • •" : currentVehicle.name}
-                      readOnly={settings.isPrivacyMode}
-                      onChange={e => {
-                        if (settings.isPrivacyMode) return;
-                        updateVehicle(currentVehicle.id, { name: e.target.value });
-                      }}
-                      className={cn(
-                        "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
-                        settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome do Carro</label>
+                      <Input 
+                        value={settings.isPrivacyMode ? "• • • • • • • •" : currentVehicle.name}
+                        readOnly={settings.isPrivacyMode}
+                        onChange={e => {
+                          if (settings.isPrivacyMode) return;
+                          const val = e.target.value;
+                          updateVehicle(currentVehicle.id, { name: val });
+                          validateVehicleField('name', val);
+                        }}
+                        className={cn(
+                          "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                          settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]",
+                          vehicleErrors.name && "ring-2 ring-red-500/50"
+                        )}
+                      />
+                      {vehicleErrors.name && (
+                        <p className="text-[9px] font-bold text-red-500 ml-1 uppercase tracking-wider">{vehicleErrors.name}</p>
                       )}
-                    />
-                  </div>
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Ano</label>
-                    <Input 
-                      value={settings.isPrivacyMode ? "• • • •" : currentVehicle.year}
-                      readOnly={settings.isPrivacyMode}
-                      onChange={e => {
-                        if (settings.isPrivacyMode) return;
-                        updateVehicle(currentVehicle.id, { year: e.target.value });
-                      }}
-                      className={cn(
-                        "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
-                        settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Ano</label>
+                      <Input 
+                        value={settings.isPrivacyMode ? "• • • •" : currentVehicle.year}
+                        readOnly={settings.isPrivacyMode}
+                        onChange={e => {
+                          if (settings.isPrivacyMode) return;
+                          const val = e.target.value;
+                          updateVehicle(currentVehicle.id, { year: val });
+                          validateVehicleField('year', val);
+                        }}
+                        className={cn(
+                          "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                          settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]",
+                          vehicleErrors.year && "ring-2 ring-red-500/50"
+                        )}
+                      />
+                      {vehicleErrors.year && (
+                        <p className="text-[9px] font-bold text-red-500 ml-1 uppercase tracking-wider">{vehicleErrors.year}</p>
                       )}
-                    />
+                    </div>
                   </div>
-                </div>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Consumo Médio (km/L)</label>
+                      <Input 
+                        type={settings.isPrivacyMode ? "text" : "number"}
+                        inputMode="decimal"
+                        value={settings.isPrivacyMode ? "• • • • •" : (settings.kmPerLiter || '')}
+                        readOnly={settings.isPrivacyMode}
+                        onChange={e => {
+                          if (settings.isPrivacyMode) return;
+                          updateSettings({ kmPerLiter: e.target.value === '' ? undefined : Number(e.target.value) });
+                        }}
+                        className={cn(
+                          "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                          settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                        )}
+                        placeholder="0.0"
+                      />
+                    </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Preço do Combustível</label>
+                      <div className="relative">
+                        {!settings.isPrivacyMode && (
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-400 uppercase tracking-widest pointer-events-none">
+                            R$
+                          </span>
+                        )}
+                        <Input 
+                          type={settings.isPrivacyMode ? "text" : "number"}
+                          inputMode="decimal"
+                          value={settings.isPrivacyMode ? "• • • • •" : (settings.fuelPrice || '')}
+                          readOnly={settings.isPrivacyMode}
+                          onChange={e => {
+                            if (settings.isPrivacyMode) return;
+                            updateSettings({ fuelPrice: e.target.value === '' ? undefined : Number(e.target.value) });
+                          }}
+                          className={cn(
+                            "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                            !settings.isPrivacyMode && "pl-10",
+                            settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                          )}
+                          placeholder="0,00"
+                        />
+                      </div>
+                    </div>
+                  </div>
 
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Veículo</label>
@@ -901,23 +1169,30 @@ export const Settings = () => {
                         Salvando...
                       </span>
                     ) : saveSuccess ? (
-                      <span className="flex items-center gap-2">
-                        <CheckCircle2 size={20} /> Perfil Salvo
-                      </span>
+                      <motion.span 
+                        initial={{ scale: 0.9 }}
+                        animate={{ scale: 1 }}
+                        className="flex items-center gap-2"
+                      >
+                        <CheckCircle2 size={20} className="text-zinc-950" /> Perfil Atualizado
+                      </motion.span>
                     ) : (
-                      "Salvar Veículo"
+                      "Salvar Alterações"
                     )}
                   </Button>
                   
-                  {saveSuccess && (
-                    <motion.p 
-                      initial={{ opacity: 0, y: -10 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      className="text-[10px] text-center font-black text-emerald-500 uppercase tracking-widest"
-                    >
-                      Perfil do veículo salvo com sucesso
-                    </motion.p>
-                  )}
+                  <AnimatePresence>
+                    {saveSuccess && (
+                      <motion.p
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -10 }}
+                        className="text-center text-[10px] font-black text-emerald-500 uppercase tracking-[0.2em]"
+                      >
+                        Alterações sincronizadas com sucesso
+                      </motion.p>
+                    )}
+                  </AnimatePresence>
                 </div>
               </div>
             )}
@@ -946,9 +1221,87 @@ export const Settings = () => {
           ))}
         </div>
       </section>
+          </motion.div>
+        )}
 
-      {/* Danger Zone */}
-      <section className="space-y-3 md:space-y-4">
+        {activeTab === 'system' && (
+          <motion.div
+            key="system"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="space-y-6"
+          >
+            <section className="space-y-4">
+              <SectionHeader icon={Database} title="Dados e Backup" />
+              <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-[2rem] overflow-hidden">
+                <CardContent className="p-6 md:p-8 space-y-6">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-bold">Exportar Backup</p>
+                      <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Salvar histórico local em JSON</p>
+                    </div>
+                    <Button onClick={exportBackup} variant="ghost" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-zinc-100 dark:bg-zinc-800">
+                      <Download size={14} className="mr-2" /> Exportar
+                    </Button>
+                  </div>
+                  <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-0.5">
+                      <p className="text-sm font-bold">Importar Backup</p>
+                      <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Restaurar de um arquivo JSON</p>
+                    </div>
+                    <Button onClick={() => fileInputRef.current?.click()} variant="ghost" className="h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-zinc-100 dark:bg-zinc-800">
+                      <Upload size={14} className="mr-2" /> Importar
+                    </Button>
+                    <input type="file" ref={fileInputRef} className="hidden" accept=".json" onChange={handleImportBackup} />
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+
+            <section className="space-y-4">
+              <SectionHeader icon={Sparkles} title="Inteligência Artificial" />
+              <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-[2rem] overflow-hidden">
+                <CardContent className="p-6 md:p-8 space-y-6">
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-bold">Gemini API Key</p>
+                        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Usada para extração de dados de prints</p>
+                      </div>
+                      <a 
+                        href="https://aistudio.google.com/app/apikey" 
+                        target="_blank" 
+                        rel="noopener noreferrer"
+                        className="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-600 transition-colors"
+                      >
+                        Obter Chave
+                      </a>
+                    </div>
+                    <div className="relative">
+                      <Input
+                        type="password"
+                        placeholder="Cole sua API Key aqui..."
+                        value={settings.geminiApiKey || ''}
+                        onChange={(e) => updateSettings({ geminiApiKey: e.target.value })}
+                        className="bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl h-12 px-5 text-xs font-medium"
+                      />
+                    </div>
+                    <div className="flex items-start gap-3 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
+                      <Info size={16} className="text-emerald-500 shrink-0 mt-0.5" />
+                      <p className="text-[10px] text-zinc-500 font-medium leading-relaxed">
+                        Sua chave é armazenada de forma segura e usada apenas para processar as imagens que você enviar. 
+                        O uso da IA permite automatizar o preenchimento de relatórios e ofertas de corridas.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </section>
+
+            {/* Danger Zone */}
+            <section className="space-y-3 md:space-y-4">
         <SectionHeader icon={Shield} title="Zona de Perigo" />
         <Card className="border-none bg-red-50 dark:bg-red-500/5 border-red-100 dark:border-red-500/10">
           <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
@@ -986,6 +1339,324 @@ export const Settings = () => {
           </CardContent>
         </Card>
       </section>
+          </motion.div>
+        )}
+
+        {activeTab === 'admin' && settings.role === 'admin' && (
+          <motion.div
+            key="admin"
+            initial={{ opacity: 0, x: -10 }}
+            animate={{ opacity: 1, x: 0 }}
+            exit={{ opacity: 0, x: 10 }}
+            className="space-y-6"
+          >
+            {adminView === 'stats' ? (
+              <section className="space-y-4">
+                <SectionHeader icon={Shield} title="Painel Administrativo" />
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <Card className="border-none bg-emerald-500/5 border border-emerald-500/10">
+                    <CardContent className="p-6 space-y-2">
+                      <div className="flex items-center gap-2 text-emerald-500">
+                        <Users size={16} />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Usuários Ativos</p>
+                      </div>
+                      <p className="text-3xl font-black tracking-tighter">{adminStats.totalUsers.toLocaleString()}</p>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Base de Dados Real</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-none bg-blue-500/5 border border-blue-500/10">
+                    <CardContent className="p-6 space-y-2">
+                      <div className="flex items-center gap-2 text-blue-500">
+                        <Activity size={16} />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Ciclos Totais</p>
+                      </div>
+                      <p className="text-3xl font-black tracking-tighter">{adminStats.totalCycles.toLocaleString()}</p>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Registrados no Sistema</p>
+                    </CardContent>
+                  </Card>
+                  <Card className="border-none bg-amber-500/5 border border-amber-500/10">
+                    <CardContent className="p-6 space-y-2">
+                      <div className="flex items-center gap-2 text-amber-500">
+                        <Zap size={16} />
+                        <p className="text-[10px] font-black uppercase tracking-widest">Veículos Ativos</p>
+                      </div>
+                      <p className="text-3xl font-black tracking-tighter">{adminStats.totalVehicles.toLocaleString()}</p>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Frota Cadastrada</p>
+                    </CardContent>
+                  </Card>
+                </div>
+
+                <section className="space-y-4">
+                  <SectionHeader icon={MapPin} title="Aprovação de Marcadores" />
+                  <div className="space-y-3">
+                    {mapMarkers.filter(m => m.status === 'pending').length === 0 ? (
+                      <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 rounded-3xl">
+                        <CardContent className="p-8 text-center space-y-2">
+                          <div className="w-12 h-12 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center mx-auto">
+                            <CheckCircle2 className="text-zinc-400" size={24} />
+                          </div>
+                          <p className="text-xs font-bold text-zinc-500">Nenhum marcador pendente de aprovação</p>
+                        </CardContent>
+                      </Card>
+                    ) : (
+                      mapMarkers.filter(m => m.status === 'pending').map(marker => (
+                        <Card key={marker.id} className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-3xl overflow-hidden">
+                          <CardContent className="p-4 flex items-center justify-between gap-4">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "w-10 h-10 rounded-xl flex items-center justify-center",
+                                marker.type === 'radar' ? "bg-red-500/10 text-red-500" :
+                                marker.type === 'pothole' || marker.type === 'ditch' ? "bg-amber-500/10 text-amber-500" :
+                                "bg-blue-500/10 text-blue-500"
+                              )}>
+                                {marker.type === 'radar' ? <Zap size={18} /> : 
+                                 marker.type === 'pothole' || marker.type === 'ditch' ? <AlertTriangle size={18} /> : 
+                                 <MapPin size={18} />}
+                              </div>
+                              <div className="space-y-0.5">
+                                <p className="text-xs font-bold capitalize">
+                                  {marker.type === 'radar' ? 'Radar' : 
+                                   marker.type === 'pothole' ? 'Buraco' :
+                                   marker.type === 'ditch' ? 'Valeta' :
+                                   marker.type === 'bathroom' ? 'Banheiro' :
+                                   marker.type === 'water' ? 'Água' : 'Perigo'}
+                                </p>
+                                <p className="text-[10px] text-zinc-500">{marker.description || 'Sem descrição'}</p>
+                                <p className="text-[8px] text-zinc-400 uppercase tracking-widest">
+                                  {new Date(marker.createdAt).toLocaleDateString()} • {marker.lat.toFixed(4)}, {marker.lng.toFixed(4)}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button 
+                                onClick={() => rejectMapMarker(marker.id)}
+                                variant="ghost" 
+                                className="h-8 px-3 text-[10px] font-black uppercase tracking-widest rounded-lg bg-red-500/10 text-red-500 hover:bg-red-500/20"
+                              >
+                                Rejeitar
+                              </Button>
+                              <Button 
+                                onClick={() => approveMapMarker(marker.id)}
+                                className="h-8 px-3 text-[10px] font-black uppercase tracking-widest rounded-lg bg-emerald-500 text-zinc-950"
+                              >
+                                Aprovar
+                              </Button>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      ))
+                    )}
+                  </div>
+                </section>
+
+                <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-[2rem] overflow-hidden">
+                  <CardContent className="p-6 md:p-8 space-y-6">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-bold">Gerenciamento de Usuários</p>
+                        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Visualizar e editar permissões</p>
+                      </div>
+                      <Button 
+                        onClick={() => setAdminView('users')}
+                        variant="ghost" 
+                        className="h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-zinc-100 dark:bg-zinc-800"
+                      >
+                        Abrir Lista
+                      </Button>
+                    </div>
+                    <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-bold">Logs do Sistema</p>
+                        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Monitorar erros e eventos</p>
+                      </div>
+                      <Button 
+                        onClick={() => setAdminView('logs')}
+                        variant="ghost" 
+                        className="h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-zinc-100 dark:bg-zinc-800"
+                      >
+                        Ver Logs
+                      </Button>
+                    </div>
+                    <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-bold">Configurações Globais</p>
+                        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Ajustar parâmetros do app</p>
+                      </div>
+                      <Button 
+                        onClick={() => setAdminView('configs')}
+                        variant="ghost" 
+                        className="h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-zinc-100 dark:bg-zinc-800"
+                      >
+                        Configurar
+                      </Button>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-start gap-3">
+                  <AlertCircle size={16} className="text-amber-500 shrink-0 mt-0.5" />
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-black text-amber-600 dark:text-amber-400 uppercase tracking-widest">Atenção Admin</p>
+                    <p className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-medium leading-relaxed">
+                      Você está acessando áreas restritas do sistema. Alterações aqui podem afetar todos os usuários. Proceda com cautela.
+                    </p>
+                  </div>
+                </div>
+              </section>
+            ) : adminView === 'users' ? (
+              <section className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <Button variant="ghost" size="icon" onClick={() => setAdminView('stats')} className="rounded-full">
+                    <ChevronRight className="rotate-180" size={20} />
+                  </Button>
+                  <SectionHeader icon={Users} title="Gerenciamento de Usuários" />
+                </div>
+                <div className="space-y-3">
+                  {allUsers.length === 0 ? (
+                    <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 rounded-3xl">
+                      <CardContent className="p-8 text-center">
+                        <p className="text-xs font-bold text-zinc-500">Nenhum usuário encontrado</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    allUsers.map(u => (
+                      <Card key={u.id} className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-3xl overflow-hidden">
+                        <CardContent className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                          <div className="flex items-center gap-3">
+                            <div className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
+                              <User size={20} className="text-zinc-400" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-bold">{u.name || 'Usuário sem nome'}</p>
+                              <p className="text-[10px] text-zinc-500">{u.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black uppercase text-zinc-400">Cargo</p>
+                              <Select 
+                                value={u.role} 
+                                onChange={(e) => updateUserRole(u.id, e.target.value as UserRole)}
+                                className="h-8 text-[10px] bg-zinc-50 dark:bg-zinc-800 border-none"
+                              >
+                                <option value={UserRole.DRIVER}>Motorista</option>
+                                <option value={UserRole.ADMIN}>Admin</option>
+                              </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black uppercase text-zinc-400">Status</p>
+                              <Select 
+                                value={u.status} 
+                                onChange={(e) => updateUserStatus(u.id, e.target.value as UserStatus)}
+                                className="h-8 text-[10px] bg-zinc-50 dark:bg-zinc-800 border-none"
+                              >
+                                <option value={UserStatus.ACTIVE}>Ativo</option>
+                                <option value={UserStatus.BLOCKED}>Bloqueado</option>
+                              </Select>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </section>
+            ) : adminView === 'logs' ? (
+              <section className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <Button variant="ghost" size="icon" onClick={() => setAdminView('stats')} className="rounded-full">
+                    <ChevronRight className="rotate-180" size={20} />
+                  </Button>
+                  <SectionHeader icon={Activity} title="Logs do Sistema" />
+                </div>
+                <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-3xl overflow-hidden">
+                  <CardContent className="p-0">
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-zinc-50 dark:bg-zinc-800/50">
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Data</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Nível</th>
+                            <th className="p-4 text-[10px] font-black uppercase tracking-widest text-zinc-500">Mensagem</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                          {systemLogs.map(log => (
+                            <tr key={log.id}>
+                              <td className="p-4 text-[10px] text-zinc-500 whitespace-nowrap">
+                                {new Date(log.timestamp).toLocaleString()}
+                              </td>
+                              <td className="p-4">
+                                <span className={cn(
+                                  "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-widest",
+                                  log.level === 'error' ? "bg-red-500/10 text-red-500" :
+                                  log.level === 'warn' ? "bg-amber-500/10 text-amber-500" :
+                                  "bg-blue-500/10 text-blue-500"
+                                )}>
+                                  {log.level}
+                                </span>
+                              </td>
+                              <td className="p-4 text-[10px] font-medium text-zinc-700 dark:text-zinc-300">
+                                {log.message}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  </CardContent>
+                </Card>
+              </section>
+            ) : (
+              <section className="space-y-4">
+                <div className="flex items-center gap-3 mb-2">
+                  <Button variant="ghost" size="icon" onClick={() => setAdminView('stats')} className="rounded-full">
+                    <ChevronRight className="rotate-180" size={20} />
+                  </Button>
+                  <SectionHeader icon={Globe} title="Configurações Globais" />
+                </div>
+                <div className="space-y-3">
+                  {globalConfigs.length === 0 ? (
+                    <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 rounded-3xl">
+                      <CardContent className="p-8 text-center">
+                        <p className="text-xs font-bold text-zinc-500">Nenhuma configuração global encontrada</p>
+                      </CardContent>
+                    </Card>
+                  ) : (
+                    globalConfigs.map(config => (
+                      <Card key={config.id} className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-3xl overflow-hidden">
+                        <CardContent className="p-4 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <p className="text-xs font-bold uppercase tracking-widest text-zinc-500">{config.key}</p>
+                            <p className="text-[8px] text-zinc-400">Atualizado em: {new Date(config.updated_at).toLocaleString()}</p>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Input 
+                              defaultValue={JSON.stringify(config.value)}
+                              onBlur={(e) => {
+                                try {
+                                  const val = JSON.parse(e.target.value);
+                                  updateGlobalConfig(config.key, val);
+                                } catch (err) {
+                                  toast.error('Valor JSON inválido');
+                                }
+                              }}
+                              className="h-10 text-xs"
+                            />
+                          </div>
+                          {config.description && <p className="text-[10px] text-zinc-500 italic">{config.description}</p>}
+                        </CardContent>
+                      </Card>
+                    ))
+                  )}
+                </div>
+              </section>
+            )}
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Vehicle Selector Bottom Sheet */}
       <AnimatePresence>
@@ -1159,7 +1830,18 @@ export const Settings = () => {
                   <form onSubmit={handleAddVehicle} className="space-y-4">
                     <div className="space-y-1.5">
                       <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome (Ex: HB20S)</label>
-                      <Input name="name" required className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                      <Input 
+                        name="name" 
+                        required 
+                        onChange={e => validateVehicleField('name', e.target.value)}
+                        className={cn(
+                          "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold",
+                          vehicleErrors.name && "ring-2 ring-red-500/50"
+                        )} 
+                      />
+                      {vehicleErrors.name && (
+                        <p className="text-[9px] font-bold text-red-500 ml-1 uppercase tracking-wider">{vehicleErrors.name}</p>
+                      )}
                     </div>
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
@@ -1174,11 +1856,31 @@ export const Settings = () => {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Ano</label>
-                        <Input name="year" className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                        <Input 
+                          name="year" 
+                          onChange={e => validateVehicleField('year', e.target.value)}
+                          className={cn(
+                            "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold",
+                            vehicleErrors.year && "ring-2 ring-red-500/50"
+                          )} 
+                        />
+                        {vehicleErrors.year && (
+                          <p className="text-[9px] font-bold text-red-500 ml-1 uppercase tracking-wider">{vehicleErrors.year}</p>
+                        )}
                       </div>
                       <div className="space-y-1.5">
                         <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Placa (Opcional)</label>
-                        <Input name="plate" className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                        <Input 
+                          name="plate" 
+                          onChange={e => validateVehicleField('plate', e.target.value)}
+                          className={cn(
+                            "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold",
+                            vehicleErrors.plate && "ring-2 ring-red-500/50"
+                          )} 
+                        />
+                        {vehicleErrors.plate && (
+                          <p className="text-[9px] font-bold text-red-500 ml-1 uppercase tracking-wider">{vehicleErrors.plate}</p>
+                        )}
                       </div>
                     </div>
                     <div className="grid grid-cols-2 gap-4">
@@ -1251,21 +1953,30 @@ const SectionHeader = ({ icon: Icon, title }: any) => (
 const CostInput = ({ label, value, onChange, isPrivacyMode }: { label: string, value?: number, onChange: (val: number | undefined) => void, isPrivacyMode?: boolean }) => (
   <div className="space-y-1.5">
     <label className="text-[9px] font-black text-zinc-400 uppercase tracking-widest ml-1">{label}</label>
-    <Input 
-      type={isPrivacyMode ? "text" : "number"}
-      value={isPrivacyMode ? "• • • • •" : (value === undefined ? '' : value)} 
-      readOnly={isPrivacyMode}
-      onChange={e => {
-        if (isPrivacyMode) return;
-        const val = e.target.value;
-        onChange(val === '' ? undefined : Number(val));
-      }}
-      className={cn(
-        "h-10 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-xl font-bold text-sm transition-all duration-300",
-        isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+    <div className="relative">
+      {!isPrivacyMode && (
+        <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[10px] font-black text-zinc-400 uppercase tracking-widest pointer-events-none">
+          R$
+        </span>
       )}
-      placeholder="0,00"
-    />
+      <Input 
+        type={isPrivacyMode ? "text" : "number"}
+        inputMode="decimal"
+        value={isPrivacyMode ? "• • • • •" : (value === undefined ? '' : value)} 
+        readOnly={isPrivacyMode}
+        onChange={e => {
+          if (isPrivacyMode) return;
+          const val = e.target.value;
+          onChange(val === '' ? undefined : Number(val));
+        }}
+        className={cn(
+          "h-10 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-xl font-bold text-sm transition-all duration-300",
+          !isPrivacyMode && "pl-9",
+          isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+        )}
+        placeholder="0,00"
+      />
+    </div>
   </div>
 );
 

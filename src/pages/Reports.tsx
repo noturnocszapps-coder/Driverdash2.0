@@ -5,7 +5,7 @@ import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperati
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
-  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check, AlertCircle, Clock, Target
+  TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check, AlertCircle, Clock, Target, Trash2
 } from 'lucide-react';
 import { 
   startOfDay, isSameDay, parseISO, format, subDays, startOfWeek, addDays
@@ -14,6 +14,8 @@ import { ptBR } from 'date-fns/locale';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
+import { ConfirmationModal } from '../components/ConfirmationModal';
+import { toast } from 'sonner';
 
 import { ReportsHeader } from '../components/reports/ReportsHeader';
 import { WeeklyExecutiveSummary } from '../components/reports/WeeklyExecutiveSummary';
@@ -26,12 +28,13 @@ import { PlatformMixCard } from '../components/reports/PlatformMixCard';
 import { RecentHistoryCardList } from '../components/reports/RecentHistoryCardList';
 
 export const Reports = () => {
-  const { cycles, settings, importedReports, isSaving, vehicles, activeVehicleId } = useDriverStore();
+  const { cycles, settings, importedReports, isSaving, vehicles, activeVehicleId, deleteImportedReport } = useDriverStore();
   const navigate = useNavigate();
   const location = useLocation();
   const [showSuccess, setShowSuccess] = useState(false);
   const [filter, setFilter] = useState<'all' | 'manual' | 'imported'>('all');
   const [showFilterModal, setShowFilterModal] = useState(false);
+  const [reportToDelete, setReportToDelete] = useState<string | null>(null);
   
   useEffect(() => {
     if (location.state?.successMessage) {
@@ -242,6 +245,7 @@ export const Reports = () => {
       return {
         ...consolidated,
         cycles: dayCycles,
+        reports: dayReports,
         id: dateKey,
       };
     }).filter(d => d.totalRevenue > 0 || d.totalKm > 0);
@@ -459,10 +463,14 @@ export const Reports = () => {
           recentDays={recentDays}
           isPrivacyMode={settings.isPrivacyMode}
           onDayClick={(day) => {
-            if (day.cycles.length === 1) {
+            if (day.cycles.length > 0) {
               navigate(`/cycle/${day.cycles[0].id}`);
-            } else if (day.cycles.length > 1) {
-              navigate(`/cycle/${day.cycles[0].id}`);
+            } else if (day.reports && day.reports.length > 0) {
+              const element = document.getElementById('imported-reports-section');
+              if (element) {
+                element.scrollIntoView({ behavior: 'smooth' });
+                toast.info('Este dia contém apenas relatórios importados. Veja a lista abaixo.');
+              }
             }
           }}
         />
@@ -470,7 +478,7 @@ export const Reports = () => {
 
       {/* Imported Reports List */}
       {importedReports.length > 0 && (
-        <div className="space-y-4">
+        <div id="imported-reports-section" className="space-y-4">
           <div className="flex justify-between items-center px-1">
             <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
               Relatórios Importados (Prints)
@@ -544,7 +552,18 @@ export const Reports = () => {
                           {report.imported_at ? format(new Date(report.imported_at), 'dd/MM/yy') : 'Data desconhecida'}
                         </p>
                       </div>
-                      {linkedCycle && <ChevronRight size={16} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />}
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setReportToDelete(report.id);
+                          }}
+                          className="w-8 h-8 rounded-lg bg-red-500/10 text-red-500 flex items-center justify-center hover:bg-red-500/20 transition-colors"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        {linkedCycle && <ChevronRight size={16} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />}
+                      </div>
                     </div>
                   </CardContent>
                 </Card>
@@ -619,6 +638,20 @@ export const Reports = () => {
           </div>
         )}
       </AnimatePresence>
+      <ConfirmationModal
+        isOpen={!!reportToDelete}
+        onClose={() => setReportToDelete(null)}
+        onConfirm={() => {
+          if (reportToDelete) {
+            deleteImportedReport(reportToDelete);
+            setReportToDelete(null);
+          }
+        }}
+        title="Excluir Relatório"
+        message="Tem certeza que deseja excluir este relatório importado? Se houver um ciclo vinculado, ele não será excluído, mas perderá o vínculo com este relatório."
+        confirmText="Excluir"
+        variant="danger"
+      />
     </motion.div>
   );
 };

@@ -190,7 +190,8 @@ export function calculateDriverScore(metrics: any) {
       color: 'text-slate-400 bg-slate-400/10 border-slate-400/20',
       explanation: totalKm < 5 
         ? 'Coletando dados iniciais. Continue dirigindo para ver sua performance.' 
-        : 'Dados em formação. Dirija pelo menos 15km para um score preciso.'
+        : 'Dados em formação. Dirija pelo menos 15km para um score preciso.',
+      suggestions: []
     };
   }
 
@@ -202,23 +203,27 @@ export function calculateDriverScore(metrics: any) {
   
   let label = 'Baixo';
   let color = 'text-red-500 bg-red-500/10 border-red-500/20';
-  let explanation = 'Sua eficiência está baixa. Tente reduzir o KM ocioso entre as corridas.';
+  let explanation = 'Sua eficiência operacional está abaixo do ideal, o que impacta diretamente seu lucro líquido.';
+  let suggestions = ['Reduzir KM ocioso entre corridas', 'Focar em corridas mais longas ou com melhor valor/km'];
   
   if (score >= 85) {
     label = 'Excelente';
     color = 'text-emerald-500 bg-emerald-500/10 border-emerald-500/20';
     explanation = 'Parabéns! Você está operando com máxima eficiência e ótima margem de lucro.';
+    suggestions = ['Mantenha sua estratégia atual', 'Considere horários de pico para maximizar ganhos'];
   } else if (score >= 70) {
     label = 'Bom';
     color = 'text-blue-500 bg-blue-500/10 border-blue-500/20';
-    explanation = 'Bom desempenho. Continue focando em corridas com melhor valor por KM.';
+    explanation = 'Bom desempenho. Você tem uma boa relação entre KM rodado e lucro obtido.';
+    suggestions = ['Seja mais seletivo com corridas curtas', 'Evite áreas de congestionamento intenso'];
   } else if (score >= 50) {
     label = 'Médio';
     color = 'text-amber-500 bg-amber-500/10 border-amber-500/20';
-    explanation = 'Desempenho regular. Há espaço para melhorar o posicionamento estratégico.';
+    explanation = 'Desempenho regular. Há espaço para melhorar o posicionamento estratégico e reduzir custos.';
+    suggestions = ['Evite rodar sem destino entre corridas', 'Analise os horários de maior demanda na sua região'];
   }
   
-  return { score, label, color, explanation };
+  return { score, label, color, explanation, suggestions };
 }
 
 export function getBestHourRanges(cycles: any[]) {

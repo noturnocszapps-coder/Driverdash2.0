@@ -183,6 +183,31 @@ export interface VehicleProfile {
   is_active?: boolean;
 }
 
+export interface AdminStats {
+  totalUsers: number;
+  totalCycles: number;
+  totalVehicles: number;
+  systemUptime: string;
+  lastUpdate: string;
+}
+
+export interface SystemLog {
+  id: string;
+  timestamp: string;
+  level: 'info' | 'warn' | 'error';
+  message: string;
+  user_id?: string;
+  metadata?: any;
+}
+
+export interface GlobalConfig {
+  id: string;
+  key: string;
+  value: any;
+  description?: string;
+  updated_at: string;
+}
+
 export interface UserSettings {
   dailyGoal: number;
   name: string;
@@ -207,11 +232,16 @@ export interface UserSettings {
   voiceVolume?: number;
   role?: UserRole;
   status?: UserStatus;
+  phone?: string;
+  city?: string;
+  mainPlatform?: string;
+  bio?: string;
   updated_at?: string;
   onboardingCompleted?: boolean;
   isPro?: boolean;
   uiMode?: 'simple' | 'pro';
   quickActions?: string[];
+  geminiApiKey?: string;
 }
 
 export type HUDState = 'expanded' | 'minimized' | 'hidden';
@@ -256,6 +286,30 @@ export interface StopPoint {
 }
 
 export type GPSStatus = 'connecting' | 'active' | 'unavailable' | 'idle';
+
+export type MarkerType = 'radar' | 'pothole' | 'ditch' | 'bathroom' | 'water' | 'danger';
+
+export interface MapMarker {
+  id: string;
+  type: MarkerType;
+  lat: number;
+  lng: number;
+  description?: string;
+  createdBy: string;
+  createdAt: string;
+  status: 'pending' | 'approved' | 'rejected';
+  approvedBy?: string;
+  approvedAt?: string;
+}
+
+export interface Route {
+  id: string;
+  cycleId: string;
+  points: TrackingPoint[];
+  startTime: string;
+  endTime?: string;
+  totalDistance: number;
+}
 
 export interface TrackingSession {
   isActive: boolean;
@@ -383,6 +437,7 @@ export interface AuthUser {
   name?: string;
   role?: UserRole;
   status?: UserStatus;
+  createdAt?: string;
 }
 
 export interface FaturamentoLog {
@@ -479,6 +534,7 @@ export interface DriverProfile {
   bestRegions: string[];
   worstRegions: string[];
   totalRides: number;
+  mapsViewed?: number;
   lastUpdated: string;
   score: number;
   badges: string[];
@@ -514,12 +570,25 @@ export interface DriverState {
   financialEntries: FinancialEntry[];
   performanceRecords: DriverPerformanceRecord[];
   driverProfile: DriverProfile;
+  adminStats: AdminStats;
+  allUsers: AuthUser[];
+  systemLogs: SystemLog[];
+  globalConfigs: GlobalConfig[];
+  mapMarkers: MapMarker[];
+  routes: Route[];
   
   // Plan & Paywall
   plan: PlanType;
   setPlan: (plan: PlanType) => void;
   isPaywallOpen: boolean;
   setPaywallOpen: (isOpen: boolean) => void;
+  fetchAdminStats: () => Promise<void>;
+  fetchAllUsers: () => Promise<void>;
+  updateUserRole: (userId: string, role: UserRole) => Promise<void>;
+  updateUserStatus: (userId: string, status: UserStatus) => Promise<void>;
+  fetchSystemLogs: () => Promise<void>;
+  updateGlobalConfig: (key: string, value: any) => Promise<void>;
+  loadGlobalConfigs: () => Promise<void>;
   
   // HUD Interaction State
   isQuickActionsOpen: boolean;
@@ -625,4 +694,13 @@ export interface DriverState {
   loadPerformanceData: () => Promise<void>;
   addPerformanceRecord: (record: Omit<DriverPerformanceRecord, 'id' | 'user_id' | 'created_at'>) => Promise<void>;
   updateDriverProfile: () => void;
+  incrementMapsViewed: () => void;
+
+  // Map & Route Methods
+  addMapMarker: (marker: Omit<MapMarker, 'id' | 'createdAt' | 'status' | 'createdBy'>) => Promise<void>;
+  approveMapMarker: (markerId: string) => Promise<void>;
+  rejectMapMarker: (markerId: string) => Promise<void>;
+  loadMapMarkers: () => Promise<void>;
+  saveRoute: (route: Omit<Route, 'id'>) => Promise<void>;
+  loadRoutes: () => Promise<void>;
 }

@@ -32,7 +32,8 @@ import {
   Rocket,
   History,
   BarChart2,
-  Trophy
+  Trophy,
+  Map as MapIcon
 } from 'lucide-react';
 import { startOfDay, format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -124,7 +125,8 @@ export const Dashboard = () => {
     vehicles = [],
     activeVehicleId,
     plan,
-    setPaywallOpen
+    setPaywallOpen,
+    driverProfile
   } = useDriverStore();
 
   const [isLoading, setIsLoading] = useState(true);
@@ -197,7 +199,19 @@ export const Dashboard = () => {
   }, [openCycle, settings?.fixedCosts, currentVehicle]);
 
   const dailyGoal = safeNumber(settings?.dailyGoal || 250);
-  const currentEarnings = safeNumber(openCycle?.total_amount || 0);
+  
+  // Calculate total earnings for today (all cycles started today)
+  const todayTotalEarnings = useMemo(() => {
+    const today = startOfDay(new Date());
+    return cycles
+      .filter(c => {
+        const cycleDate = parseISO(c.start_time);
+        return startOfDay(cycleDate).getTime() === today.getTime();
+      })
+      .reduce((acc, c) => acc + safeNumber(c.total_amount), 0);
+  }, [cycles]);
+
+  const currentEarnings = todayTotalEarnings;
   const remainingGoal = Math.max(0, dailyGoal - currentEarnings);
   const goalProgress = Math.min((currentEarnings / dailyGoal) * 100, 100);
 
@@ -393,10 +407,12 @@ export const Dashboard = () => {
                   {formatCurrency(currentEarnings)}
                 </h2>
               </div>
-              <div className="bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 shadow-sm shrink-0 flex items-center gap-2">
-                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                Ciclo Ativo
-              </div>
+              {hasOpenCycle && (
+                <div className="bg-emerald-500/10 text-emerald-500 px-4 py-2 rounded-2xl text-[9px] md:text-[10px] font-black uppercase tracking-widest border border-emerald-500/20 shadow-sm shrink-0 flex items-center gap-2">
+                  <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
+                  Ciclo Ativo
+                </div>
+              )}
             </div>
 
             {profitStats && (
@@ -432,10 +448,22 @@ export const Dashboard = () => {
             </div>
 
             <Button 
-              onClick={() => navigate('/faturamento')}
-              className="w-full bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:opacity-90 border-none font-black uppercase tracking-widest text-[10px] h-14 rounded-2xl shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
+              onClick={() => hasOpenCycle ? navigate('/faturamento') : handleStartCycle()}
+              disabled={isProcessing}
+              className={cn(
+                "w-full h-14 font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all uppercase tracking-widest text-[10px]",
+                hasOpenCycle 
+                  ? "bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:opacity-90" 
+                  : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400 shadow-emerald-500/20"
+              )}
             >
-              Ver Detalhes do Turno <ChevronRight size={14} />
+              {isProcessing ? (
+                <Loader2 className="animate-spin" size={20} />
+              ) : hasOpenCycle ? (
+                <>Ver Detalhes do Turno <ChevronRight size={14} /></>
+              ) : (
+                <>Abrir Novo Turno <Play size={14} fill="currentColor" /></>
+              )}
             </Button>
           </CardContent>
         </Card>
@@ -676,6 +704,27 @@ export const Dashboard = () => {
               <p className="text-xl md:text-2xl font-black tracking-tighter text-emerald-500 tabular-nums">
                 9.8
               </p>
+            </CardContent>
+          </Card>
+        </motion.div>
+
+        <motion.div 
+          whileTap={{ scale: 0.98 }} 
+          className="col-span-1 cursor-pointer"
+          onClick={() => navigate('/heatmap')}
+        >
+          <Card className="border-none bg-white dark:bg-zinc-900 shadow-xl rounded-[2rem] overflow-hidden h-full border border-emerald-500/10 hover:border-emerald-500/30 transition-colors">
+            <CardContent className="p-4 md:p-6 space-y-1.5 md:space-y-2">
+              <div className="flex items-center gap-2 text-zinc-400">
+                <MapIcon size={12} className="opacity-50" />
+                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.2em]">Mapas</p>
+              </div>
+              <div className="flex items-baseline justify-between">
+                <p className="text-xl md:text-2xl font-black tracking-tighter text-zinc-900 dark:text-white tabular-nums">
+                  {driverProfile.mapsViewed || 0}
+                </p>
+                <ChevronRight size={14} className="text-emerald-500" />
+              </div>
             </CardContent>
           </Card>
         </motion.div>

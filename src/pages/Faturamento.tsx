@@ -56,6 +56,7 @@ export const Faturamento = () => {
   }, [openCycle, tracking.isActive, tracking.productiveDistance, kms.ride]);
 
   const [showAdvancedKm, setShowAdvancedKm] = useState(false);
+  const [showExpenses, setShowExpenses] = useState(false);
 
   const [isSaving, setIsSaving] = useState(false);
   const [saveStatus, setSaveStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -160,7 +161,7 @@ export const Faturamento = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-4 md:space-y-6 max-w-lg mx-auto"
+      className="space-y-4 md:space-y-6 max-w-2xl mx-auto"
     >
       {/* HEADER PREMIUM & COMPACTO */}
       <header className="flex items-center justify-between px-1 pt-2">
@@ -229,35 +230,34 @@ export const Faturamento = () => {
         {/* FATURAMENTO - MODO ULTRA RÁPIDO */}
         <div className="space-y-2 md:space-y-3">
           <SectionHeader icon={Smartphone} title="Faturamento" />
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-100 dark:border-zinc-800/50 shadow-sm">
-            <PlatformInput 
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <PlatformCard 
               label="Uber" 
               value={amounts.uber} 
               onChange={(val: number) => updateAmount('uber', val)}
               onAdjust={(delta: number) => handleAdjustAmount('uber', delta)}
               accent="bg-zinc-900 dark:bg-white"
             />
-            <PlatformInput 
+            <PlatformCard 
               label="99" 
               value={amounts.noventanove} 
               onChange={(val: number) => updateAmount('noventanove', val)}
               onAdjust={(delta: number) => handleAdjustAmount('noventanove', delta)}
               accent="bg-yellow-500"
             />
-            <PlatformInput 
+            <PlatformCard 
               label="inDrive" 
               value={amounts.indriver} 
               onChange={(val: number) => updateAmount('indriver', val)}
               onAdjust={(delta: number) => handleAdjustAmount('indriver', delta)}
               accent="bg-emerald-500"
             />
-            <PlatformInput 
+            <PlatformCard 
               label="Extra" 
               value={amounts.extra} 
               onChange={(val: number) => updateAmount('extra', val)}
               onAdjust={(delta: number) => handleAdjustAmount('extra', delta)}
               accent="bg-blue-500"
-              isLast
             />
           </div>
         </div>
@@ -306,28 +306,77 @@ export const Faturamento = () => {
 
         {/* DESPESAS INTELIGENTES */}
         <div className="space-y-2 md:space-y-3">
-          <SectionHeader icon={Fuel} title="Despesas" />
-          <div className="bg-white dark:bg-zinc-900 rounded-3xl overflow-hidden border border-zinc-100 dark:border-zinc-800/50 shadow-sm">
-            <ExpenseRow 
-              icon={Fuel}
-              label="Combustível" 
-              value={expenses.fuel} 
-              onChange={(val) => setExpenses(prev => ({ ...prev, fuel: val }))} 
-            />
-            <ExpenseRow 
-              icon={Utensils}
-              label="Alimentação" 
-              value={expenses.food} 
-              onChange={(val) => setExpenses(prev => ({ ...prev, food: val }))} 
-            />
-            <ExpenseRow 
-              icon={MoreHorizontal}
-              label="Outras" 
-              value={expenses.other} 
-              onChange={(val) => setExpenses(prev => ({ ...prev, other: val }))} 
-              isLast
-            />
+          <div className="flex justify-between items-center px-1">
+            <SectionHeader icon={Fuel} title="Despesas" />
+            <button 
+              onClick={() => setShowExpenses(!showExpenses)}
+              className="text-[8px] md:text-[9px] font-bold text-emerald-500 uppercase tracking-widest px-2 py-1 bg-emerald-500/10 rounded-md flex items-center gap-1"
+            >
+              {showExpenses ? 'Recolher' : 'Expandir'}
+              <motion.div
+                animate={{ rotate: showExpenses ? 180 : 0 }}
+                transition={{ duration: 0.3 }}
+              >
+                <Plus size={10} className={cn(showExpenses && "rotate-45")} />
+              </motion.div>
+            </button>
           </div>
+
+          <AnimatePresence>
+            {showExpenses ? (
+              <motion.div 
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: 'auto' }}
+                exit={{ opacity: 0, height: 0 }}
+                className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-hidden"
+              >
+                <ExpenseCard 
+                  icon={Fuel}
+                  label="Combustível" 
+                  value={expenses.fuel} 
+                  onChange={(val) => setExpenses(prev => ({ ...prev, fuel: val }))} 
+                />
+                <ExpenseCard 
+                  icon={Utensils}
+                  label="Alimentação" 
+                  value={expenses.food} 
+                  onChange={(val) => setExpenses(prev => ({ ...prev, food: val }))} 
+                />
+                <ExpenseCard 
+                  icon={MoreHorizontal}
+                  label="Outras" 
+                  value={expenses.other} 
+                  onChange={(val) => setExpenses(prev => ({ ...prev, other: val }))} 
+                />
+              </motion.div>
+            ) : (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                onClick={() => setShowExpenses(true)}
+                className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between cursor-pointer group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex -space-x-2">
+                    <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center border-2 border-white dark:border-zinc-900">
+                      <Fuel size={10} className="text-zinc-500" />
+                    </div>
+                    <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center border-2 border-white dark:border-zinc-900">
+                      <Utensils size={10} className="text-zinc-500" />
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
+                    {totalExpenses > dailyFixed ? 'Despesas Registradas' : 'Nenhuma despesa extra'}
+                  </span>
+                </div>
+                <div className="text-right">
+                  <p className="text-[10px] font-black text-zinc-900 dark:text-white">
+                    {formatCurrency(totalExpenses - dailyFixed)}
+                  </p>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* RESUMO DE EFICIÊNCIA - NOVO PARA PREENCHER ESPAÇO */}
@@ -375,7 +424,7 @@ export const Faturamento = () => {
 
       {/* CARD FINAL - FLUXO NORMAL */}
       <div className="w-full px-2 pt-4 pb-10 h-auto">
-        <div className="max-w-lg mx-auto">
+        <div className="max-w-2xl mx-auto">
           <Card className="bg-zinc-900 text-white border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden">
             <CardContent className="p-4 md:p-5 space-y-3 md:space-y-4">
               <div className="flex justify-between items-end">
@@ -447,15 +496,15 @@ const SectionHeader = ({ icon: Icon, title }: any) => (
   </div>
 );
 
-const PlatformInput = ({ label, value, onChange, onAdjust, accent, isLast }: any) => {
+const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => {
   const [isEditing, setIsEditing] = useState(false);
-  const [tempValue, setTempValue] = useState(value.toString());
+  const [tempValue, setTempValue] = useState((value || 0).toString());
   const timerRef = useRef<any>(null);
-  const valueRef = useRef(value);
+  const valueRef = useRef(value || 0);
 
   useEffect(() => {
-    valueRef.current = value;
-    if (!isEditing) setTempValue(value.toString());
+    valueRef.current = value || 0;
+    if (!isEditing) setTempValue((value || 0).toString());
   }, [value, isEditing]);
 
   const handleBlur = () => {
@@ -487,13 +536,10 @@ const PlatformInput = ({ label, value, onChange, onAdjust, accent, isLast }: any
   };
 
   return (
-    <div className={cn(
-      "px-4 md:px-5 py-3 md:py-4 flex items-center justify-between gap-3",
-      !isLast && "border-b border-zinc-50 dark:border-zinc-800/50"
-    )}>
+    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 shadow-sm flex flex-col gap-3">
       <div className="flex items-center gap-3">
         <div className={cn("w-2 h-2 rounded-full shadow-sm", accent)} />
-        <span className="font-bold text-xs text-zinc-700 dark:text-zinc-300">{label}</span>
+        <span className="font-bold text-[10px] uppercase tracking-widest text-zinc-500">{label}</span>
       </div>
       
       <div className="flex items-center gap-2">
@@ -507,12 +553,12 @@ const PlatformInput = ({ label, value, onChange, onAdjust, accent, isLast }: any
           <Minus size={16} />
         </motion.button>
         
-        <div className="relative w-24">
+        <div className="relative flex-1">
           <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400">R$</span>
           <input 
             type="text"
             inputMode="decimal"
-            value={isEditing ? tempValue : value}
+            value={isEditing ? tempValue : (value || 0)}
             onChange={(e) => {
               setTempValue(e.target.value.replace(/[^0-9,.]/g, ''));
               if (!isEditing) setIsEditing(true);
@@ -536,29 +582,28 @@ const PlatformInput = ({ label, value, onChange, onAdjust, accent, isLast }: any
   );
 };
 
-const ExpenseRow = ({ icon: Icon, label, value, onChange, isLast }: any) => (
+const ExpenseCard = ({ icon: Icon, label, value = 0, onChange }: any) => (
   <div className={cn(
-    "px-4 md:px-5 py-3 md:py-4 flex items-center justify-between transition-colors",
-    !isLast && "border-b border-zinc-50 dark:border-zinc-800/50",
-    value > 0 && "bg-emerald-500/5"
+    "bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 shadow-sm flex flex-col gap-3 transition-all",
+    (value || 0) > 0 && "border-emerald-500/30 bg-emerald-500/5"
   )}>
     <div className="flex items-center gap-3">
       <div className={cn(
         "w-8 h-8 rounded-xl flex items-center justify-center transition-colors",
-        value > 0 ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+        (value || 0) > 0 ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
       )}>
         <Icon size={16} />
       </div>
       <span className={cn(
-        "text-xs font-bold transition-colors",
-        value > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-600 dark:text-zinc-400"
+        "text-[10px] font-bold uppercase tracking-widest transition-colors",
+        (value || 0) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-600 dark:text-zinc-400"
       )}>{label}</span>
     </div>
-    <div className="relative w-24">
+    <div className="relative">
       <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400">R$</span>
       <input 
         type="number"
-        value={value === 0 ? '' : value}
+        value={(value || 0) === 0 ? '' : value}
         onChange={(e) => {
           const val = e.target.value;
           onChange(val === '' ? 0 : Number(val));
@@ -566,7 +611,7 @@ const ExpenseRow = ({ icon: Icon, label, value, onChange, isLast }: any) => (
         placeholder="0,00"
         className={cn(
           "w-full bg-zinc-50 dark:bg-zinc-800/30 border-none rounded-xl py-2 pl-8 pr-3 text-right font-bold text-sm transition-all",
-          value > 0 ? "text-emerald-500" : "text-zinc-400"
+          (value || 0) > 0 ? "text-emerald-500" : "text-zinc-400"
         )}
       />
     </div>

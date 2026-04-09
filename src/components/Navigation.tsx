@@ -32,8 +32,8 @@ export const BottomNav = () => {
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-200/50 dark:border-zinc-800/50 px-4 pb-safe pt-2 z-50">
-      <div className="flex justify-between items-center max-w-lg mx-auto">
+    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-200/50 dark:border-zinc-800/50 px-2 pb-safe pt-2 z-50">
+      <div className="flex justify-between items-center max-w-lg mx-auto w-full">
         {items.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -41,7 +41,7 @@ export const BottomNav = () => {
               key={item.path} 
               to={item.path}
               className={cn(
-                "relative flex flex-col items-center gap-1 flex-1 py-1 transition-all active:scale-95 min-w-0",
+                "relative flex flex-col items-center gap-0.5 flex-1 py-1 transition-all active:scale-95 min-w-0",
                 isActive ? "text-emerald-500" : "text-zinc-500 dark:text-zinc-400"
               )}
             >
@@ -51,8 +51,10 @@ export const BottomNav = () => {
                   className="absolute -top-2 left-0 right-0 h-0.5 bg-emerald-500 rounded-full mx-auto w-4"
                 />
               )}
-              <item.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-              <span className="text-[8px] font-bold uppercase tracking-widest leading-none">{item.label}</span>
+              <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
+              <span className="text-[7px] font-black uppercase tracking-tight leading-none truncate w-full text-center px-0.5">
+                {item.label}
+              </span>
             </Link>
           );
         })}

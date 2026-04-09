@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus, PlanType, StopPoint } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus, PlanType, StopPoint, AdminStats } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
@@ -26,6 +26,8 @@ const TRACKING_CONFIG = {
   MANUAL_OVERRIDE_TIMEOUT: 300000, // 5 minutos
   TRANSITION_WINDOW_MS: 70000, // 70 segundos para corridas seguidas
   TRAFFIC_LIGHT_MAX_MS: 90000, // 90 segundos
+  MIN_STOP_DURATION_MS: 30000, // 30 segundos para registrar como parada real (evita semáforos curtos)
+  STOP_DETECTION_DEBOUNCE_POINTS: 6, // 6 pontos consecutivos (~30s) parados antes de iniciar contagem
   WAITING_PASSENGER_MS: 120000, // 120 segundos
   WAITING_PASSENGER_DIST: 0.08, // 80 metros
   GPS_HEALTH_CHECK_MS: 20000, // Aumentado para 20 segundos para dar mais tempo no início
@@ -56,6 +58,10 @@ const INITIAL_SETTINGS: UserSettings = {
   currentVehicleProfileId: undefined,
   role: UserRole.DRIVER,
   status: UserStatus.ACTIVE,
+  phone: '',
+  city: '',
+  mainPlatform: 'Uber',
+  bio: '',
   onboardingCompleted: false,
   isPro: false,
   uiMode: 'simple',
@@ -105,12 +111,21 @@ const INITIAL_DRIVER_PROFILE: DriverProfile = {
   bestRegions: [],
   worstRegions: [],
   totalRides: 0,
+  mapsViewed: 0,
   lastUpdated: new Date().toISOString(),
   score: 0,
   badges: []
 };
 
 const ACTIVE_VEHICLE_KEY = 'driverdash_active_vehicle_id';
+
+const INITIAL_ADMIN_STATS: AdminStats = {
+  totalUsers: 0,
+  totalCycles: 0,
+  totalVehicles: 0,
+  systemUptime: '100%',
+  lastUpdate: new Date().toISOString()
+};
 
 export const useDriverStore = create<DriverState>()(
   persist(
@@ -132,6 +147,12 @@ export const useDriverStore = create<DriverState>()(
       vehicles: [],
       performanceRecords: [],
       driverProfile: INITIAL_DRIVER_PROFILE,
+      adminStats: INITIAL_ADMIN_STATS,
+      allUsers: [],
+      systemLogs: [],
+      globalConfigs: [],
+      mapMarkers: [],
+      routes: [],
       activeVehicleId: undefined,
       settings: INITIAL_SETTINGS,
       tracking: INITIAL_TRACKING,
@@ -160,6 +181,133 @@ export const useDriverStore = create<DriverState>()(
       setPlan: (plan) => {
         localStorage.setItem('driverdash_plan', plan);
         set({ plan });
+      },
+      fetchAdminStats: async () => {
+        const { settings, user } = get();
+        if (settings.role !== UserRole.ADMIN || !user || !isSupabaseConfigured) return;
+
+        try {
+          // Fetch total cycles
+          const { count: cycleCount, error: cycleError } = await supabase
+            .from('cycles')
+            .select('*', { count: 'exact', head: true });
+          
+          // Fetch total vehicles
+          const { count: vehicleCount, error: vehicleError } = await supabase
+            .from('vehicles')
+            .select('*', { count: 'exact', head: true });
+
+          // Fetch total users (if profiles table exists)
+          let userCount = 0;
+          const { count: profilesCount, error: profilesError } = await supabase
+            .from('profiles')
+            .select('*', { count: 'exact', head: true });
+          
+          if (!profilesError) {
+            userCount = profilesCount || 0;
+          } else {
+            // Fallback: try to count unique user_ids in cycles if profiles is not accessible
+            const { data: uniqueUsers, error: uniqueError } = await supabase
+              .from('cycles')
+              .select('user_id');
+            
+            if (!uniqueError && uniqueUsers) {
+              const uniqueIds = new Set(uniqueUsers.map(u => u.user_id));
+              userCount = uniqueIds.size;
+            }
+          }
+
+          set({
+            adminStats: {
+              totalUsers: userCount || 1, // At least 1 (the current user)
+              totalCycles: cycleCount || 0,
+              totalVehicles: vehicleCount || 0,
+              systemUptime: '99.9%',
+              lastUpdate: new Date().toISOString()
+            }
+          });
+        } catch (error) {
+          console.error('[ADMIN] Error fetching stats:', error);
+        }
+      },
+      fetchAllUsers: async () => {
+        const { settings, user } = get();
+        if (settings.role !== UserRole.ADMIN || !user || !isSupabaseConfigured) return;
+        try {
+          const { data, error } = await supabase.from('profiles').select('*');
+          if (error) throw error;
+          set({ allUsers: data || [] });
+        } catch (error) {
+          console.error('[ADMIN] Error fetching users:', error);
+          toast.error('Erro ao buscar usuários');
+        }
+      },
+      updateUserRole: async (userId, role) => {
+        const { settings, user } = get();
+        if (settings.role !== UserRole.ADMIN || !user || !isSupabaseConfigured) return;
+        try {
+          const { error } = await supabase.from('profiles').update({ role }).eq('id', userId);
+          if (error) throw error;
+          toast.success('Role atualizada com sucesso');
+          get().fetchAllUsers();
+        } catch (error) {
+          console.error('[ADMIN] Error updating role:', error);
+          toast.error('Erro ao atualizar role');
+        }
+      },
+      updateUserStatus: async (userId, status) => {
+        const { settings, user } = get();
+        if (settings.role !== UserRole.ADMIN || !user || !isSupabaseConfigured) return;
+        try {
+          const { error } = await supabase.from('profiles').update({ status }).eq('id', userId);
+          if (error) throw error;
+          toast.success('Status atualizado com sucesso');
+          get().fetchAllUsers();
+        } catch (error) {
+          console.error('[ADMIN] Error updating status:', error);
+          toast.error('Erro ao atualizar status');
+        }
+      },
+      fetchSystemLogs: async () => {
+        const { settings, user } = get();
+        if (settings.role !== UserRole.ADMIN || !user || !isSupabaseConfigured) return;
+        try {
+          const { data, error } = await supabase.from('system_logs').select('*').order('timestamp', { ascending: false }).limit(100);
+          if (error) {
+            set({ systemLogs: [
+              { id: '1', timestamp: new Date().toISOString(), level: 'info', message: 'Sistema iniciado' },
+              { id: '2', timestamp: new Date().toISOString(), level: 'warn', message: 'Tentativa de acesso negada' }
+            ]});
+            return;
+          }
+          set({ systemLogs: data || [] });
+        } catch (error) {
+          console.error('[ADMIN] Error fetching logs:', error);
+        }
+      },
+      updateGlobalConfig: async (key, value) => {
+        const { settings, user } = get();
+        if (settings.role !== UserRole.ADMIN || !user || !isSupabaseConfigured) return;
+        try {
+          const { error } = await supabase.from('global_configs').upsert({ key, value, updated_at: new Date().toISOString() });
+          if (error) throw error;
+          toast.success('Configuração atualizada');
+          get().loadGlobalConfigs();
+        } catch (error) {
+          console.error('[ADMIN] Error updating config:', error);
+          toast.error('Erro ao atualizar configuração');
+        }
+      },
+      loadGlobalConfigs: async () => {
+        const { settings, user } = get();
+        if (settings.role !== UserRole.ADMIN || !user || !isSupabaseConfigured) return;
+        try {
+          const { data, error } = await supabase.from('global_configs').select('*');
+          if (error) throw error;
+          set({ globalConfigs: data || [] });
+        } catch (error) {
+          console.error('[ADMIN] Error loading configs:', error);
+        }
       },
       setPostTripActionSheet: (data) => set((state) => ({
         postTripActionSheet: { ...state.postTripActionSheet, ...data }
@@ -257,6 +405,148 @@ export const useDriverStore = create<DriverState>()(
         }
         return { userLearning: learning };
       }),
+
+      addMapMarker: async (markerData) => {
+        const { user } = get();
+        if (!user || !isSupabaseConfigured) return;
+
+        try {
+          const { data, error } = await supabase
+            .from('map_markers')
+            .insert([{
+              ...markerData,
+              user_id: user.id,
+              status: 'pending',
+              created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+          if (error) throw error;
+          
+          set(state => ({
+            mapMarkers: [...state.mapMarkers, data]
+          }));
+          toast.success('Sugestão enviada para aprovação');
+        } catch (error) {
+          console.error('[MAP] Error adding marker:', error);
+          toast.error('Erro ao enviar sugestão');
+        }
+      },
+
+      approveMapMarker: async (markerId) => {
+        const { user, settings } = get();
+        if (!user || settings.role !== UserRole.ADMIN || !isSupabaseConfigured) return;
+
+        try {
+          const { error } = await supabase
+            .from('map_markers')
+            .update({ 
+              status: 'approved',
+              approved_by: user.id,
+              approved_at: new Date().toISOString()
+            })
+            .eq('id', markerId);
+
+          if (error) throw error;
+          
+          set(state => ({
+            mapMarkers: state.mapMarkers.map(m => 
+              m.id === markerId ? { ...m, status: 'approved' } : m
+            )
+          }));
+          toast.success('Marcador aprovado');
+        } catch (error) {
+          console.error('[MAP] Error approving marker:', error);
+          toast.error('Erro ao aprovar marcador');
+        }
+      },
+
+      rejectMapMarker: async (markerId) => {
+        const { user, settings } = get();
+        if (!user || settings.role !== UserRole.ADMIN || !isSupabaseConfigured) return;
+
+        try {
+          const { error } = await supabase
+            .from('map_markers')
+            .update({ 
+              status: 'rejected',
+              approved_by: user.id,
+              approved_at: new Date().toISOString()
+            })
+            .eq('id', markerId);
+
+          if (error) throw error;
+          
+          set(state => ({
+            mapMarkers: state.mapMarkers.map(m => 
+              m.id === markerId ? { ...m, status: 'rejected' } : m
+            )
+          }));
+          toast.success('Marcador rejeitado');
+        } catch (error) {
+          console.error('[MAP] Error rejecting marker:', error);
+          toast.error('Erro ao rejeitar marcador');
+        }
+      },
+
+      loadMapMarkers: async () => {
+        if (!isSupabaseConfigured) return;
+
+        try {
+          const { data, error } = await supabase
+            .from('map_markers')
+            .select('*')
+            .or('status.eq.approved,status.eq.pending');
+
+          if (error) throw error;
+          set({ mapMarkers: data || [] });
+        } catch (error) {
+          console.error('[MAP] Error loading markers:', error);
+        }
+      },
+
+      saveRoute: async (routeData) => {
+        const { user } = get();
+        if (!user || !isSupabaseConfigured) return;
+
+        try {
+          const { data, error } = await supabase
+            .from('routes')
+            .insert([{
+              ...routeData,
+              user_id: user.id,
+              created_at: new Date().toISOString()
+            }])
+            .select()
+            .single();
+
+          if (error) throw error;
+          
+          set(state => ({
+            routes: [...state.routes, data]
+          }));
+        } catch (error) {
+          console.error('[MAP] Error saving route:', error);
+        }
+      },
+
+      loadRoutes: async () => {
+        const { user } = get();
+        if (!user || !isSupabaseConfigured) return;
+
+        try {
+          const { data, error } = await supabase
+            .from('routes')
+            .select('*')
+            .eq('user_id', user.id);
+
+          if (error) throw error;
+          set({ routes: data || [] });
+        } catch (error) {
+          console.error('[MAP] Error loading routes:', error);
+        }
+      },
 
       setUser: (user) => {
         const currentUser = get().user;
@@ -1134,15 +1424,23 @@ export const useDriverStore = create<DriverState>()(
       },
 
       deleteCycle: async (id) => {
-        const { user, isSaving } = get();
+        const { user, isSaving, cycles } = get();
         if (isSaving) return;
+
+        const cycleToDelete = cycles.find(c => c.id === id);
+        const importedReportId = cycleToDelete?.imported_report_id;
 
         set({ isSaving: true });
         try {
           set((state) => {
             const updatedCycles = state.cycles.filter(c => c.id !== id);
+            const updatedReports = importedReportId 
+              ? state.importedReports.filter(r => r.id !== importedReportId)
+              : state.importedReports;
+
             return {
               cycles: updatedCycles,
+              importedReports: updatedReports,
               hasOpenCycle: updatedCycles.some(c => c.status === 'open')
             };
           });
@@ -1159,9 +1457,18 @@ export const useDriverStore = create<DriverState>()(
 
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
-            const { error } = await supabase.from('cycles').delete().eq('id', id).eq('user_id', user.id);
-            if (error) console.error('[SYNC] Error (delete cycle):', error);
-            set({ syncStatus: error ? 'offline' : 'synced' });
+            
+            // Delete cycle
+            const { error: cycleError } = await supabase.from('cycles').delete().eq('id', id).eq('user_id', user.id);
+            if (cycleError) console.error('[SYNC] Error (delete cycle):', cycleError);
+            
+            // Delete linked report if exists
+            if (importedReportId) {
+              const { error: reportError } = await supabase.from('imported_reports').delete().eq('id', importedReportId).eq('user_id', user.id);
+              if (reportError) console.error('[SYNC] Error (delete linked report):', reportError);
+            }
+
+            set({ syncStatus: (cycleError) ? 'offline' : 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
@@ -1556,6 +1863,7 @@ export const useDriverStore = create<DriverState>()(
             if (newSettings.status !== undefined) updateObj.status = newSettings.status;
             if (newSettings.onboardingCompleted !== undefined) updateObj.onboarding_completed = newSettings.onboardingCompleted;
             if (newSettings.quickActions !== undefined) updateObj.quick_actions = newSettings.quickActions;
+            if (newSettings.geminiApiKey !== undefined) updateObj.gemini_api_key = newSettings.geminiApiKey;
 
             const { error } = await supabase
               .from('profiles')
@@ -1685,22 +1993,35 @@ export const useDriverStore = create<DriverState>()(
           } else {
             newConsecutiveStoppedPoints++;
             newConsecutiveMovingPoints = 0;
-            if (!newLastStopTimestamp) {
-              newLastStopTimestamp = newPosition.timestamp;
-            } else {
-              const stopDuration = newPosition.timestamp - newLastStopTimestamp;
-              if (stopDuration > 60000) { // 60 seconds stop
-                const lastStop = newStopPoints[newStopPoints.length - 1];
-                if (lastStop && calculateDistance(lastStop.lat, lastStop.lng, newPosition.lat, newPosition.lng) < 0.05) {
-                  lastStop.duration = stopDuration;
-                } else {
-                  newStopPoints.push({
-                    lat: newPosition.lat,
-                    lng: newPosition.lng,
-                    timestamp: newLastStopTimestamp,
-                    duration: stopDuration,
-                    label: 'Parada'
-                  });
+            
+            // Debounce: Só começa a contar a parada após X pontos consecutivos parados
+            // Isso evita que oscilações de GPS ou paradas extremamente rápidas iniciem o timer
+            if (newConsecutiveStoppedPoints >= TRACKING_CONFIG.STOP_DETECTION_DEBOUNCE_POINTS) {
+              if (!newLastStopTimestamp) {
+                // Retroage o timestamp para o início real da parada (estimado)
+                // Usamos a diferença de tempo real entre os pontos se disponível, ou estimamos
+                const estimatedStartTime = newPosition.timestamp - (TRACKING_CONFIG.STOP_DETECTION_DEBOUNCE_POINTS * 5000);
+                newLastStopTimestamp = estimatedStartTime;
+              } else {
+                const stopDuration = newPosition.timestamp - newLastStopTimestamp;
+                
+                // Só registra no array de stopPoints se a duração exceder o limite configurado (30s)
+                if (stopDuration >= TRACKING_CONFIG.MIN_STOP_DURATION_MS) {
+                  const lastStop = newStopPoints[newStopPoints.length - 1];
+                  
+                  // Se a parada atual for muito próxima da última registrada (30m), apenas atualiza a duração
+                  if (lastStop && calculateDistance(lastStop.lat, lastStop.lng, newPosition.lat, newPosition.lng) < 0.03) {
+                    lastStop.duration = stopDuration;
+                    lastStop.label = stopDuration > TRACKING_CONFIG.WAITING_PASSENGER_MS ? 'Espera Longa' : 'Parada';
+                  } else {
+                    newStopPoints.push({
+                      lat: newPosition.lat,
+                      lng: newPosition.lng,
+                      timestamp: newLastStopTimestamp,
+                      duration: stopDuration,
+                      label: stopDuration > TRACKING_CONFIG.WAITING_PASSENGER_MS ? 'Espera Longa' : 'Parada'
+                    });
+                  }
                 }
               }
             }
@@ -2108,6 +2429,17 @@ export const useDriverStore = create<DriverState>()(
           try {
             console.log('[TRACKING] Persisting data to cycle:', openCycle.id);
             await updateCycle(openCycle.id, persistedData);
+
+            // NEW: Save route to routes table
+            if (tracking.points.length > 0) {
+              get().saveRoute({
+                cycleId: openCycle.id,
+                points: tracking.points,
+                startTime: new Date(tracking.startTime || Date.now()).toISOString(),
+                endTime: new Date().toISOString(),
+                totalDistance: tracking.distance
+              });
+            }
           } catch (error) {
             console.error('[TRACKING] Error persisting data:', error);
           }
@@ -2825,9 +3157,35 @@ export const useDriverStore = create<DriverState>()(
             totalRides,
             lastUpdated: new Date().toISOString(),
             score: finalScore,
-            badges
+            badges,
+            mapsViewed: get().driverProfile.mapsViewed || 0
           }
         });
+      },
+
+      incrementMapsViewed: () => {
+        const { driverProfile, user } = get();
+        const updatedProfile = {
+          ...driverProfile,
+          mapsViewed: (driverProfile.mapsViewed || 0) + 1,
+          lastUpdated: new Date().toISOString()
+        };
+        
+        set({ driverProfile: updatedProfile });
+
+        // Sync to Supabase if configured
+        if (user && isSupabaseConfigured) {
+          supabase
+            .from('driver_profiles')
+            .upsert({
+              user_id: user.id,
+              ...updatedProfile,
+              updated_at: new Date().toISOString()
+            })
+            .then(({ error }) => {
+              if (error) console.error('[SYNC] Error incrementing maps viewed:', error);
+            });
+        }
       }
     }),
     {

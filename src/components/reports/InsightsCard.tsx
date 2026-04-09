@@ -5,7 +5,13 @@ import { cn } from '../../utils';
 
 interface InsightsCardProps {
   aiIntelligence: any;
-  driverScore: any;
+  driverScore: {
+    score: number;
+    label: string;
+    color: string;
+    explanation: string;
+    suggestions: string[];
+  };
   isCollecting: boolean;
   aiTip: string;
 }
@@ -54,6 +60,30 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
             )}>
               Score: {driverScore.score} - {driverScore.label}
             </div>
+          </div>
+
+          {/* Score Explanation and Suggestions */}
+          <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/5">
+            <div className="space-y-1">
+              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Score do Motorista</p>
+              <p className="text-xs font-bold text-zinc-200 leading-relaxed">
+                {driverScore.explanation}
+              </p>
+            </div>
+            
+            {driverScore.suggestions.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-white/5">
+                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Como melhorar:</p>
+                <ul className="space-y-1.5">
+                  {driverScore.suggestions.map((suggestion, i) => (
+                    <li key={i} className="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
+                      <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
+                      {suggestion}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-2 gap-x-8 gap-y-6">

@@ -64,10 +64,14 @@ const MapAutoCenter = ({ points }: { points: HeatmapPoint[] }) => {
 
 const HeatmapIntelligence = () => {
   const navigate = useNavigate();
-  const { cycles, tracking } = useDriverStore();
+  const { cycles, tracking, incrementMapsViewed } = useDriverStore();
   const [layer, setLayer] = useState<MapLayer>('mixed');
   const [timeFilter, setTimeFilter] = useState<TimeFilter>('all');
   const [showControls, setShowControls] = useState(true);
+
+  useEffect(() => {
+    incrementMapsViewed();
+  }, [incrementMapsViewed]);
 
   const heatmapData = useMemo(() => {
     return generateOperationalHeatmap(cycles, layer, timeFilter);

@@ -194,6 +194,8 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   const isOnboarding = location.pathname === '/onboarding';
 
   useEffect(() => {
+    window.scrollTo(0, 0);
+    
     console.log('[LANDSCAPE_LAYOUT] Viewport:', `${window.innerWidth}x${window.innerHeight}`);
     console.log('[LANDSCAPE_LAYOUT] Is Mobile (Hook):', isMobile);
     console.log('[LANDSCAPE_LAYOUT] Sidebar Rendered:', !isMobile);
@@ -209,7 +211,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       const items = bottomNav.querySelectorAll('a');
       console.log('[BOTTOM_NAV] Items count:', items.length);
     }
-  }, []);
+  }, [location.pathname, isMobile]);
 
   if (isLanding || isAuth || isOnboarding) {
     return (
@@ -217,10 +219,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
-            initial={{ opacity: 0, x: 20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+            initial={{ opacity: 0, scale: 0.98, filter: 'blur(4px)' }}
+            animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
+            exit={{ opacity: 0, scale: 1.02, filter: 'blur(4px)' }}
+            transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
             className="flex-1 flex flex-col w-full"
           >
             {children}
@@ -243,10 +245,10 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -10 }}
-              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
+              initial={{ opacity: 0, y: 8, scale: 0.99 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -8, scale: 1.01 }}
+              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
               className="flex-1 flex flex-col w-full"
             >
               {children}
@@ -518,6 +520,7 @@ export default function App() {
             name: session.user.user_metadata?.name || 'User',
             role: session.user.user_metadata?.role || UserRole.DRIVER,
             status: session.user.user_metadata?.status || UserStatus.ACTIVE,
+            createdAt: session.user.created_at,
           });
           setSyncStatus('online');
           console.log('[AUTH] Session restored:', session.user.email);
@@ -552,6 +555,7 @@ export default function App() {
           name: session.user.user_metadata?.name || 'User',
           role: session.user.user_metadata?.role || UserRole.DRIVER,
           status: session.user.user_metadata?.status || UserStatus.ACTIVE,
+          createdAt: session.user.created_at,
         });
         setSyncStatus('online');
       } else {

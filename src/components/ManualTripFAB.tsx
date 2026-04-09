@@ -37,10 +37,16 @@ export const ManualTripFAB = () => {
     }
   };
 
+  const [isQuickActionPulse, setIsQuickActionPulse] = React.useState(false);
+
   const handleLongPress = (e: React.MouseEvent | React.TouchEvent) => {
     e.preventDefault();
     setQuickActionsOpen(true);
-    if (navigator.vibrate) navigator.vibrate(30);
+    setIsQuickActionPulse(true);
+    // Enhanced vibration for long press feedback
+    if (navigator.vibrate) navigator.vibrate([30, 50, 30]);
+    // Reset pulse after animation
+    setTimeout(() => setIsQuickActionPulse(false), 600);
   };
 
   // Map tracking mode to visual style
@@ -88,7 +94,11 @@ export const ManualTripFAB = () => {
           <motion.button
             key={mode}
             initial={{ opacity: 0, scale: 0.8 }}
-            animate={{ opacity: 1, scale: 1 }}
+            animate={{ 
+              opacity: 1, 
+              scale: isQuickActionPulse ? 1.15 : 1,
+              boxShadow: isQuickActionPulse ? "0 0 30px rgba(16, 185, 129, 0.6)" : undefined
+            }}
             exit={{ opacity: 0, scale: 0.8 }}
             whileTap={{ scale: 0.94 }}
             onPanEnd={handlePan}
@@ -102,6 +112,19 @@ export const ManualTripFAB = () => {
               getFABStyle()
             )}
           >
+            {/* Quick Action Pulse Ring */}
+            <AnimatePresence>
+              {isQuickActionPulse && (
+                <motion.div
+                  initial={{ scale: 0.8, opacity: 0.5 }}
+                  animate={{ scale: 2, opacity: 0 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="absolute inset-0 rounded-full bg-white/30 z-0"
+                />
+              )}
+            </AnimatePresence>
+
             {/* Refined Premium Glow - Ultra Subtle */}
             <motion.div 
               animate={{ 
