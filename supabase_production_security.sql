@@ -49,22 +49,27 @@ ALTER TABLE public.financial_entries ENABLE ROW LEVEL SECURITY;
 CREATE OR REPLACE FUNCTION public.is_admin()
 RETURNS BOOLEAN AS $$
 BEGIN
-  RETURN (
-    SELECT role = 'admin' 
-    FROM public.profiles 
-    WHERE id = auth.uid()
+  -- 1. Verificação rápida via JWT claims (não recursivo e performático)
+  IF (auth.jwt() ->> 'email') = 'noturnocszapps@gmail.com' THEN
+    RETURN TRUE;
+  END IF;
+
+  -- 2. Verificação via tabela profiles (SECURITY DEFINER ignora RLS aqui)
+  RETURN EXISTS (
+    SELECT 1 FROM public.profiles 
+    WHERE id = auth.uid() AND role = 'admin'
   );
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER STABLE;
+$$ LANGUAGE plpgsql SECURITY DEFINER STABLE SET search_path = public;
 
 -- PROFILES
 DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
 CREATE POLICY "Users can view own profile" ON public.profiles 
-FOR SELECT USING (auth.uid() = id OR is_admin());
+FOR SELECT USING (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 CREATE POLICY "Users can update own profile" ON public.profiles 
-FOR UPDATE USING (auth.uid() = id OR is_admin());
+FOR UPDATE USING (auth.uid() = id OR public.is_admin());
 
 DROP POLICY IF EXISTS "Users can insert own profile" ON public.profiles;
 CREATE POLICY "Users can insert own profile" ON public.profiles 
@@ -93,33 +98,33 @@ CREATE TRIGGER on_profile_update_protect
 
 -- VEHICLES
 DROP POLICY IF EXISTS "Users can view own vehicles" ON public.vehicles;
-CREATE POLICY "Users can view own vehicles" ON public.vehicles FOR SELECT USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can view own vehicles" ON public.vehicles FOR SELECT USING (auth.uid() = user_id OR public.is_admin());
 DROP POLICY IF EXISTS "Users can insert own vehicles" ON public.vehicles;
 CREATE POLICY "Users can insert own vehicles" ON public.vehicles FOR INSERT WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Users can update own vehicles" ON public.vehicles;
-CREATE POLICY "Users can update own vehicles" ON public.vehicles FOR UPDATE USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can update own vehicles" ON public.vehicles FOR UPDATE USING (auth.uid() = user_id OR public.is_admin());
 DROP POLICY IF EXISTS "Users can delete own vehicles" ON public.vehicles;
-CREATE POLICY "Users can delete own vehicles" ON public.vehicles FOR DELETE USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can delete own vehicles" ON public.vehicles FOR DELETE USING (auth.uid() = user_id OR public.is_admin());
 
 -- CYCLES
 DROP POLICY IF EXISTS "Users can view own cycles" ON public.cycles;
-CREATE POLICY "Users can view own cycles" ON public.cycles FOR SELECT USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can view own cycles" ON public.cycles FOR SELECT USING (auth.uid() = user_id OR public.is_admin());
 DROP POLICY IF EXISTS "Users can insert own cycles" ON public.cycles;
 CREATE POLICY "Users can insert own cycles" ON public.cycles FOR INSERT WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Users can update own cycles" ON public.cycles;
-CREATE POLICY "Users can update own cycles" ON public.cycles FOR UPDATE USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can update own cycles" ON public.cycles FOR UPDATE USING (auth.uid() = user_id OR public.is_admin());
 DROP POLICY IF EXISTS "Users can delete own cycles" ON public.cycles;
-CREATE POLICY "Users can delete own cycles" ON public.cycles FOR DELETE USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can delete own cycles" ON public.cycles FOR DELETE USING (auth.uid() = user_id OR public.is_admin());
 
 -- FINANCIAL_ENTRIES
 DROP POLICY IF EXISTS "Users can view own financial_entries" ON public.financial_entries;
-CREATE POLICY "Users can view own financial_entries" ON public.financial_entries FOR SELECT USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can view own financial_entries" ON public.financial_entries FOR SELECT USING (auth.uid() = user_id OR public.is_admin());
 DROP POLICY IF EXISTS "Users can insert own financial_entries" ON public.financial_entries;
 CREATE POLICY "Users can insert own financial_entries" ON public.financial_entries FOR INSERT WITH CHECK (auth.uid() = user_id);
 DROP POLICY IF EXISTS "Users can update own financial_entries" ON public.financial_entries;
-CREATE POLICY "Users can update own financial_entries" ON public.financial_entries FOR UPDATE USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can update own financial_entries" ON public.financial_entries FOR UPDATE USING (auth.uid() = user_id OR public.is_admin());
 DROP POLICY IF EXISTS "Users can delete own financial_entries" ON public.financial_entries;
-CREATE POLICY "Users can delete own financial_entries" ON public.financial_entries FOR DELETE USING (auth.uid() = user_id OR is_admin());
+CREATE POLICY "Users can delete own financial_entries" ON public.financial_entries FOR DELETE USING (auth.uid() = user_id OR public.is_admin());
 
 -- DEMAIS TABELAS (REPETIR PADRÃO)
 -- imported_reports, expenses, fuel_logs, maintenance_logs, faturamento_logs
@@ -132,16 +137,16 @@ BEGIN
            AND table_name IN ('imported_reports', 'expenses', 'fuel_logs', 'maintenance_logs', 'faturamento_logs')
   LOOP
     EXECUTE format('DROP POLICY IF EXISTS "Users can view own %I" ON public.%I', t, t);
-    EXECUTE format('CREATE POLICY "Users can view own %I" ON public.%I FOR SELECT USING (auth.uid() = user_id OR is_admin())', t, t);
+    EXECUTE format('CREATE POLICY "Users can view own %I" ON public.%I FOR SELECT USING (auth.uid() = user_id OR public.is_admin())', t, t);
     
     EXECUTE format('DROP POLICY IF EXISTS "Users can insert own %I" ON public.%I', t, t);
     EXECUTE format('CREATE POLICY "Users can insert own %I" ON public.%I FOR INSERT WITH CHECK (auth.uid() = user_id)', t, t);
     
     EXECUTE format('DROP POLICY IF EXISTS "Users can update own %I" ON public.%I', t, t);
-    EXECUTE format('CREATE POLICY "Users can update own %I" ON public.%I FOR UPDATE USING (auth.uid() = user_id OR is_admin())', t, t);
+    EXECUTE format('CREATE POLICY "Users can update own %I" ON public.%I FOR UPDATE USING (auth.uid() = user_id OR public.is_admin())', t, t);
     
     EXECUTE format('DROP POLICY IF EXISTS "Users can delete own %I" ON public.%I', t, t);
-    EXECUTE format('CREATE POLICY "Users can delete own %I" ON public.%I FOR DELETE USING (auth.uid() = user_id OR is_admin())', t, t);
+    EXECUTE format('CREATE POLICY "Users can delete own %I" ON public.%I FOR DELETE USING (auth.uid() = user_id OR public.is_admin())', t, t);
   END LOOP;
 END $$;
 

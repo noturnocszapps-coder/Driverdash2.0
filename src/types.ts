@@ -166,6 +166,9 @@ export interface FixedCosts {
   // Rented fields
   rentalPeriod?: 'weekly' | 'monthly';
   rentalValue?: number;
+  // Electric specific
+  batteryMaintenance?: number;
+  chargingStation?: number;
 }
 
 export interface VehicleProfile {
@@ -177,6 +180,11 @@ export interface VehicleProfile {
   plate?: string;
   type: 'owned' | 'rented';
   category: 'car' | 'motorcycle';
+  fuelType: 'gasoline' | 'ethanol' | 'diesel' | 'cng' | 'electric';
+  kmPerLiter?: number; // For combustion
+  kmPerKwh?: number; // For electric
+  fuelPrice?: number; // For combustion
+  kwhPrice?: number; // For electric
   fixedCosts: FixedCosts;
   createdAt: string;
   updated_at?: string;
@@ -287,7 +295,7 @@ export interface StopPoint {
 
 export type GPSStatus = 'connecting' | 'active' | 'unavailable' | 'idle';
 
-export type MarkerType = 'radar' | 'pothole' | 'ditch' | 'bathroom' | 'water' | 'danger';
+export type MarkerType = 'radar' | 'pothole' | 'ditch' | 'bathroom' | 'water' | 'danger' | 'gas_station' | 'police' | 'inspection';
 
 export interface MapMarker {
   id: string;

@@ -3,10 +3,10 @@ import { useDriverStore } from '../store';
 import { Card, CardContent, Button, Input, Select } from '../components/UI';
 import { 
   User, Car, Target, Trash2, LogOut, Download, Database, 
-  Upload, RefreshCw, AlertCircle, FlaskConical,
+  Upload, RefreshCw, AlertCircle, FlaskConical, Edit2,
   Zap, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
   DollarSign, Plus, CheckCircle2, Eye, EyeOff, Mic, Volume2,
-  LayoutGrid, Minus, Map, Maximize2, Play, Lightbulb, AlertTriangle,
+  LayoutGrid, Minus, Map, Maximize2, Play, Lightbulb, AlertTriangle, X,
   Phone, MapPin, Briefcase, Calendar, Settings as SettingsIcon, Users, Activity, Sparkles, Info
 } from 'lucide-react';
 import { downloadFile, formatCurrency, calculateDailyFixedCost, calculateMonthlyFixedCost } from '../utils';
@@ -40,6 +40,7 @@ export const Settings = () => {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAddingVehicle, setIsAddingVehicle] = useState(false);
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const currentVehicle = useMemo(() => {
@@ -170,27 +171,55 @@ export const Settings = () => {
   const handleAddVehicle = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
     const formData = new FormData(e.currentTarget);
+    const fuelType = formData.get('fuelType') as any;
+    const type = formData.get('type') as any;
+    
     const vehicleData: Omit<VehicleProfile, 'id' | 'createdAt'> = {
       name: formData.get('name') as string,
       brand: formData.get('brand') as string,
       model: formData.get('model') as string,
       year: formData.get('year') as string,
       plate: formData.get('plate') as string,
-      type: formData.get('type') as any,
+      type,
       category: formData.get('category') as any,
+      fuelType,
+      kmPerLiter: fuelType !== 'electric' ? Number(formData.get('kmPerUnit')) : undefined,
+      kmPerKwh: fuelType === 'electric' ? Number(formData.get('kmPerUnit')) : undefined,
+      fuelPrice: fuelType !== 'electric' ? Number(formData.get('unitPrice')) : undefined,
+      kwhPrice: fuelType === 'electric' ? Number(formData.get('unitPrice')) : undefined,
       fixedCosts: {
-        vehicleType: formData.get('type') as any,
-        rentalPeriod: 'weekly',
+        vehicleType: type,
+        rentalPeriod: formData.get('rentalPeriod') as any || 'weekly',
+        rentalValue: Number(formData.get('rentalValue')) || 0,
+        insurance: Number(formData.get('insurance')) || 0,
+        ipva: Number(formData.get('ipva')) || 0,
+        oilChange: Number(formData.get('oilChange')) || 0,
+        tires: Number(formData.get('tires')) || 0,
+        maintenance: Number(formData.get('maintenance')) || 0,
+        financing: Number(formData.get('financing')) || 0,
+        batteryMaintenance: Number(formData.get('batteryMaintenance')) || 0,
+        chargingStation: Number(formData.get('chargingStation')) || 0,
       }
     };
 
     try {
-      await addVehicle(vehicleData);
+      if (editingVehicleId) {
+        await updateVehicle(editingVehicleId, vehicleData);
+        toast.success('Veículo atualizado com sucesso');
+      } else {
+        await addVehicle(vehicleData);
+        toast.success('Veículo adicionado com sucesso');
+      }
       setIsAddingVehicle(false);
-      toast.success('Veículo adicionado com sucesso');
+      setEditingVehicleId(null);
     } catch (error: any) {
-      toast.error(`Erro ao adicionar veículo: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao salvar veículo: ${error.message || 'Verifique sua conexão'}`);
     }
+  };
+
+  const handleEditVehicle = (vehicle: any) => {
+    setEditingVehicleId(vehicle.id);
+    setIsAddingVehicle(true);
   };
 
   const updateCurrentVehicleCosts = async (newFixedCosts: any) => {
@@ -1702,23 +1731,17 @@ export const Settings = () => {
                   return (
                     <div
                       key={v.id}
-                      onClick={() => handleSelectVehicle(v.id)}
-                      role="button"
-                      tabIndex={0}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Enter' || e.key === ' ') {
-                          e.preventDefault();
-                          handleSelectVehicle(v.id);
-                        }
-                      }}
                       className={cn(
-                        "w-full p-5 rounded-[2rem] flex items-center justify-between transition-all border-2 cursor-pointer",
+                        "w-full p-5 rounded-[2rem] flex items-center justify-between transition-all border-2",
                         isActive
                           ? "bg-emerald-500/10 border-emerald-500 shadow-[0_10px_30px_rgba(16,185,129,0.15)]"
                           : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                       )}
                     >
-                      <div className="flex items-center gap-5">
+                      <div 
+                        className="flex items-center gap-5 flex-1 cursor-pointer"
+                        onClick={() => handleSelectVehicle(v.id)}
+                      >
                         <div className={cn(
                           "w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-500",
                           isActive 
@@ -1742,37 +1765,36 @@ export const Settings = () => {
                           <p className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">
                             {v.brand} {v.model} • {v.year}
                           </p>
-                          <p className="text-[9px] text-zinc-400 font-black uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
-                            <span className={cn("px-1.5 py-0.5 rounded-md", isActive ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-200 dark:bg-zinc-700")}>
-                              {v.category === 'motorcycle' ? 'Motocicleta' : 'Automóvel'}
-                            </span>
-                            <span>•</span>
-                            <span>{v.type === 'rented' ? 'Alugado' : 'Próprio'}</span>
-                          </p>
                         </div>
                       </div>
-                      {isActive ? (
-                        <div className="w-8 h-8 bg-emerald-500 rounded-full flex items-center justify-center text-zinc-950 shadow-lg shadow-emerald-500/20">
-                          <CheckCircle2 size={20} />
-                        </div>
-                      ) : (
-                        <div className="flex items-center gap-2">
-                          {vehicles.length > 1 && (
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                handleDeleteVehicle(v.id);
-                              }}
-                              className="h-10 w-10 p-0 text-zinc-400 hover:text-red-500 hover:bg-red-500/10 rounded-xl"
-                            >
-                              <Trash2 size={18} />
-                            </Button>
-                          )}
-                          <ChevronRight size={20} className="text-zinc-300" />
-                        </div>
-                      )}
+
+                      <div className="flex items-center gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleEditVehicle(v);
+                          }}
+                          className="w-10 h-10 rounded-xl text-zinc-500 hover:bg-zinc-500/10"
+                        >
+                          <Edit2 size={18} />
+                        </Button>
+                        {!isActive && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setDeletingVehicleId(v.id);
+                            }}
+                            className="w-10 h-10 rounded-xl text-red-500 hover:bg-red-500/10"
+                          >
+                            <Trash2 size={18} />
+                          </Button>
+                        )}
+                        <ChevronRight size={20} className={cn("transition-colors", isActive ? "text-emerald-500" : "text-zinc-300")} />
+                      </div>
                     </div>
                   );
                 })}
@@ -1803,7 +1825,7 @@ export const Settings = () => {
         )}
       </AnimatePresence>
 
-      {/* Add Vehicle Modal */}
+      {/* Add/Edit Vehicle Modal */}
       <AnimatePresence>
         {isAddingVehicle && (
           <>
@@ -1811,109 +1833,211 @@ export const Settings = () => {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
-              onClick={() => setIsAddingVehicle(false)}
-              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[100]"
+              onClick={() => {
+                setIsAddingVehicle(false);
+                setEditingVehicleId(null);
+              }}
+              className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[120]"
             />
             <motion.div 
               initial={{ scale: 0.9, opacity: 0, y: 20 }}
               animate={{ scale: 1, opacity: 1, y: 0 }}
               exit={{ scale: 0.9, opacity: 0, y: 20 }}
-              className="fixed inset-x-4 bottom-10 md:inset-0 m-auto w-full max-w-md h-fit z-[110] p-6"
+              className="fixed inset-x-4 top-[10%] bottom-[10%] md:inset-x-auto md:left-1/2 md:-translate-x-1/2 md:w-[500px] bg-white dark:bg-zinc-900 z-[130] rounded-[2.5rem] shadow-2xl overflow-hidden flex flex-col"
             >
-              <Card className="border-none bg-white dark:bg-zinc-900 shadow-2xl rounded-[2.5rem] overflow-hidden">
-                <CardContent className="p-8 space-y-6">
-                  <div className="flex justify-between items-center">
-                    <h3 className="text-2xl font-black tracking-tighter">Novo Veículo</h3>
-                    <Button variant="ghost" size="sm" onClick={() => setIsAddingVehicle(false)}>Fechar</Button>
-                  </div>
-                  
-                  <form onSubmit={handleAddVehicle} className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome (Ex: HB20S)</label>
-                      <Input 
-                        name="name" 
-                        required 
-                        onChange={e => validateVehicleField('name', e.target.value)}
-                        className={cn(
-                          "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold",
-                          vehicleErrors.name && "ring-2 ring-red-500/50"
-                        )} 
-                      />
-                      {vehicleErrors.name && (
-                        <p className="text-[9px] font-bold text-red-500 ml-1 uppercase tracking-wider">{vehicleErrors.name}</p>
-                      )}
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Marca</label>
-                        <Input name="brand" className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Modelo</label>
-                        <Input name="model" className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Ano</label>
-                        <Input 
-                          name="year" 
-                          onChange={e => validateVehicleField('year', e.target.value)}
-                          className={cn(
-                            "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold",
-                            vehicleErrors.year && "ring-2 ring-red-500/50"
-                          )} 
-                        />
-                        {vehicleErrors.year && (
-                          <p className="text-[9px] font-bold text-red-500 ml-1 uppercase tracking-wider">{vehicleErrors.year}</p>
-                        )}
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Placa (Opcional)</label>
-                        <Input 
-                          name="plate" 
-                          onChange={e => validateVehicleField('plate', e.target.value)}
-                          className={cn(
-                            "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold",
-                            vehicleErrors.plate && "ring-2 ring-red-500/50"
-                          )} 
-                        />
-                        {vehicleErrors.plate && (
-                          <p className="text-[9px] font-bold text-red-500 ml-1 uppercase tracking-wider">{vehicleErrors.plate}</p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo</label>
-                        <Select name="type" className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold">
-                          <option value="owned">Próprio</option>
-                          <option value="rented">Alugado</option>
-                        </Select>
-                      </div>
-                      <div className="space-y-1.5">
-                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Categoria</label>
-                        <Select name="category" className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold">
-                          <option value="car">Carro</option>
-                          <option value="motorcycle">Moto</option>
-                        </Select>
-                      </div>
-                    </div>
-                    <Button 
-                      type="submit" 
-                      disabled={isSaving}
-                      className="w-full h-16 bg-emerald-500 text-zinc-950 font-black text-lg rounded-2xl shadow-xl shadow-emerald-500/20 mt-4"
-                    >
-                      {isSaving ? (
-                        <div className="flex items-center gap-2">
-                          <div className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
-                          Salvando...
+              <div className="p-8 border-b border-zinc-100 dark:border-zinc-800 flex justify-between items-center shrink-0">
+                <div>
+                  <h3 className="text-2xl font-black tracking-tighter">
+                    {editingVehicleId ? 'Editar Veículo' : 'Novo Veículo'}
+                  </h3>
+                  <p className="text-xs text-zinc-500 font-medium">Configure os detalhes do seu veículo</p>
+                </div>
+                <button 
+                  onClick={() => {
+                    setIsAddingVehicle(false);
+                    setEditingVehicleId(null);
+                  }}
+                  className="w-10 h-10 rounded-full bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              <div className="flex-1 overflow-y-auto p-8">
+                <form id="vehicle-form" onSubmit={handleAddVehicle} className="space-y-6">
+                  {(() => {
+                    const vehicle = editingVehicleId ? vehicles.find(v => v.id === editingVehicleId) : null;
+                    return (
+                      <>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Nome do Perfil</label>
+                          <Input 
+                            name="name" 
+                            defaultValue={vehicle?.name}
+                            required 
+                            placeholder="Ex: Meu Uber, Carro da Família"
+                            className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" 
+                          />
                         </div>
-                      ) : "Salvar Veículo"}
-                    </Button>
-                  </form>
-                </CardContent>
-              </Card>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Marca</label>
+                            <Input 
+                              name="brand" 
+                              defaultValue={vehicle?.brand}
+                              required 
+                              placeholder="Ex: Toyota"
+                              className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" 
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Modelo</label>
+                            <Input 
+                              name="model" 
+                              defaultValue={vehicle?.model}
+                              required 
+                              placeholder="Ex: Corolla"
+                              className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" 
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Ano</label>
+                            <Input 
+                              name="year" 
+                              defaultValue={vehicle?.year}
+                              required 
+                              placeholder="Ex: 2022"
+                              className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" 
+                            />
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Placa (Opcional)</label>
+                            <Input 
+                              name="plate" 
+                              defaultValue={vehicle?.plate}
+                              placeholder="ABC-1234"
+                              className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" 
+                            />
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo</label>
+                            <Select 
+                              name="type" 
+                              defaultValue={vehicle?.type || 'owned'}
+                              className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+                            >
+                              <option value="owned">Próprio</option>
+                              <option value="rented">Alugado</option>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Categoria</label>
+                            <Select 
+                              name="category" 
+                              defaultValue={vehicle?.category || 'car'}
+                              className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+                            >
+                              <option value="car">Carro</option>
+                              <option value="motorcycle">Moto</option>
+                            </Select>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Combustível</label>
+                            <Select 
+                              name="fuelType" 
+                              defaultValue={vehicle?.fuelType || 'gasoline'}
+                              className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+                            >
+                              <option value="gasoline">Gasolina</option>
+                              <option value="ethanol">Etanol</option>
+                              <option value="diesel">Diesel</option>
+                              <option value="cng">GNV</option>
+                              <option value="electric">Elétrico</option>
+                            </Select>
+                          </div>
+                          <div className="space-y-1.5">
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Preço (L ou kWh)</label>
+                            <Input 
+                              name="unitPrice" 
+                              type="number" 
+                              step="0.01" 
+                              defaultValue={vehicle?.fuelPrice || vehicle?.kwhPrice}
+                              className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" 
+                            />
+                          </div>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Consumo (km/L ou km/kWh)</label>
+                          <Input 
+                            name="kmPerUnit" 
+                            type="number" 
+                            step="0.1" 
+                            defaultValue={vehicle?.kmPerLiter || vehicle?.kmPerKwh}
+                            className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" 
+                          />
+                        </div>
+
+                        <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
+                          <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-4">Custos Fixos</h4>
+                          <div className="grid grid-cols-2 gap-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Seguro (Mensal)</label>
+                              <Input name="insurance" type="number" defaultValue={vehicle?.fixedCosts?.insurance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">IPVA (Mensal)</label>
+                              <Input name="ipva" type="number" defaultValue={vehicle?.fixedCosts?.ipva} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Manutenção (Mensal)</label>
+                              <Input name="maintenance" type="number" defaultValue={vehicle?.fixedCosts?.maintenance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                            </div>
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Pneus (Mensal)</label>
+                              <Input name="tires" type="number" defaultValue={vehicle?.fixedCosts?.tires} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                            </div>
+                          </div>
+                          
+                          <div className="mt-4 space-y-4">
+                            <div className="grid grid-cols-2 gap-4">
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Maint. Bateria (Mensal)</label>
+                                <Input name="batteryMaintenance" type="number" defaultValue={vehicle?.fixedCosts?.batteryMaintenance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Estação de Carga (Mensal)</label>
+                                <Input name="chargingStation" type="number" defaultValue={vehicle?.fixedCosts?.chargingStation} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </form>
+              </div>
+
+              <div className="p-8 border-t border-zinc-100 dark:border-zinc-800 shrink-0">
+                <Button 
+                  form="vehicle-form"
+                  type="submit" 
+                  disabled={isSaving}
+                  className="w-full h-16 bg-emerald-500 text-zinc-950 font-black text-lg rounded-2xl shadow-xl shadow-emerald-500/20"
+                >
+                  {isSaving ? (
+                    <div className="flex items-center gap-2">
+                      <div className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                      Salvando...
+                    </div>
+                  ) : (editingVehicleId ? "Atualizar Veículo" : "Salvar Veículo")}
+                </Button>
+              </div>
             </motion.div>
           </>
         )}

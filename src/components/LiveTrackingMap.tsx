@@ -82,7 +82,10 @@ const MemoizedMarker = memo(({ marker, icon, isDimmed }: { marker: MapMarker, ic
           {marker.type === 'radar' ? 'Radar' : 
            marker.type === 'pothole' ? 'Buraco/Valeta' :
            marker.type === 'bathroom' ? 'Banheiro' :
-           marker.type === 'water' ? 'Água' : 'Alerta'}
+           marker.type === 'water' ? 'Água' : 
+           marker.type === 'gas_station' ? 'Posto de Combustível' :
+           marker.type === 'police' ? 'Polícia' :
+           marker.type === 'inspection' ? 'Fiscalização' : 'Alerta'}
         </p>
         {marker.description && <p className="text-xs font-bold">{marker.description}</p>}
         <p className="text-[8px] text-zinc-400 mt-1">
@@ -196,7 +199,9 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
   const getMarkerIcon = useCallback((type: MarkerType) => {
     const color = type === 'radar' ? '#ef4444' : 
                   type === 'pothole' || type === 'ditch' ? '#f59e0b' : 
-                  type === 'bathroom' || type === 'water' ? '#3b82f6' : '#6b7280';
+                  type === 'bathroom' || type === 'water' ? '#3b82f6' : 
+                  type === 'gas_station' ? '#10b981' :
+                  type === 'police' || type === 'inspection' ? '#6366f1' : '#6b7280';
     
     return L.divIcon({
       className: 'custom-marker-icon',
@@ -205,6 +210,9 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
           ${type === 'radar' ? '<path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/>' : 
             type === 'pothole' ? '<circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>' :
             type === 'bathroom' ? '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>' :
+            type === 'gas_station' ? '<path d="M3 19V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><path d="M12 11V7"/><path d="M12 17v-2"/><path d="M8 11h8"/><path d="M8 15h8"/>' :
+            type === 'police' ? '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>' :
+            type === 'inspection' ? '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="m9 12 2 2 4-4"/>' :
             '<circle cx="12" cy="12" r="10"/>'}
         </svg>
       </div>`,
@@ -422,7 +430,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
             ) : (
               <div className="space-y-4">
                 <div className="grid grid-cols-3 gap-2">
-                  {(['radar', 'pothole', 'bathroom', 'water', 'danger'] as MarkerType[]).map((type) => (
+                  {(['radar', 'pothole', 'bathroom', 'water', 'gas_station', 'police', 'inspection', 'danger'] as MarkerType[]).map((type) => (
                     <button
                       key={type}
                       onClick={() => setSelectedMarkerType(type)}
@@ -437,12 +445,18 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
                       {type === 'pothole' && <AlertTriangle size={14} />}
                       {type === 'bathroom' && <User size={14} />}
                       {type === 'water' && <Droplets size={14} />}
+                      {type === 'gas_station' && <Droplets size={14} />}
+                      {type === 'police' && <Shield size={14} />}
+                      {type === 'inspection' && <Activity size={14} />}
                       {type === 'danger' && <AlertTriangle size={14} />}
                       <span className="text-[8px] font-bold uppercase tracking-widest">
                         {type === 'radar' ? 'Radar' : 
                          type === 'pothole' ? 'Buraco' :
                          type === 'bathroom' ? 'WC' :
-                         type === 'water' ? 'Água' : 'Perigo'}
+                         type === 'water' ? 'Água' : 
+                         type === 'gas_station' ? 'Posto' :
+                         type === 'police' ? 'Polícia' :
+                         type === 'inspection' ? 'Fiscal' : 'Perigo'}
                       </span>
                     </button>
                   ))}
@@ -476,38 +490,44 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
 
       {/* Real-time Stats Overlay */}
       <div className="absolute bottom-4 left-4 right-4 z-[1000] grid grid-cols-3 gap-2 pointer-events-none">
-        <div className="bg-zinc-900/80 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
+        <div className="bg-zinc-900/90 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
           <div className="flex items-center gap-1.5 mb-1">
-            <TrendingUp size={12} className="text-emerald-500" />
-            <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Velocidade</span>
+            <TrendingUp size={14} className="text-emerald-500" />
+            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Velocidade</span>
           </div>
           <div className="flex items-baseline gap-1">
             <span className={cn(
-              "text-xl font-black tracking-tighter transition-colors duration-300",
+              "text-3xl font-black tracking-tighter transition-colors duration-300",
               currentSpeed > 110 ? "text-red-500 animate-pulse" : "text-white"
-            )}>{Math.round(currentSpeed)}</span>
-            <span className="text-[8px] font-black text-zinc-500 uppercase">km/h</span>
+            )}>
+              {Math.round(currentSpeed)}
+            </span>
+            <span className="text-[10px] font-black text-zinc-500 uppercase">km/h</span>
           </div>
         </div>
 
-        <div className="bg-zinc-900/80 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
+        <div className="bg-zinc-900/90 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
           <div className="flex items-center gap-1.5 mb-1">
-            <MapPin size={12} className="text-blue-500" />
-            <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Distância</span>
+            <MapPin size={14} className="text-blue-500" />
+            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Distância</span>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-xl font-black text-white tracking-tighter">{totalDistance.toFixed(1)}</span>
-            <span className="text-[8px] font-black text-zinc-500 uppercase">km</span>
+            <span className="text-2xl font-black text-white tracking-tighter">
+              {totalDistance.toFixed(1)}
+            </span>
+            <span className="text-[10px] font-black text-zinc-500 uppercase">km</span>
           </div>
         </div>
 
-        <div className="bg-zinc-900/80 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
+        <div className="bg-zinc-900/90 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
           <div className="flex items-center gap-1.5 mb-1">
-            <Clock size={12} className="text-amber-500" />
-            <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Tempo</span>
+            <Clock size={14} className="text-amber-500" />
+            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Tempo</span>
           </div>
           <div className="flex items-baseline gap-1">
-            <span className="text-xl font-black text-white tracking-tighter">{formatDuration(duration)}</span>
+            <span className="text-2xl font-black text-white tracking-tighter">
+              {formatDuration(duration)}
+            </span>
           </div>
         </div>
       </div>

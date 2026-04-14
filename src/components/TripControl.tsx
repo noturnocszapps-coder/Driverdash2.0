@@ -119,16 +119,27 @@ export const TripControl = () => {
               <span className="text-[7px] font-black uppercase tracking-[0.25em] text-zinc-500 leading-none">
                 {config.label.split(' ')[1] || config.label}
               </span>
-              <div className="flex items-center gap-1 mt-0.5">
-                <span className={cn(
-                  "text-base font-black tabular-nums transition-colors duration-500 tracking-tighter leading-none",
-                  tracking.currentSmoothedSpeed > 20 ? "text-emerald-500" :
-                  tracking.currentSmoothedSpeed > 5 ? "text-amber-400" :
-                  "text-zinc-200"
-                )}>
-                  {tracking.currentSmoothedSpeed.toFixed(0)}
-                </span>
-                <span className="text-[6px] font-black text-zinc-600 uppercase tracking-tighter">km/h</span>
+              <div className="flex items-center gap-2 mt-0.5">
+                <div className="flex items-baseline gap-0.5">
+                  <span className={cn(
+                    "text-3xl font-black tabular-nums transition-colors duration-500 tracking-tighter leading-none",
+                    tracking.currentSmoothedSpeed > 20 ? "text-emerald-500" :
+                    tracking.currentSmoothedSpeed > 5 ? "text-amber-400" :
+                    "text-zinc-200"
+                  )}>
+                    {tracking.currentSmoothedSpeed.toFixed(0)}
+                  </span>
+                  <span className="text-[8px] font-black text-zinc-600 uppercase tracking-tighter">km/h</span>
+                </div>
+                
+                <div className="w-px h-6 bg-white/10 mx-1" />
+                
+                <div className="flex items-baseline gap-0.5">
+                  <span className="text-xl font-black tabular-nums text-zinc-300 tracking-tighter leading-none">
+                    {(tracking.distance / 1000).toFixed(1)}
+                  </span>
+                  <span className="text-[8px] font-black text-zinc-600 uppercase tracking-tighter">km</span>
+                </div>
               </div>
             </div>
 

@@ -1432,6 +1432,7 @@ export const useDriverStore = create<DriverState>()(
 
         set({ isSaving: true });
         try {
+          // Local state update
           set((state) => {
             const updatedCycles = state.cycles.filter(c => c.id !== id);
             const updatedReports = importedReportId 
@@ -1458,9 +1459,19 @@ export const useDriverStore = create<DriverState>()(
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             
+            // Delete related records first to avoid FK constraints
+            const relatedTables = ['financial_entries', 'expenses', 'fuel_logs', 'maintenance_logs', 'faturamento_logs'];
+            for (const table of relatedTables) {
+              const { error: relError } = await supabase.from(table).delete().eq('cycle_id', id).eq('user_id', user.id);
+              if (relError) console.warn(`[SYNC] Warning (delete related ${table}):`, relError);
+            }
+
             // Delete cycle
             const { error: cycleError } = await supabase.from('cycles').delete().eq('id', id).eq('user_id', user.id);
-            if (cycleError) console.error('[SYNC] Error (delete cycle):', cycleError);
+            if (cycleError) {
+              console.error('[SYNC] Error (delete cycle):', cycleError);
+              throw cycleError;
+            }
             
             // Delete linked report if exists
             if (importedReportId) {
@@ -1468,11 +1479,14 @@ export const useDriverStore = create<DriverState>()(
               if (reportError) console.error('[SYNC] Error (delete linked report):', reportError);
             }
 
-            set({ syncStatus: (cycleError) ? 'offline' : 'synced' });
+            set({ syncStatus: 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
           }
+        } catch (error) {
+          console.error('[CYCLE] Delete error:', error);
+          set({ syncStatus: 'offline' });
         } finally {
           set({ isSaving: false });
         }
@@ -1525,6 +1539,11 @@ export const useDriverStore = create<DriverState>()(
               plate: v.plate,
               type: v.type,
               category: v.category,
+              fuelType: v.fuel_type || 'gasoline',
+              kmPerLiter: v.km_per_liter,
+              kmPerKwh: v.km_per_kwh,
+              fuelPrice: v.fuel_price,
+              kwhPrice: v.kwh_price,
               is_active: v.is_active,
               fixedCosts: {
                 vehicleType: v.type,
@@ -1535,7 +1554,9 @@ export const useDriverStore = create<DriverState>()(
                 maintenance: v.maintenance,
                 financing: v.installment,
                 rentalPeriod: v.rental_type,
-                rentalValue: v.rental_value
+                rentalValue: v.rental_value,
+                batteryMaintenance: v.battery_maintenance,
+                chargingStation: v.charging_station
               },
               createdAt: v.created_at
             }));
@@ -1563,6 +1584,11 @@ export const useDriverStore = create<DriverState>()(
             plate: vehicle.plate,
             type: vehicle.type,
             category: vehicle.category,
+            fuel_type: vehicle.fuelType,
+            km_per_liter: vehicle.kmPerLiter,
+            km_per_kwh: vehicle.kmPerKwh,
+            fuel_price: vehicle.fuelPrice,
+            kwh_price: vehicle.kwhPrice,
             insurance: vehicle.fixedCosts.insurance,
             ipva: vehicle.fixedCosts.ipva,
             oil_change: vehicle.fixedCosts.oilChange,
@@ -1571,6 +1597,8 @@ export const useDriverStore = create<DriverState>()(
             installment: vehicle.fixedCosts.financing,
             rental_type: vehicle.fixedCosts.rentalPeriod,
             rental_value: vehicle.fixedCosts.rentalValue,
+            battery_maintenance: vehicle.fixedCosts.batteryMaintenance,
+            charging_station: vehicle.fixedCosts.chargingStation,
             is_active: false,
             updated_at: new Date().toISOString()
           };
@@ -1608,6 +1636,11 @@ export const useDriverStore = create<DriverState>()(
           if (updates.plate) dbUpdates.plate = updates.plate;
           if (updates.type) dbUpdates.type = updates.type;
           if (updates.category) dbUpdates.category = updates.category;
+          if (updates.fuelType) dbUpdates.fuel_type = updates.fuelType;
+          if (updates.kmPerLiter !== undefined) dbUpdates.km_per_liter = updates.kmPerLiter;
+          if (updates.kmPerKwh !== undefined) dbUpdates.km_per_kwh = updates.kmPerKwh;
+          if (updates.fuelPrice !== undefined) dbUpdates.fuel_price = updates.fuelPrice;
+          if (updates.kwhPrice !== undefined) dbUpdates.kwh_price = updates.kwhPrice;
           
           if (updates.fixedCosts) {
             if (updates.fixedCosts.insurance !== undefined) dbUpdates.insurance = updates.fixedCosts.insurance;
@@ -1618,6 +1651,8 @@ export const useDriverStore = create<DriverState>()(
             if (updates.fixedCosts.financing !== undefined) dbUpdates.installment = updates.fixedCosts.financing;
             if (updates.fixedCosts.rentalPeriod !== undefined) dbUpdates.rental_type = updates.fixedCosts.rentalPeriod;
             if (updates.fixedCosts.rentalValue !== undefined) dbUpdates.rental_value = updates.fixedCosts.rentalValue;
+            if (updates.fixedCosts.batteryMaintenance !== undefined) dbUpdates.battery_maintenance = updates.fixedCosts.batteryMaintenance;
+            if (updates.fixedCosts.chargingStation !== undefined) dbUpdates.charging_station = updates.fixedCosts.chargingStation;
           }
 
           const { error } = await supabase.from('vehicles').update(dbUpdates).eq('id', id).eq('user_id', user.id);
