@@ -682,6 +682,7 @@ export interface DriverState {
   stopTracking: () => Promise<void>;
   startTrip: () => void;
   endTrip: () => void;
+  ignoreDetection: () => void;
   importData: (data: { 
     cycles?: Cycle[], 
     expenses?: Expense[], 

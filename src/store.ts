@@ -2083,10 +2083,11 @@ export const useDriverStore = create<DriverState>()(
                 
                 if (hasSpeed || (newConsecutiveMovingPoints >= TRACKING_CONFIG.MIN_POINTS_TRIP && hasDisplacement)) {
                   console.log('[AUTO_TRIP] Automatic trip start detected', { speedKmh, consecutivePoints: newConsecutiveMovingPoints });
-                  newMode = 'in_trip';
-                  newIsProductive = true;
-                  newTripDetectionState = 'trip_started';
-                  if (navigator.vibrate) navigator.vibrate(200);
+                  // Instead of auto-starting, set to pickup_candidate for user confirmation
+                  if (newTripDetectionState !== 'trip_started') {
+                    newTripDetectionState = 'pickup_candidate';
+                    if (navigator.vibrate) navigator.vibrate([100, 50, 100]);
+                  }
                 }
               }
               
@@ -2141,6 +2142,16 @@ export const useDriverStore = create<DriverState>()(
         set((state) => ({
           tracking: { ...state.tracking, hasActiveInsight }
         }));
+      },
+
+      ignoreDetection: () => {
+        const { updateTracking } = get();
+        updateTracking({ 
+          tripDetectionState: 'idle',
+          isManualOverride: true,
+          manualOverrideTimestamp: Date.now()
+        });
+        console.log('[TRIP] Detecção ignorada');
       },
 
       startTrip: () => {
