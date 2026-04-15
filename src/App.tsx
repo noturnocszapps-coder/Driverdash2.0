@@ -52,10 +52,7 @@ const CycleDetail = lazyWithRetry(
   () => import('./pages/CycleDetail').then((m) => ({ default: m.CycleDetail })),
   'CycleDetail'
 );
-const HeatmapIntelligence = lazyWithRetry(
-  () => import('./pages/HeatmapIntelligence'),
-  'HeatmapIntelligence'
-);
+const StrategicMap = lazyWithRetry(() => import('./pages/StrategicMap'), 'StrategicMap');
 const DevLab = lazyWithRetry(
   () => import('./pages/DevLab'),
   'DevLab'
@@ -426,8 +423,8 @@ function AppRoutes() {
             path="/heatmap"
             element={
               <ProtectedRoute>
-                <SafeRoute routeName="HeatmapIntelligence">
-                  <HeatmapIntelligence />
+                <SafeRoute routeName="StrategicMap">
+                  <StrategicMap />
                 </SafeRoute>
               </ProtectedRoute>
             }

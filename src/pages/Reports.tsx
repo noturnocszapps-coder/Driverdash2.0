@@ -57,7 +57,7 @@ export const Reports = () => {
   const start = useMemo(() => startOfWeek(today, { weekStartsOn: 1 }), [today]);
   const end = useMemo(() => addDays(start, 6), [start]);
 
-  const { dailyData: weekData, totals: weekTotals, platformMix, averages, aiIntelligence } = useConsolidatedAnalytics(start, end, filter);
+  const { dailyData: weekData, totals: weekTotals, platformMix, averages, smartInsights } = useConsolidatedAnalytics(start, end, filter);
 
   const currentWeek = useMemo(() => {
     return weekData.map(day => ({
@@ -150,23 +150,23 @@ export const Reports = () => {
     }, 0);
 
     // 8. ESTADOS HONESTOS DE MATURIDADE DE DADOS
-    const maturity = aiIntelligence.maturity;
+    const maturity = smartInsights.maturity;
 
-    // Contextual AI Tip
-    let aiTip = '';
+    // Contextual Smart Tip
+    let smartTip = '';
     if (maturity.status === 'coletando') {
-      aiTip = "Coletando dados iniciais. Continue registrando suas corridas para que a IA possa analisar seu desempenho.";
+      smartTip = "Coletando dados iniciais. Continue registrando suas corridas para que possamos analisar seu desempenho.";
     } else if (maturity.status === 'em_formacao') {
-      aiTip = `Dados em formação (${maturity.totalKm.toFixed(1)}km). ${maturity.message}. Continue usando para identificar seus melhores horários.`;
+      smartTip = `Dados em formação (${maturity.totalKm.toFixed(1)}km). ${maturity.message}. Continue usando para identificar seus melhores horários.`;
     } else {
       if (avgEfficiency < 40) {
-        aiTip = "Sua eficiência está abaixo da média. Tente reduzir o deslocamento ocioso entre as corridas para aumentar seu lucro líquido.";
+        smartTip = "Sua eficiência está abaixo da média. Tente reduzir o deslocamento ocioso entre as corridas para aumentar seu lucro líquido.";
       } else if (netPerKm < 1.2) {
-        aiTip = "Seu lucro por KM está baixo. Considere ser mais seletivo nas corridas ou revisar seus gastos com combustível.";
-      } else if (aiIntelligence.efficiencyTrend < 0) {
-        aiTip = "Sua eficiência caiu nos últimos dias. Verifique se houve mudança no seu horário ou região de trabalho.";
+        smartTip = "Seu lucro por KM está baixo. Considere ser mais seletivo nas corridas ou revisar seus gastos com combustível.";
+      } else if (smartInsights.efficiencyTrend < 0) {
+        smartTip = "Sua eficiência caiu nos últimos dias. Verifique se houve mudança no seu horário ou região de trabalho.";
       } else {
-        aiTip = "Seu desempenho está sólido! Continue focando nos horários de pico identificados para manter sua rentabilidade.";
+        smartTip = "Seu desempenho está sólido! Continue focando nos horários de pico identificados para manter sua rentabilidade.";
       }
     }
 
@@ -186,10 +186,10 @@ export const Reports = () => {
       platformTotals,
       alerts,
       maturity,
-      aiTip,
+      smartTip,
       mismatches: currentWeek.filter(d => d.hasMismatch)
     };
-  }, [currentWeek, weekTotals, settings, currentVehicle, aiIntelligence]);
+  }, [currentWeek, weekTotals, settings, currentVehicle, smartInsights]);
 
   const recentDays = useMemo(() => {
     // Group data by date first for O(1) lookup
@@ -336,31 +336,31 @@ export const Reports = () => {
         </Card>
       </div>
 
-      {/* 3. Insights Inteligentes */}
+      {/* 3. Insights de Performance */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-8">
         <InsightsCard 
-          aiIntelligence={{
-            ...aiIntelligence,
-            bestDayLabel: aiIntelligence.bestDayOfWeek !== null ? format(addDays(start, aiIntelligence.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...',
-            weakestDayLabel: aiIntelligence.weakestDayOfWeek !== null ? format(addDays(start, aiIntelligence.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...',
-            avgProfitPerKmLabel: formatCurrency(aiIntelligence.avgProfitPerKm, settings.isPrivacyMode)
+          performanceData={{
+            ...smartInsights,
+            bestDayLabel: smartInsights.bestDayOfWeek !== null ? format(addDays(start, smartInsights.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...',
+            weakestDayLabel: smartInsights.weakestDayOfWeek !== null ? format(addDays(start, smartInsights.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...',
+            avgProfitPerKmLabel: formatCurrency(smartInsights.avgProfitPerKm, settings.isPrivacyMode)
           }}
           driverScore={driverScore}
           isCollecting={stats.maturity.status === 'coletando'}
-          aiTip={stats.aiTip}
+          smartTip={stats.smartTip}
         />
 
         <div className="space-y-4 md:space-y-6">
           {/* 4. Melhores Horários */}
           <BestHoursCard 
-            bestHourByDay={aiIntelligence.bestHourByDay}
+            bestHourByDay={smartInsights.bestHourByDay}
             start={start}
             isCollecting={stats.maturity.status === 'coletando'}
           />
 
           {/* 5. Zonas de Espera */}
           <HeatmapSummaryCard 
-            waitingZones={aiIntelligence.waitingZones}
+            waitingZones={smartInsights.waitingZones}
             isCollecting={stats.maturity.status === 'coletando'}
             onViewHeatmap={() => navigate('/heatmap')}
           />

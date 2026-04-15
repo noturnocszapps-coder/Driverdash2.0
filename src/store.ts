@@ -1,11 +1,11 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripIntelligence, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus, PlanType, StopPoint, AdminStats } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripAnalytics, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus, PlanType, StopPoint, AdminStats } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
-import { evaluateCurrentTrip } from './lib/tripIntelligence';
-import { evaluateZoneQuality } from './lib/zoneIntelligence';
+import { evaluateCurrentTrip } from './lib/tripAnalytics';
+import { evaluateZoneQuality } from './lib/zoneAnalytics';
 
 let watchId: number | null = null;
 let gpsHealthTimeout: NodeJS.Timeout | null = null;
@@ -96,8 +96,8 @@ const INITIAL_TRACKING: TrackingSession = {
   tripDetectionState: 'idle' as const,
   stopReason: 'none' as const,
   lastStopLocation: undefined,
-  tripIntelligence: undefined,
-  zoneIntelligence: undefined,
+  tripAnalytics: undefined,
+  zoneAnalytics: undefined,
   hasActiveInsight: false,
   hudState: 'expanded',
   lastAlerts: {},
@@ -1100,7 +1100,7 @@ export const useDriverStore = create<DriverState>()(
               distance: tracking.distance,
               profitPerKm,
               profitPerHour,
-              region: tracking.zoneIntelligence?.label || 'Região Atual',
+              region: tracking.zoneAnalytics?.label || 'Região Atual',
               dayOfWeek: new Date().getDay(),
               hour: new Date().getHours()
             });
@@ -1986,22 +1986,22 @@ export const useDriverStore = create<DriverState>()(
           }
         }
 
-        // Auto-evaluate trip intelligence if tracking is active
+        // Auto-evaluate trip analytics if tracking is active
         if (updatedTracking.isActive) {
           const openCycle = state.cycles.find(c => c.status === 'open');
           const intelligence = evaluateCurrentTrip(updatedTracking, openCycle, state.settings);
-          updatedTracking.tripIntelligence = intelligence;
+          updatedTracking.tripAnalytics = intelligence;
 
           // Evaluate Zone Quality
-          const zoneIntelligence = evaluateZoneQuality(updatedTracking, openCycle, state.tracking.zoneIntelligence, intelligence, state.driverProfile, state.userLearning);
-          updatedTracking.zoneIntelligence = zoneIntelligence;
+          const zoneAnalytics = evaluateZoneQuality(updatedTracking, openCycle, state.tracking.zoneAnalytics, intelligence, state.driverProfile, state.userLearning);
+          updatedTracking.zoneAnalytics = zoneAnalytics;
 
           // TRIGGER ALERTS
-          if (zoneIntelligence.maturity.isMature) {
-            if (zoneIntelligence.status === 'bad_zone') {
-              state.triggerAlert('bad_zone', 'critical', zoneIntelligence.message);
-            } else if (zoneIntelligence.status === 'neutral_zone') {
-              state.triggerAlert('neutral_zone', 'important', zoneIntelligence.message);
+          if (zoneAnalytics.maturity.isMature) {
+            if (zoneAnalytics.status === 'bad_zone') {
+              state.triggerAlert('bad_zone', 'critical', zoneAnalytics.message);
+            } else if (zoneAnalytics.status === 'neutral_zone') {
+              state.triggerAlert('neutral_zone', 'important', zoneAnalytics.message);
             }
           }
 
@@ -2550,7 +2550,7 @@ export const useDriverStore = create<DriverState>()(
               distance: tracking.distance,
               profitPerKm,
               profitPerHour,
-              region: tracking.zoneIntelligence?.label || 'Região Atual',
+              region: tracking.zoneAnalytics?.label || 'Região Atual',
               dayOfWeek: new Date().getDay(),
               hour: new Date().getHours()
             });

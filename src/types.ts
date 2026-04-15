@@ -354,8 +354,8 @@ export interface TrackingSession {
   stopPoints: StopPoint[];
   lastLocation?: { lat: number; lng: number };
   lastTimestamp?: number;
-  tripIntelligence?: TripIntelligence;
-  zoneIntelligence?: ZoneIntelligence;
+  tripAnalytics?: TripAnalytics;
+  zoneAnalytics?: ZoneAnalytics;
   hasActiveInsight?: boolean;
   hudState: HUDState;
   lastAlertMessage?: string;
@@ -366,7 +366,7 @@ export type TripStatus = 'good' | 'acceptable' | 'bad' | 'analyzing';
 export type DecisionSource = 'realtime' | 'profile' | 'mixed';
 export type ConfidenceLevel = 'HIGH' | 'MEDIUM' | 'LOW';
 
-export interface TripIntelligence {
+export interface TripAnalytics {
   score: number;
   status: TripStatus;
   label: string;
@@ -388,7 +388,7 @@ export type ZoneStatus = 'good_zone' | 'neutral_zone' | 'bad_zone' | 'monitoring
 export type ZoneSeverity = 'low' | 'medium' | 'high';
 export type ZoneReason = 'high_idle_km' | 'long_wait_time' | 'low_efficiency' | 'low_demand' | 'none';
 
-export interface ZoneIntelligence {
+export interface ZoneAnalytics {
   status: ZoneStatus;
   severity: ZoneSeverity;
   label: string;

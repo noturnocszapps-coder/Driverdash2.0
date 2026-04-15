@@ -1,4 +1,4 @@
-import { TrackingSession, Cycle, ZoneIntelligence, ZoneStatus, ZoneSeverity, ZoneReason, TripIntelligence, DriverProfile, DriverState } from '../types';
+import { TrackingSession, Cycle, ZoneAnalytics, ZoneStatus, ZoneSeverity, ZoneReason, TripAnalytics, DriverProfile, DriverState } from '../types';
 import { safeNumber, getHumanLocation, calculateDistance } from '../utils';
 
 export const ZONE_DETECTION_THRESHOLDS = {
@@ -25,18 +25,18 @@ export const ZONE_DETECTION_THRESHOLDS = {
   COOLDOWN_MS: 5 * 60 * 1000, // 5 minutes between alerts
   STABILITY_WINDOW_MS: 30 * 1000, // 30 seconds debounce for state changes
   
-  // AI Learning
+  // Smart Learning
   IGNORE_PENALTY_THRESHOLD: 3, // Reduce frequency after 3 ignores
 };
 
 export function evaluateZoneQuality(
   tracking: TrackingSession,
   cycle: Cycle | undefined,
-  previousIntelligence?: ZoneIntelligence,
-  tripIntelligence?: TripIntelligence,
+  previousAnalytics?: ZoneAnalytics,
+  tripAnalytics?: TripAnalytics,
   driverProfile?: DriverProfile,
   userLearning?: DriverState['userLearning']
-): ZoneIntelligence {
+): ZoneAnalytics {
   const idleKm = safeNumber(tracking.idleDistance);
   const totalKm = safeNumber(tracking.distance);
   
@@ -64,7 +64,7 @@ export function evaluateZoneQuality(
       status: 'monitoring',
       severity: 'low',
       label: 'Monitorando região...',
-      message: 'A IA está analisando o comportamento operacional nesta área.',
+      message: 'O sistema está analisando o comportamento operacional nesta área.',
       reason: 'none',
       score: 100,
       metrics: {
@@ -76,9 +76,9 @@ export function evaluateZoneQuality(
       regionName: getHumanLocation(tracking.lastLocation?.lat || 0, tracking.lastLocation?.lng || 0),
       maturity: {
         isMature: false,
-        reason: durationMinutes < ZONE_DETECTION_THRESHOLDS.MIN_MINUTES_MATURITY 
-          ? `Aguarde mais ${Math.ceil(ZONE_DETECTION_THRESHOLDS.MIN_MINUTES_MATURITY - durationMinutes)} min`
-          : 'Dirija pelo menos 2km para ativar a análise inteligente'
+        reason: durationMinutes >= ZONE_DETECTION_THRESHOLDS.MIN_MINUTES_MATURITY 
+          ? 'Dirija pelo menos 2km para ativar a análise de performance'
+          : `Aguarde mais ${Math.ceil(ZONE_DETECTION_THRESHOLDS.MIN_MINUTES_MATURITY - durationMinutes)} min`
       }
     };
   }
@@ -129,9 +129,9 @@ export function evaluateZoneQuality(
   }
 
   // 5. Persistence and Smoothing (INÉRCIA DE DECISÃO)
-  let finalStatus = previousIntelligence?.status || rawStatus;
-  let badZoneCandidateStartTime = previousIntelligence?.badZoneCandidateStartTime;
-  let lastStateChangeTime = previousIntelligence?.lastStateChangeTime || now;
+  let finalStatus = previousAnalytics?.status || rawStatus;
+  let badZoneCandidateStartTime = previousAnalytics?.badZoneCandidateStartTime;
+  let lastStateChangeTime = previousAnalytics?.lastStateChangeTime || now;
 
   // Se o status bruto mudou, verificamos se a mudança persiste
   if (rawStatus !== finalStatus) {
@@ -184,21 +184,21 @@ export function evaluateZoneQuality(
     message = 'Sinais de baixa conversão — fique atento à sua eficiência.';
   }
 
-  // 7. Integration with Trip Intelligence
-  if (tripIntelligence?.maturity.isMature) {
-    if (tripIntelligence.status === 'good' && finalStatus === 'bad_zone') {
+  // 7. Integration with Trip Analytics
+  if (tripAnalytics?.maturity.isMature) {
+    if (tripAnalytics.status === 'good' && finalStatus === 'bad_zone') {
       severity = 'medium';
       label = 'Corrida Lucrativa / Demanda em Queda';
       message = 'Sua corrida atual está performando bem, mas a região mostra sinais de baixa demanda. Considere reposicionar-se após o desembarque.';
-    } else if (tripIntelligence.status === 'bad' && finalStatus === 'good_zone') {
+    } else if (tripAnalytics.status === 'bad' && finalStatus === 'good_zone') {
       severity = 'medium';
       label = 'Região Aquecida / Corrida Abaixo';
       message = 'A região está com boa demanda, mas sua corrida atual está abaixo da média ideal. Finalize e aguarde uma oferta melhor nesta área.';
-    } else if (tripIntelligence.status === 'bad' && finalStatus === 'bad_zone') {
+    } else if (tripAnalytics.status === 'bad' && finalStatus === 'bad_zone') {
       severity = 'high';
       label = 'Alerta Crítico: Zona & Corrida';
       message = 'Desempenho crítico detectado: tanto a corrida quanto a região estão com baixa demanda. Recomendamos reposicionamento imediato para áreas de maior fluxo.';
-    } else if (tripIntelligence.status === 'good' && finalStatus === 'good_zone') {
+    } else if (tripAnalytics.status === 'good' && finalStatus === 'good_zone') {
       severity = 'low';
       label = 'Alta Performance';
       message = 'Excelente! Você está em uma região lucrativa com uma corrida de alta eficiência. Mantenha o ritmo.';
@@ -326,7 +326,7 @@ export function evaluateZoneQuality(
     },
     maturity: { isMature: true },
     bestZone,
-    lastAlertTime: previousIntelligence?.lastAlertTime,
+    lastAlertTime: previousAnalytics?.lastAlertTime,
     lastZoneState: finalStatus,
     badZoneCandidateStartTime,
     lastStateChangeTime

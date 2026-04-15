@@ -21,55 +21,55 @@ import {
   FileText,
   Navigation,
   Square,
-  Cpu,
   Split,
-  Brain,
   Map,
   ShieldCheck,
   RefreshCw,
   Gauge,
-  Target
+  Target,
+  Mic,
+  MousePointer2,
+  ZapOff,
+  BarChart4
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Button } from './components/UI';
 import { useDriverStore } from './store';
+import { cn } from './utils';
 
 const ValueCard = ({ icon: Icon, title, subtitle, description }: any) => (
-  <div className="p-8 rounded-[2rem] bg-zinc-900/50 border border-white/5 hover:border-emerald-500/20 transition-all group">
-    <div className="w-10 h-10 rounded-xl bg-white/5 flex items-center justify-center mb-6 text-zinc-400 group-hover:text-emerald-500 transition-colors">
-      <Icon size={20} />
+  <motion.div 
+    whileHover={{ scale: 1.02, y: -5 }}
+    className="p-8 rounded-[2.5rem] bg-zinc-900/40 border border-white/5 hover:border-emerald-500/30 transition-all group relative overflow-hidden backdrop-blur-md"
+  >
+    <div className="absolute inset-0 bg-gradient-to-br from-emerald-500/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+    <div className="relative z-10">
+      <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center mb-6 text-zinc-400 group-hover:text-emerald-400 group-hover:shadow-[0_0_20px_rgba(16,185,129,0.2)] transition-all">
+        <Icon size={24} />
+      </div>
+      <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-[0.3em] mb-2">{subtitle}</h4>
+      <h3 className="text-xl font-black text-white uppercase tracking-tight mb-3">{title}</h3>
+      <p className="text-sm text-zinc-500 leading-relaxed font-medium">{description}</p>
     </div>
-    <h4 className="text-xs font-black text-emerald-500 uppercase tracking-[0.2em] mb-1">{subtitle}</h4>
-    <h3 className="text-lg font-black text-white uppercase tracking-tight mb-3">{title}</h3>
-    <p className="text-xs text-zinc-500 leading-relaxed font-medium">{description}</p>
-  </div>
+  </motion.div>
 );
 
 const StepCard = ({ number, icon: Icon, title, description }: any) => (
   <div className="relative z-10 flex flex-col items-center text-center space-y-6 group">
     <div className="relative">
-      <div className="w-20 h-20 rounded-3xl bg-zinc-900 border border-white/10 flex items-center justify-center text-white group-hover:border-emerald-500/50 transition-all duration-500">
-        <Icon size={32} />
-      </div>
-      <div className="absolute -top-3 -right-3 w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-black font-black text-[10px]">
+      <motion.div 
+        whileHover={{ rotate: 5, scale: 1.05 }}
+        className="w-24 h-24 rounded-[2rem] bg-zinc-900 border border-white/10 flex items-center justify-center text-white group-hover:border-emerald-500/50 group-hover:shadow-[0_0_30px_rgba(16,185,129,0.1)] transition-all duration-500"
+      >
+        <Icon size={36} />
+      </motion.div>
+      <div className="absolute -top-2 -right-2 w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-black font-black text-xs shadow-lg shadow-emerald-500/20">
         {number}
       </div>
     </div>
     <div className="space-y-2">
-      <h4 className="text-lg font-black text-white uppercase tracking-tight">{title}</h4>
-      <p className="text-sm text-zinc-500 leading-relaxed font-medium max-w-[200px] mx-auto">{description}</p>
-    </div>
-  </div>
-);
-
-const BenefitItem = ({ icon: Icon, title, description }: any) => (
-  <div className="flex flex-col items-center text-center space-y-6">
-    <div className="w-10 h-10 rounded-full bg-white/5 border border-white/10 flex items-center justify-center text-zinc-500">
-      <Icon size={18} />
-    </div>
-    <div className="space-y-2">
-      <h4 className="text-xs font-black text-white uppercase tracking-[0.2em]">{title}</h4>
-      <p className="text-xs text-zinc-500 leading-relaxed font-medium max-w-[200px]">{description}</p>
+      <h4 className="text-xl font-black text-white uppercase tracking-tight">{title}</h4>
+      <p className="text-sm text-zinc-500 leading-relaxed font-medium max-w-[220px] mx-auto">{description}</p>
     </div>
   </div>
 );
@@ -86,37 +86,65 @@ export default function LandingPage() {
     }
   };
 
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.1,
+        delayChildren: 0.3
+      }
+    }
+  };
+
+  const itemVariants = {
+    hidden: { opacity: 0, y: 20 },
+    visible: { 
+      opacity: 1, 
+      y: 0,
+      transition: { duration: 0.8, ease: [0.16, 1, 0.3, 1] }
+    }
+  } as any;
+
   return (
     <div className="min-h-[100dvh] bg-black text-zinc-100 selection:bg-emerald-500/30 selection:text-emerald-400 overflow-x-hidden font-sans">
-      {/* Grid Background Effect */}
-      <div className="fixed inset-0 z-0 pointer-events-none opacity-[0.03]" 
-           style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }}>
+      {/* Premium Ambient Background */}
+      <div className="fixed inset-0 z-0 pointer-events-none">
+        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-7xl h-full opacity-20">
+          <div className="absolute top-[-10%] left-[-20%] w-[60%] h-[60%] bg-emerald-500/20 blur-[160px] rounded-full animate-pulse" />
+          <div className="absolute bottom-[20%] right-[-10%] w-[50%] h-[50%] bg-blue-500/10 blur-[140px] rounded-full" />
+        </div>
+        <div className="absolute inset-0 opacity-[0.02]" 
+             style={{ backgroundImage: 'radial-gradient(#ffffff 1px, transparent 1px)', backgroundSize: '40px 40px' }} />
       </div>
 
       {/* Header */}
-      <header className="fixed top-0 left-0 right-0 bg-black/50 backdrop-blur-xl border-b border-white/5 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-2.5 group cursor-pointer" onClick={() => navigate('/')}>
-            <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center group-hover:scale-110 transition-transform font-black text-black">
+      <header className="fixed top-0 left-0 right-0 bg-black/40 backdrop-blur-2xl border-b border-white/5 z-50">
+        <div className="max-w-7xl mx-auto px-6 h-20 flex items-center justify-between">
+          <div className="flex items-center gap-3 group cursor-pointer" onClick={() => navigate('/')}>
+            <div className="w-10 h-10 bg-white rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:rotate-3 transition-all font-black text-black shadow-xl shadow-white/5">
               D
             </div>
-            <span className="text-xl font-bold tracking-tighter">DriverDash Beta</span>
+            <span className="text-2xl font-black tracking-tighter">DriverDash</span>
           </div>
           
-          <nav className="hidden md:flex items-center gap-8">
-            <a href="#features" className="text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Funcionalidades</a>
-            <a href="#preview" className="text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Painel</a>
-            <a href="#benefits" className="text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Benefícios</a>
+          <nav className="hidden lg:flex items-center gap-10">
+            {['Funcionalidades', 'Painel', 'Benefícios'].map((item) => (
+              <a key={item} href={`#${item.toLowerCase()}`} className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-colors relative group">
+                {item}
+                <span className="absolute -bottom-1 left-0 w-0 h-px bg-emerald-500 transition-all group-hover:w-full" />
+              </a>
+            ))}
           </nav>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             {!user ? (
               <>
-                <Link to="/login" className="text-xs font-bold uppercase tracking-widest text-zinc-500 hover:text-white transition-colors px-4 py-2">
+                <Link to="/login" className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500 hover:text-white transition-colors px-4 py-2">
                   Entrar
                 </Link>
                 <Link to="/register">
-                  <Button className="hidden sm:flex h-9 px-4 text-[10px] font-black uppercase tracking-[0.2em] bg-white text-black hover:bg-zinc-200 border-none rounded-full">
+                  <Button className="h-11 px-6 text-[10px] font-black uppercase tracking-[0.2em] bg-white text-black hover:bg-zinc-200 border-none rounded-full shadow-lg shadow-white/5">
                     Começar
                   </Button>
                 </Link>
@@ -124,7 +152,7 @@ export default function LandingPage() {
             ) : (
               <Button 
                 onClick={() => navigate('/dashboard')}
-                className="h-9 px-4 text-[10px] font-black uppercase tracking-[0.2em] bg-white text-black hover:bg-zinc-200 border-none rounded-full"
+                className="h-11 px-6 text-[10px] font-black uppercase tracking-[0.2em] bg-white text-black hover:bg-zinc-200 border-none rounded-full"
               >
                 Painel
               </Button>
@@ -134,558 +162,343 @@ export default function LandingPage() {
       </header>
 
       {/* Hero Section */}
-      <section className="relative pt-32 pb-20 lg:pt-56 lg:pb-40 px-4">
-        {/* Background Glows */}
-        <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-6xl h-full pointer-events-none overflow-hidden">
-          <div className="absolute top-[-20%] left-[-10%] w-[50%] h-[50%] bg-emerald-500/10 blur-[140px] rounded-full"></div>
-          <div className="absolute bottom-[10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full"></div>
+      <section className="relative pt-40 pb-24 lg:pt-64 lg:pb-48 px-6">
+        <motion.div 
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+          className="max-w-6xl mx-auto text-center relative z-10"
+        >
+          <motion.div variants={itemVariants} className="inline-flex items-center gap-2 px-5 py-2 rounded-full bg-white/5 border border-white/10 text-zinc-400 text-[10px] font-black uppercase tracking-[0.3em] mb-12 backdrop-blur-md">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.8)]" />
+            O parceiro definitivo do motorista profissional
+          </motion.div>
+          
+          <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl lg:text-[10rem] font-black tracking-tighter leading-[0.8] mb-12 text-white">
+            Controle total. <br />
+            <span className="text-emerald-500 drop-shadow-[0_0_40px_rgba(16,185,129,0.3)]">Lucro real.</span>
+          </motion.h1>
+          
+          <motion.p variants={itemVariants} className="text-2xl md:text-3xl text-zinc-300 mb-6 max-w-3xl mx-auto leading-tight font-bold tracking-tight">
+            Descubra quanto você realmente ganha por KM em tempo real.
+          </motion.p>
+          
+          <motion.p variants={itemVariants} className="text-sm md:text-base text-zinc-500 mb-16 font-black uppercase tracking-[0.2em] max-w-2xl mx-auto">
+            Pare de rodar no escuro. O DriverDash transforma seus dados de GPS em lucro líquido e decisões estratégicas.
+          </motion.p>
+
+          <motion.div variants={itemVariants} className="flex flex-col sm:flex-row gap-6 justify-center items-center mb-24">
+            <Link to="/register" className="w-full sm:w-auto">
+              <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.98 }}>
+                <Button className="h-16 px-14 text-sm font-black uppercase tracking-[0.2em] w-full bg-emerald-500 text-zinc-950 hover:bg-emerald-400 shadow-[0_0_40px_rgba(16,185,129,0.25)] rounded-full group border-none">
+                  COMEÇAR AGORA
+                  <ArrowRight size={20} className="ml-3 group-hover:translate-x-1 transition-transform" />
+                </Button>
+              </motion.div>
+            </Link>
+            <a href="#how-it-works" className="w-full sm:w-auto">
+              <Button 
+                variant="outline" 
+                className="h-16 px-14 text-sm font-black uppercase tracking-[0.2em] w-full border-white/10 hover:bg-white/5 text-white rounded-full backdrop-blur-md"
+              >
+                VER COMO FUNCIONA
+              </Button>
+            </a>
+          </motion.div>
+
+          {/* Quick Stats / Immediate Proof */}
+          <motion.div 
+            variants={itemVariants}
+            className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-4xl mx-auto"
+          >
+            {[
+              { label: 'Corridas Analisadas', value: '+1.000', icon: BarChart4 },
+              { label: 'Precisão de Dados', value: 'GPS REAL', icon: Navigation },
+              { label: 'Plataformas Suportadas', value: 'UBER & 99', icon: Car },
+            ].map((stat, i) => (
+              <div key={i} className="flex items-center gap-4 px-8 py-6 rounded-3xl bg-white/[0.03] border border-white/5 backdrop-blur-xl">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                  <stat.icon size={20} />
+                </div>
+                <div className="text-left">
+                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">{stat.label}</div>
+                  <div className="text-lg font-black text-white uppercase tracking-tight">{stat.value}</div>
+                </div>
+              </div>
+            ))}
+          </motion.div>
+        </motion.div>
+      </section>
+
+      {/* Aggressive Differential Section */}
+      <section className="py-40 relative border-t border-white/5 bg-zinc-950/30 overflow-hidden">
+        <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[80%] h-[80%] bg-emerald-500/5 blur-[160px] rounded-full" />
         </div>
-
-        <div className="max-w-5xl mx-auto text-center relative z-10">
-          <div>
-            <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/5 border border-white/10 text-zinc-400 text-[10px] font-black uppercase tracking-[0.3em] mb-10">
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-              O parceiro inteligente do motorista
-            </div>
-            
-            <h1 className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.85] mb-10 text-white">
-              Controle total. <br />
-              <span className="text-emerald-500">Lucro real.</span>
-            </h1>
-            
-            <p className="text-xl md:text-2xl text-zinc-300 mb-4 max-w-3xl mx-auto leading-tight font-bold tracking-tight">
-              Pare de rodar no escuro. Descubra quanto você realmente ganha por KM e tome decisões com base em dados reais.
-            </p>
-            <p className="text-sm md:text-base text-emerald-500/80 mb-10 font-black uppercase tracking-[0.2em]">
-              Feito para motoristas de Uber e 99 que querem entender o lucro de verdade.
-            </p>
-
-            {/* Trust Indicators */}
-            <div className="flex flex-wrap justify-center gap-4 md:gap-8 mb-12">
-              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
-                <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                  <Navigation size={16} />
-                </div>
-                <div className="text-left">
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Precisão</div>
-                  <div className="text-xs font-bold text-white uppercase tracking-tight">Rastreamento Real</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
-                <div className="w-8 h-8 rounded-full bg-blue-500/10 flex items-center justify-center text-blue-500">
-                  <RefreshCw size={16} />
-                </div>
-                <div className="text-left">
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Frequência</div>
-                  <div className="text-xs font-bold text-white uppercase tracking-tight">Lucro por Ciclo</div>
-                </div>
-              </div>
-              <div className="flex items-center gap-3 px-5 py-3 rounded-2xl bg-white/[0.03] border border-white/5 backdrop-blur-sm">
-                <div className="w-8 h-8 rounded-full bg-purple-500/10 flex items-center justify-center text-purple-500">
-                  <ShieldCheck size={16} />
-                </div>
-                <div className="text-left">
-                  <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Confiança</div>
-                  <div className="text-xs font-bold text-white uppercase tracking-tight">Sem Estimativas</div>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex flex-col items-center gap-4 mb-14">
-              <div className="flex flex-wrap justify-center gap-x-8 gap-y-4">
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
-                  <CheckCircle2 size={14} />
-                  Rastreamento automático de KM
-                </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
-                  <CheckCircle2 size={14} />
-                  Cálculo real de lucro por ciclo
-                </div>
-                <div className="flex items-center gap-2 text-xs font-bold text-emerald-400 uppercase tracking-widest">
-                  <CheckCircle2 size={14} />
-                  Inteligência de performance
-                </div>
-              </div>
-            </div>
-            
-            <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-              <Link to="/register" className="w-full sm:w-auto">
-                <Button className="h-14 px-12 text-sm font-black uppercase tracking-[0.2em] w-full bg-white text-black hover:bg-zinc-200 shadow-2xl shadow-white/10 rounded-full group">
-                  Criar Conta
-                  <ArrowRight size={18} className="ml-2 group-hover:translate-x-1 transition-transform" />
-                </Button>
-              </Link>
-              <a href="#how-it-works" className="w-full sm:w-auto">
-                <Button 
-                  variant="outline" 
-                  className="h-14 px-12 text-sm font-black uppercase tracking-[0.2em] w-full border-white/10 hover:bg-white/5 text-white rounded-full"
-                >
-                  Ver como funciona
-                </Button>
-              </a>
-            </div>
+        
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="text-center max-w-4xl mx-auto">
+            <motion.h2 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              className="text-5xl md:text-7xl lg:text-8xl font-black tracking-tighter text-white mb-8 leading-[0.9]"
+            >
+              Você está dirigindo sem saber quanto <span className="text-emerald-500">ganha de verdade.</span>
+            </motion.h2>
+            <motion.p 
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2 }}
+              className="text-xl md:text-2xl text-zinc-400 font-medium leading-relaxed"
+            >
+              As plataformas mostram faturamento. O DriverDash mostra lucro real. <br className="hidden md:block" />
+              Pare de pagar para trabalhar e comece a gerir seu negócio como um profissional.
+            </motion.p>
           </div>
         </div>
       </section>
 
-      {/* Value Proof Section */}
-      <section className="py-32 relative border-t border-white/5 bg-zinc-950/50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-20">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Por que DriverDash?</h2>
-            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white max-w-3xl mx-auto leading-[0.9]">O controle que as plataformas não te dão.</p>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-8">
+      {/* Refined Cards Section */}
+      <section id="funcionalidades" className="py-40 relative">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <ValueCard 
               icon={Gauge}
               title="KM Real"
-              subtitle="Sem chute ou estimativa"
-              description="Rastreamento preciso via GPS que separa o que é trabalho do que é deslocamento."
+              subtitle="Precisão Absoluta"
+              description="Rastreamento via GPS que separa automaticamente o que é trabalho do que é deslocamento ocioso."
             />
             <ValueCard 
               icon={DollarSign}
               title="Lucro Líquido"
-              subtitle="Automático e real"
-              description="Dedução automática de combustível, taxas e custos fixos em cada turno."
+              subtitle="Cálculo Automático"
+              description="Dedução instantânea de combustível, taxas e custos fixos. Saiba exatamente o que sobra no bolso."
             />
             <ValueCard 
               icon={RefreshCw}
               title="Ciclos 24h"
-              subtitle="Controle total do dia"
-              description="Abra e feche seu dia de trabalho e veja exatamente quanto sobrou no bolso."
+              subtitle="Gestão Diária"
+              description="Abra e feche seu dia de trabalho com um toque. Controle total da sua jornada e rentabilidade."
             />
             <ValueCard 
               icon={ShieldCheck}
-              title="Dados Confiáveis"
-              subtitle="Sem estimativa fake"
-              description="Informações baseadas no seu trajeto real, não em médias genéricas do mercado."
+              title="Dados Reais"
+              subtitle="Sem Estimativas"
+              description="Informações baseadas no seu trajeto real, não em médias genéricas que não refletem sua realidade."
             />
+          </div>
+        </div>
+      </section>
+
+      {/* Voice Assistant Section - NEW */}
+      <section className="py-40 relative border-y border-white/5 bg-black overflow-hidden">
+        <div className="absolute inset-0 bg-emerald-500/[0.02] pointer-events-none" />
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="flex flex-col lg:flex-row items-center gap-20">
+            <div className="flex-1 space-y-10">
+              <motion.div 
+                initial={{ opacity: 0, scale: 0.9 }}
+                whileInView={{ opacity: 1, scale: 1 }}
+                viewport={{ once: true }}
+                className="w-20 h-20 rounded-3xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500 relative"
+              >
+                <div className="absolute inset-0 bg-emerald-500/20 blur-2xl rounded-full animate-pulse" />
+                <Mic size={40} className="relative z-10" />
+              </motion.div>
+              <div className="space-y-6">
+                <h2 className="text-5xl md:text-7xl font-black tracking-tighter text-white leading-[0.9]">
+                  Dirija sem tocar <br />
+                  <span className="text-emerald-500">no celular.</span>
+                </h2>
+                <p className="text-xl text-zinc-400 leading-relaxed font-medium max-w-xl">
+                  Controle suas corridas, registre eventos e calcule ganhos apenas com a sua voz. Segurança total enquanto você foca no que importa: a estrada.
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-4">
+                {['"Iniciar corrida"', '"Valor da corrida"', '"Polícia no mapa"'].map((cmd, i) => (
+                  <div key={i} className="px-5 py-3 rounded-2xl bg-white/5 border border-white/10 text-xs font-black text-zinc-300 uppercase tracking-widest italic">
+                    {cmd}
+                  </div>
+                ))}
+              </div>
+            </div>
+            <div className="flex-1 w-full flex justify-center">
+              <div className="relative w-full max-w-md aspect-square">
+                <div className="absolute inset-0 bg-emerald-500/10 blur-[120px] rounded-full animate-pulse" />
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.05, 1],
+                    opacity: [0.3, 0.6, 0.3]
+                  }}
+                  transition={{ duration: 4, repeat: Infinity }}
+                  className="absolute inset-0 border-2 border-emerald-500/20 rounded-full"
+                />
+                <motion.div 
+                  animate={{ 
+                    scale: [1, 1.1, 1],
+                    opacity: [0.2, 0.4, 0.2]
+                  }}
+                  transition={{ duration: 4, repeat: Infinity, delay: 1 }}
+                  className="absolute inset-0 border-2 border-emerald-500/10 rounded-full"
+                />
+                <div className="absolute inset-0 flex items-center justify-center">
+                  <div className="w-48 h-48 rounded-full bg-zinc-900 border border-emerald-500/30 flex items-center justify-center shadow-[0_0_60px_rgba(16,185,129,0.15)]">
+                    <div className="flex gap-1.5 items-end h-12">
+                      {[0.4, 0.8, 0.5, 0.9, 0.6, 0.3, 0.7].map((h, i) => (
+                        <motion.div 
+                          key={i}
+                          animate={{ height: [`${h * 40}%`, `${(1-h) * 100}%`, `${h * 40}%`] }}
+                          transition={{ duration: 1.5, repeat: Infinity, delay: i * 0.1 }}
+                          className="w-2 bg-emerald-500 rounded-full"
+                        />
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* How it Works Section */}
-      <section id="how-it-works" className="py-32 relative bg-black border-y border-white/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="text-center mb-24">
+      <section id="how-it-works" className="py-40 relative bg-black">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="text-center mb-32">
             <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">O Caminho do Lucro</h2>
-            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white">Simples. Direto. Eficiente.</p>
+            <p className="text-5xl md:text-7xl font-black tracking-tighter text-white">Simples. Direto. Profissional.</p>
           </div>
 
-          <div className="grid md:grid-cols-4 gap-12 relative">
-            {/* Connecting Line (Desktop) */}
-            <div className="hidden md:block absolute top-1/2 left-0 w-full h-px bg-emerald-500/10 -translate-y-1/2 z-0"></div>
+          <div className="grid md:grid-cols-4 gap-16 relative">
+            <div className="hidden md:block absolute top-12 left-0 w-full h-px bg-emerald-500/10 z-0" />
             
             <StepCard 
               number="01"
               icon={Navigation}
-              title="Ative o rastreamento"
-              description="Inicie seu turno com um toque antes de sair de casa."
+              title="Ative o GPS"
+              description="Inicie seu turno com um toque. O app começa a monitorar seu trajeto."
             />
             <StepCard 
               number="02"
               icon={Car}
-              title="Rode normalmente"
-              description="Trabalhe na Uber ou 99 enquanto o app monitora cada KM rodado."
+              title="Rode e Lucre"
+              description="Trabalhe normalmente. O DriverDash separa cada KM produtivo."
             />
             <StepCard 
               number="03"
               icon={Square}
-              title="Feche o ciclo"
-              description="No fim do dia, encerre o turno e lance seus ganhos brutos."
+              title="Feche o Ciclo"
+              description="No fim do dia, encerre o turno e registre seus ganhos brutos."
             />
             <StepCard 
               number="04"
               icon={BarChart3}
-              title="Descubra seu lucro"
-              description="Veja seu lucro real, descontando custos, e entenda sua eficiência."
+              title="Veja a Realidade"
+              description="Descubra seu lucro real, descontando todos os custos operacionais."
             />
           </div>
         </div>
       </section>
 
-      {/* Differential Section */}
-      <section className="py-32 relative bg-zinc-900/20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col lg:flex-row gap-20 items-center">
-            <div className="flex-1 space-y-8">
-              <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500">Diferencial</h2>
-              <p className="text-4xl md:text-6xl font-black tracking-tighter text-white leading-[0.9]">Não é apenas um app de anotação.</p>
-              <p className="text-xl text-zinc-400 leading-relaxed">
-                O DriverDash é uma ferramenta de inteligência. Enquanto outros apps pedem que você chute dados, nós rastreamos a realidade das ruas para você.
-              </p>
-              
-              <div className="grid sm:grid-cols-2 gap-8 pt-4">
-                <div className="space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <Split size={20} />
-                  </div>
-                  <h4 className="font-black text-white uppercase tracking-tight">KM Produtivo vs Ocioso</h4>
-                  <p className="text-sm text-zinc-500">Saiba exatamente quanto você rodou com passageiro e quanto rodou vazio "pagando para trabalhar".</p>
-                </div>
-                <div className="space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <TrendingUp size={20} />
-                  </div>
-                  <h4 className="font-black text-white uppercase tracking-tight">Lucro Real, Não Bruto</h4>
-                  <p className="text-sm text-zinc-500">Faturamento é vaidade, lucro é realidade. Mostramos o que sobra após combustível e custos.</p>
-                </div>
-                <div className="space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <Brain size={20} />
-                  </div>
-                  <h4 className="font-black text-white uppercase tracking-tight">Decisões com Dados</h4>
-                  <p className="text-sm text-zinc-500">Use seu histórico real para entender se aquela região ou horário realmente compensa.</p>
-                </div>
-                <div className="space-y-3">
-                  <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                    <Target size={20} />
-                  </div>
-                  <h4 className="font-black text-white uppercase tracking-tight">Vale a pena rodar?</h4>
-                  <p className="text-sm text-zinc-500">Tenha a resposta definitiva sobre sua rentabilidade diária, semanal e mensal.</p>
-                </div>
-              </div>
-            </div>
-
-            <div className="flex-1 w-full">
-              <div className="relative aspect-square max-w-md mx-auto">
-                <div className="absolute inset-0 bg-emerald-500/20 blur-[100px] rounded-full animate-pulse"></div>
-                <div className="relative z-10 w-full h-full bg-zinc-900 rounded-[3rem] border border-white/10 p-8 flex flex-col justify-between shadow-2xl">
-                  <div className="space-y-6">
-                    <div className="flex justify-between items-center">
-                      <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Eficiência Hoje</div>
-                      <div className="px-3 py-1 rounded-full bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-widest">Excelente</div>
-                    </div>
-                    <div className="text-6xl font-black text-white">84%</div>
-                    <div className="h-2 w-full bg-white/5 rounded-full overflow-hidden">
-                      <div className="h-full bg-emerald-500 w-[84%]"></div>
-                    </div>
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
-                        <TrendingUp size={20} />
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Lucro p/ KM</div>
-                        <div className="text-lg font-black text-white">R$ 2,45</div>
-                      </div>
-                    </div>
-                    <div className="p-4 rounded-2xl bg-white/5 border border-white/10 flex items-center gap-4">
-                      <div className="w-10 h-10 rounded-full bg-blue-500/20 flex items-center justify-center text-blue-500">
-                        <Map size={20} />
-                      </div>
-                      <div>
-                        <div className="text-[10px] font-black uppercase tracking-widest text-zinc-500">KM Ocioso</div>
-                        <div className="text-lg font-black text-white">12.4 km</div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Intelligence Section */}
-      <section className="py-32 relative bg-black overflow-hidden border-t border-white/5">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full pointer-events-none">
-          <div className="absolute top-0 left-0 w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full"></div>
-          <div className="absolute bottom-0 right-0 w-[40%] h-[40%] bg-blue-500/5 blur-[120px] rounded-full"></div>
-        </div>
-
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 relative z-10">
-          <div className="max-w-3xl mx-auto text-center mb-20">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Inteligência de Dados</h2>
-            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white mb-8">Dirija com inteligência.</p>
-            <p className="text-xl text-zinc-400 leading-relaxed">
-              O DriverDash usa seus próprios dados para identificar padrões de ganho, horários mais fortes e regiões com mais potencial.
+      {/* Urgency / Conversion Section */}
+      <section className="py-32 relative overflow-hidden bg-zinc-950 border-y border-white/5">
+        <div className="max-w-4xl mx-auto px-6 text-center">
+          <motion.div 
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            className="space-y-8"
+          >
+            <h2 className="text-4xl md:text-6xl font-black tracking-tighter text-white">
+              Teste grátis por 7 dias.
+            </h2>
+            <p className="text-xl text-zinc-400 font-medium">
+              Cancele quando quiser. Sem letras miúdas, apenas lucro real.
             </p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-8">
-            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6 backdrop-blur-sm">
-              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center text-emerald-500">
-                <Clock size={24} />
-              </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Padrões de Ganho</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Identificamos em quais janelas de tempo sua rentabilidade por KM é maior, baseada no seu histórico real.</p>
-            </div>
-            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6 backdrop-blur-sm">
-              <div className="w-12 h-12 rounded-2xl bg-blue-500/10 flex items-center justify-center text-blue-500">
-                <Map size={24} />
-              </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Eficiência Geográfica</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Mapeamos onde você costuma ter as melhores corridas e onde o KM ocioso está matando seu lucro.</p>
-            </div>
-            <div className="p-8 rounded-[2.5rem] bg-white/[0.02] border border-white/5 space-y-6 backdrop-blur-sm">
-              <div className="w-12 h-12 rounded-2xl bg-purple-500/10 flex items-center justify-center text-purple-500">
-                <Target size={24} />
-              </div>
-              <h3 className="text-xl font-black text-white uppercase tracking-tight">Metas de Verdade</h3>
-              <p className="text-sm text-zinc-500 leading-relaxed">Projeções honestas baseadas na sua performance média, para você saber exatamente quanto falta para o seu objetivo.</p>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* App Previews / Mocks */}
-      <section className="py-32 px-4 relative border-t border-white/5">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-24">
-            <h2 className="text-[10px] font-black uppercase tracking-[0.5em] text-emerald-500 mb-6">Interface</h2>
-            <p className="text-4xl md:text-6xl font-black tracking-tighter text-white">Tudo o que você precisa.</p>
-          </div>
-
-          <div className="grid md:grid-cols-3 gap-12">
-            <div className="space-y-6">
-              <div className="aspect-[9/16] bg-zinc-900 rounded-[2.5rem] border border-white/10 overflow-hidden relative group">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
-                <div className="absolute bottom-8 left-8 right-8 z-20">
-                  <h4 className="text-lg font-black text-white uppercase tracking-tight mb-2">Dashboard</h4>
-                  <p className="text-xs text-zinc-400">Visão geral em tempo real do seu turno.</p>
-                </div>
-                {/* Mock UI */}
-                <div className="p-6 space-y-6 opacity-50 group-hover:opacity-100 transition-opacity">
-                  <div className="h-20 bg-emerald-500/20 rounded-2xl border border-emerald-500/30"></div>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="h-24 bg-white/5 rounded-2xl border border-white/10"></div>
-                    <div className="h-24 bg-white/5 rounded-2xl border border-white/10"></div>
-                  </div>
-                  <div className="h-40 bg-white/5 rounded-2xl border border-white/10"></div>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-6 md:translate-y-12">
-              <div className="aspect-[9/16] bg-zinc-900 rounded-[2.5rem] border border-white/10 overflow-hidden relative group">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
-                <div className="absolute bottom-8 left-8 right-8 z-20">
-                  <h4 className="text-lg font-black text-white uppercase tracking-tight mb-2">Relatórios</h4>
-                  <p className="text-xs text-zinc-400">Análise profunda de ganhos e gastos.</p>
-                </div>
-                {/* Mock UI */}
-                <div className="p-6 space-y-6 opacity-50 group-hover:opacity-100 transition-opacity">
-                  <div className="h-32 bg-blue-500/20 rounded-2xl border border-blue-500/30"></div>
-                  <div className="space-y-3">
-                    <div className="h-12 bg-white/5 rounded-xl border border-white/10"></div>
-                    <div className="h-12 bg-white/5 rounded-xl border border-white/10"></div>
-                    <div className="h-12 bg-white/5 rounded-xl border border-white/10"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <div className="space-y-6">
-              <div className="aspect-[9/16] bg-zinc-900 rounded-[2.5rem] border border-white/10 overflow-hidden relative group">
-                <div className="absolute inset-0 bg-gradient-to-b from-transparent to-black/80 z-10"></div>
-                <div className="absolute bottom-8 left-8 right-8 z-20">
-                  <h4 className="text-lg font-black text-white uppercase tracking-tight mb-2">Heatmap</h4>
-                  <p className="text-xs text-zinc-400">Inteligência geográfica de lucro.</p>
-                </div>
-                {/* Mock UI */}
-                <div className="p-6 space-y-6 opacity-50 group-hover:opacity-100 transition-opacity">
-                  <div className="absolute inset-0 bg-emerald-500/5 flex items-center justify-center">
-                    <Map size={100} className="text-emerald-500/20" />
-                  </div>
-                  <div className="relative z-10 space-y-4">
-                    <div className="w-12 h-12 rounded-full bg-emerald-500/40 blur-xl absolute top-20 left-20"></div>
-                    <div className="w-16 h-16 rounded-full bg-emerald-500/20 blur-2xl absolute top-40 left-40"></div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Dashboard Preview Section */}
-      <section id="preview" className="py-32 px-4 relative overflow-hidden">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex flex-col lg:flex-row items-center gap-20">
-            <div className="flex-1 space-y-10">
-              <div className="inline-block p-3 bg-white/5 border border-white/10 rounded-2xl">
-                <PieChart size={24} className="text-white" />
-              </div>
-              <h2 className="text-5xl md:text-7xl font-black tracking-tighter leading-[0.9] text-white">
-                Seu painel de <br />
-                <span className="text-emerald-500">comando.</span>
-              </h2>
-              <p className="text-xl text-zinc-400 leading-relaxed font-medium">
-                Uma interface limpa que coloca o que importa na frente. Visualize seu lucro líquido, metas e histórico sem ruído visual.
-              </p>
-              
-              <div className="space-y-6 pt-4">
-                <div className="flex items-center gap-4">
-                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
-                    <CheckCircle2 size={14} />
-                  </div>
-                  <span className="text-sm font-bold text-zinc-300">Análise de lucro por hora</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
-                    <CheckCircle2 size={14} />
-                  </div>
-                  <span className="text-sm font-bold text-zinc-300">Projeção de metas mensais</span>
-                </div>
-                <div className="flex items-center gap-4">
-                  <div className="w-6 h-6 rounded-full bg-emerald-500/20 flex items-center justify-center text-emerald-500">
-                    <CheckCircle2 size={14} />
-                  </div>
-                  <span className="text-sm font-bold text-zinc-300">Histórico completo de manutenção</span>
-                </div>
-              </div>
-
-              <div className="pt-8">
-                <Button 
-                  onClick={handleAccessPanel}
-                  className="h-12 px-8 bg-white text-black hover:bg-zinc-200 font-black uppercase tracking-widest text-[10px] rounded-full"
-                >
-                  Explorar Painel <ChevronRight size={16} className="ml-1" />
+            <div className="pt-4">
+              <Link to="/register">
+                <Button className="h-16 px-14 text-sm font-black uppercase tracking-[0.2em] bg-emerald-500 text-zinc-950 hover:bg-emerald-400 rounded-full shadow-2xl shadow-emerald-500/20">
+                  EXPERIMENTAR AGORA
                 </Button>
-              </div>
+              </Link>
             </div>
-
-            <div className="flex-1 relative">
-              {/* Simulated Dashboard UI - Minimalist Version */}
-              <motion.div 
-                initial={{ opacity: 0, scale: 0.95 }}
-                whileInView={{ opacity: 1, scale: 1 }}
-                viewport={{ once: true }}
-                transition={{ duration: 1, ease: [0.16, 1, 0.3, 1] }}
-                className="relative z-10 bg-zinc-900/50 rounded-[2.5rem] border border-white/10 shadow-[0_0_100px_rgba(0,0,0,0.5)] overflow-hidden backdrop-blur-sm"
-              >
-                <div className="h-14 border-b border-white/5 bg-black/40 flex items-center px-8 justify-between">
-                  <div className="flex gap-2">
-                    <div className="w-2.5 h-2.5 rounded-full bg-white/10"></div>
-                    <div className="w-2.5 h-2.5 rounded-full bg-white/10"></div>
-                    <div className="w-2.5 h-2.5 rounded-full bg-white/10"></div>
-                  </div>
-                  <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">Dashboard Preview</div>
-                </div>
-                <div className="p-10 space-y-10">
-                  <div className="grid grid-cols-2 gap-6">
-                    <div className="space-y-2">
-                      <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Lucro Hoje</div>
-                      <div className="text-4xl font-black text-white">R$ 284,00</div>
-                    </div>
-                    <div className="space-y-2">
-                      <div className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">Km Rodados</div>
-                      <div className="text-4xl font-black text-white">142.5</div>
-                    </div>
-                  </div>
-                  
-                  <div className="h-40 flex items-end gap-3">
-                    {[30, 60, 40, 80, 50, 90, 70].map((h, i) => (
-                      <div key={i} className="flex-1 bg-white/5 border border-white/10 rounded-xl transition-all hover:bg-emerald-500/20 hover:border-emerald-500/30" style={{ height: `${h}%` }}></div>
-                    ))}
-                  </div>
-
-                  <div className="space-y-4">
-                    <div className="h-14 bg-white/5 rounded-2xl border border-white/10 flex items-center px-6 justify-between">
-                      <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-emerald-500 rounded-lg flex items-center justify-center text-black font-black text-xs">U</div>
-                        <span className="text-sm font-bold text-white">Uber X • 15:30</span>
-                      </div>
-                      <span className="text-sm font-black text-emerald-500">+ R$ 24,50</span>
-                    </div>
-                    <div className="h-14 bg-white/5 rounded-2xl border border-white/10 flex items-center px-6 justify-between opacity-40">
-                      <div className="flex items-center gap-4">
-                        <div className="w-8 h-8 bg-zinc-800 rounded-lg"></div>
-                        <div className="w-24 h-2 bg-zinc-800 rounded"></div>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-              
-              {/* Decorative Glow */}
-              <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[120%] h-[120%] bg-emerald-500/5 blur-[120px] rounded-full pointer-events-none"></div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* Benefits Section */}
-      <section id="benefits" className="py-32 relative">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="grid md:grid-cols-3 gap-16">
-            <BenefitItem 
-              icon={Smartphone}
-              title="Mobile Friendly"
-              description="Interface otimizada para o uso rápido entre uma corrida e outra."
-            />
-            <BenefitItem 
-              icon={Cloud}
-              title="Cloud Sync"
-              description="Seus dados salvos e sincronizados em tempo real com a nuvem."
-            />
-            <BenefitItem 
-              icon={Lock}
-              title="Secure Data"
-              description="Privacidade total. Seus dados financeiros pertencem apenas a você."
-            />
-          </div>
+          </motion.div>
         </div>
       </section>
 
       {/* Final CTA Section */}
-      <section className="py-40 px-4 relative overflow-hidden bg-zinc-950">
-        <div className="absolute inset-0 bg-emerald-500/5 blur-[150px] rounded-full -translate-y-1/2"></div>
+      <section className="py-48 px-6 relative overflow-hidden bg-black">
+        <div className="absolute inset-0 bg-emerald-500/5 blur-[180px] rounded-full -translate-y-1/2" />
         
-        <div className="max-w-4xl mx-auto text-center relative z-10">
+        <div className="max-w-5xl mx-auto text-center relative z-10">
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
-            whileInView={{ opacity: 1, scale: 1 }}
+            initial={{ opacity: 0, y: 30 }}
+            whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            className="space-y-12"
+            className="space-y-16"
           >
-            <h2 className="text-5xl md:text-8xl font-black tracking-tighter text-white leading-[0.85]">
-              Use dados reais para <br />
-              <span className="text-emerald-500">dirigir com inteligência.</span>
+            <h2 className="text-6xl md:text-9xl font-black tracking-tighter text-white leading-[0.8]">
+              Comece hoje e descubra quanto você <br />
+              <span className="text-emerald-500">realmente lucra.</span>
             </h2>
-            <p className="text-xl text-zinc-400 max-w-xl mx-auto font-medium">
-              Pare de chutar seus ganhos. Comece hoje a acompanhar seu lucro real com o DriverDash.
+            <p className="text-2xl text-zinc-400 max-w-2xl mx-auto font-medium leading-relaxed">
+              Pare de chutar seus ganhos. Transforme seu celular em um copiloto de alta performance.
             </p>
             <div className="flex flex-col sm:flex-row gap-6 justify-center items-center">
               <Link to="/register" className="w-full sm:w-auto">
-                <Button className="h-16 px-14 text-sm font-black uppercase tracking-[0.2em] w-full bg-white text-black hover:bg-zinc-200 rounded-full shadow-2xl shadow-white/10">
-                  Criar Conta Grátis
+                <Button className="h-20 px-16 text-base font-black uppercase tracking-[0.2em] w-full bg-white text-black hover:bg-zinc-200 rounded-full shadow-[0_0_50px_rgba(255,255,255,0.1)] transition-all hover:scale-105">
+                  COMEÇAR AGORA
                 </Button>
               </Link>
               <Link to="/login" className="w-full sm:w-auto">
-                <Button variant="outline" className="h-16 px-14 text-sm font-black uppercase tracking-[0.2em] w-full border-white/10 hover:bg-white/5 text-white rounded-full">
-                  Entrar
+                <Button variant="outline" className="h-20 px-16 text-base font-black uppercase tracking-[0.2em] w-full border-white/10 hover:bg-white/5 text-white rounded-full">
+                  ENTRAR
                 </Button>
               </Link>
             </div>
-            <p className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600">
-              Sem custos ocultos • Sem cartão de crédito
-            </p>
+            <div className="flex flex-col items-center gap-4">
+              <p className="text-[10px] font-black uppercase tracking-[0.5em] text-zinc-600">
+                Sem custos ocultos • Sem cartão de crédito
+              </p>
+              <div className="flex gap-2">
+                {[1, 2, 3, 4, 5].map(i => (
+                  <div key={i} className="w-1.5 h-1.5 rounded-full bg-emerald-500/40" />
+                ))}
+              </div>
+            </div>
           </motion.div>
         </div>
       </section>
 
       {/* Footer */}
-      <footer className="py-20 border-t border-white/5 bg-black">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-12">
-            <div className="flex items-center gap-2.5">
-              <div className="w-6 h-6 bg-white rounded flex items-center justify-center font-black text-[10px] text-black">
-                D
+      <footer className="py-24 border-t border-white/5 bg-black">
+        <div className="max-w-7xl mx-auto px-6">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-16">
+            <div className="flex flex-col items-center md:items-start gap-6">
+              <div className="flex items-center gap-3">
+                <div className="w-8 h-8 bg-white rounded-lg flex items-center justify-center font-black text-xs text-black">
+                  D
+                </div>
+                <span className="text-xl font-black tracking-tighter">DriverDash</span>
               </div>
+              <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">
+                A ferramenta definitiva para o motorista de elite.
+              </p>
             </div>
             
-            <div className="flex flex-wrap justify-center gap-8">
-              <Link to="/login" className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Login</Link>
-              <Link to="/register" className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Register</Link>
-              <a href="#" className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors">Privacy</a>
+            <div className="flex flex-wrap justify-center gap-12">
+              {['Login', 'Register', 'Privacy', 'Terms'].map(link => (
+                <Link key={link} to={link === 'Login' ? '/login' : link === 'Register' ? '/register' : '#'} className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-white transition-colors">
+                  {link}
+                </Link>
+              ))}
             </div>
 
-            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-              © 2026 DriverDash.
-            </p>
+            <div className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600">
+              © 2026 DriverDash. All rights reserved.
+            </div>
           </div>
         </div>
       </footer>

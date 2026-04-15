@@ -4,7 +4,7 @@ import { Card, CardContent } from '../UI';
 import { cn } from '../../utils';
 
 interface InsightsCardProps {
-  aiIntelligence: any;
+  performanceData: any;
   driverScore: {
     score: number;
     label: string;
@@ -13,14 +13,14 @@ interface InsightsCardProps {
     suggestions: string[];
   };
   isCollecting: boolean;
-  aiTip: string;
+  smartTip: string;
 }
 
 export const InsightsCard: React.FC<InsightsCardProps> = ({
-  aiIntelligence,
+  performanceData,
   driverScore,
   isCollecting,
-  aiTip
+  smartTip
 }) => {
   if (isCollecting) {
     return (
@@ -30,9 +30,9 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
             <Activity className="text-emerald-400 animate-pulse" size={24} />
           </div>
           <div className="space-y-1">
-            <h3 className="text-lg font-black tracking-tight">Inteligência em Formação</h3>
+            <h3 className="text-lg font-black tracking-tight">Análise em Formação</h3>
             <p className="text-xs font-bold text-zinc-500 max-w-[240px]">
-              Ainda coletando dados suficientes para gerar insights confiáveis.
+              Ainda coletando dados suficientes para gerar insights de performance.
             </p>
           </div>
           <div className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[9px] font-black uppercase tracking-widest text-zinc-500">
@@ -52,7 +52,7 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
               <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
                 <Award size={16} className="text-emerald-400" />
               </div>
-              <h3 className="text-xs font-black uppercase tracking-widest">Insights Inteligentes</h3>
+              <h3 className="text-xs font-black uppercase tracking-widest">Insights de Performance</h3>
             </div>
             <div className={cn(
               "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
@@ -89,25 +89,25 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
           <div className="grid grid-cols-2 gap-x-8 gap-y-6">
             <InsightItem 
               label="Melhor Dia" 
-              value={aiIntelligence.bestDayLabel} 
+              value={performanceData.bestDayLabel} 
               icon={<TrendingUp size={12} />}
               color="text-emerald-400"
             />
             <InsightItem 
               label="Pior Dia" 
-              value={aiIntelligence.weakestDayLabel} 
+              value={performanceData.weakestDayLabel} 
               icon={<TrendingDown size={12} />}
               color="text-red-400"
             />
             <InsightItem 
               label="Média Lucro/KM" 
-              value={`${aiIntelligence.avgProfitPerKmLabel}/km`} 
+              value={`${performanceData.avgProfitPerKmLabel}/km`} 
               icon={<DollarSign size={12} />}
               color="text-blue-400"
             />
             <InsightItem 
               label="KM Produtivo Médio" 
-              value={`${aiIntelligence.avgProductiveKm.toFixed(1)} km/dia`} 
+              value={`${performanceData.avgProductiveKm.toFixed(1)} km/dia`} 
               icon={<Navigation size={12} />}
               color="text-zinc-300"
             />
@@ -120,7 +120,7 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
               <Zap size={12} className="text-emerald-400" />
             </div>
             <p className="text-[11px] font-bold text-emerald-100 leading-relaxed">
-              {aiTip}
+              {smartTip}
             </p>
           </div>
         </div>

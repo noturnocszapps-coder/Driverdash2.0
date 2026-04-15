@@ -1,4 +1,4 @@
-import { TripIntelligence, TrackingSession, UserSettings, Cycle } from '../types';
+import { TripAnalytics, TrackingSession, UserSettings, Cycle } from '../types';
 import { safeNumber, calculateDailyFixedCost } from '../utils';
 
 export const TRIP_EVALUATION_THRESHOLDS = {
@@ -19,7 +19,7 @@ export function evaluateCurrentTrip(
   tracking: TrackingSession,
   cycle: Cycle | undefined,
   settings: UserSettings
-): TripIntelligence {
+): TripAnalytics {
   const totalKm = safeNumber(tracking.distance);
   const duration = safeNumber(tracking.duration);
   const totalRevenue = safeNumber(cycle?.total_amount);
@@ -39,7 +39,7 @@ export function evaluateCurrentTrip(
       maturity: {
         isMature: false,
         reason: totalKm < TRIP_EVALUATION_THRESHOLDS.MIN_KM_MATURITY 
-          ? `Dirija pelo menos ${TRIP_EVALUATION_THRESHOLDS.MIN_KM_MATURITY}km para ativar a análise inteligente`
+          ? `Dirija pelo menos ${TRIP_EVALUATION_THRESHOLDS.MIN_KM_MATURITY}km para ativar a análise de performance`
           : `Aguardar ${Math.round(TRIP_EVALUATION_THRESHOLDS.MIN_TIME_MATURITY / 60000)}min de ciclo`
       },
       metrics: {
@@ -87,7 +87,7 @@ export function evaluateCurrentTrip(
   );
 
   // 4. Determine Status and Message
-  let status: TripIntelligence['status'] = 'bad';
+  let status: TripAnalytics['status'] = 'bad';
   let label = 'Pouco Lucrativa';
   let message = 'Desempenho abaixo do esperado para o tempo rodado.';
 

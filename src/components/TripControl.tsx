@@ -75,7 +75,7 @@ export const TripControl = () => {
                   <Zap size={20} fill="currentColor" />
                 </div>
                 <div>
-                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Inteligência</p>
+                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Performance</p>
                   <p className="text-sm font-black text-white tracking-tight">Corrida detectada!</p>
                 </div>
               </div>

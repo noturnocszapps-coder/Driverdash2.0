@@ -18,14 +18,14 @@ export const HeatmapSummaryCard: React.FC<HeatmapSummaryCardProps> = ({
     <section className="space-y-4 mb-8">
       <div className="flex items-center justify-between px-1">
         <h3 className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-500">
-          Zonas de Espera / Mapa de Calor
+          Zonas de Espera / Mapa de Performance
         </h3>
         <button 
           onClick={onViewHeatmap}
           className="flex items-center gap-1.5 text-[9px] font-black text-emerald-500 uppercase tracking-[0.2em] hover:text-emerald-400 transition-colors"
         >
           <MapIcon size={12} />
-          Ver Mapa de Calor
+          Ver Mapa de Performance
         </button>
       </div>
 

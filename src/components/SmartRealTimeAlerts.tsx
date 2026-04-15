@@ -4,13 +4,13 @@ import { useDriverStore } from '../store';
 import { getDay } from 'date-fns';
 import { toast } from 'sonner';
 
-interface AIRealTimeAlertsProps {
+interface SmartRealTimeAlertsProps {
   todayData: any;
-  aiIntelligence: any;
+  performanceData: any;
   averages: any;
 }
 
-export const AIRealTimeAlerts: React.FC<AIRealTimeAlertsProps> = ({ todayData, aiIntelligence, averages }) => {
+export const SmartRealTimeAlerts: React.FC<SmartRealTimeAlertsProps> = ({ todayData, performanceData, averages }) => {
   const { tracking, userLearning } = useDriverStore();
 
   const showToast = (type: string, message: string, icon: React.ReactNode) => {
@@ -23,7 +23,7 @@ export const AIRealTimeAlerts: React.FC<AIRealTimeAlertsProps> = ({ todayData, a
     if (type === 'opportunity') command = "HORÁRIO DE PICO";
 
     toast(command, {
-      id: `ai-alert-${type}`, // Prevent duplicates
+      id: `smart-alert-${type}`, // Prevent duplicates
       icon: icon,
       duration: 3000,
       position: 'bottom-center',
@@ -60,7 +60,7 @@ export const AIRealTimeAlerts: React.FC<AIRealTimeAlertsProps> = ({ todayData, a
       // 3. Good Moment Detection
       const currentHour = new Date().getHours();
       const currentDay = getDay(new Date());
-      const bestRange = aiIntelligence.bestHourByDay?.[currentDay];
+      const bestRange = performanceData.bestHourByDay?.[currentDay];
       
       if (bestRange) {
         try {
@@ -76,7 +76,7 @@ export const AIRealTimeAlerts: React.FC<AIRealTimeAlertsProps> = ({ todayData, a
     }, 60000); // Check every minute
 
     return () => clearInterval(interval);
-  }, [tracking.isActive, tracking.lastStopTimestamp, todayData.efficiency, aiIntelligence, averages]);
+  }, [tracking.isActive, tracking.lastStopTimestamp, todayData.efficiency, performanceData, averages]);
 
   return null; // Now handled by sonner toasts
 };

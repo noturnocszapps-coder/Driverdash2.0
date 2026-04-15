@@ -123,8 +123,8 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
     };
   }, [totals, dailyData]);
 
-  // 6. AI Intelligence Metrics
-  const aiIntelligence = useMemo(() => {
+  // 6. Smart Insights Metrics
+  const smartInsights = useMemo(() => {
     // Group cycles by day of week
     const cyclesByDayOfWeek: Record<number, any[]> = {};
     cycles.forEach(cycle => {
@@ -178,5 +178,5 @@ export function useConsolidatedAnalytics(startDate: Date, endDate: Date, filter:
     };
   }, [cycles, dailyData, totals]);
 
-  return { dailyData, totals, platformMix, averages, aiIntelligence };
+  return { dailyData, totals, platformMix, averages, smartInsights };
 }

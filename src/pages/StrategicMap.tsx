@@ -62,7 +62,7 @@ const MapAutoCenter = ({ points }: { points: HeatmapPoint[] }) => {
   return null;
 };
 
-const HeatmapIntelligence = () => {
+const StrategicMap = () => {
   const navigate = useNavigate();
   const { cycles, tracking, incrementMapsViewed } = useDriverStore();
   const [layer, setLayer] = useState<MapLayer>('mixed');
@@ -132,7 +132,7 @@ const HeatmapIntelligence = () => {
           </button>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight">Inteligência de Mapa</h1>
+              <h1 className="text-lg font-bold tracking-tight">Mapa Estratégico</h1>
               <span className="px-1.5 py-0.5 bg-emerald-500/10 text-emerald-500 text-[10px] font-black uppercase tracking-wider rounded border border-emerald-500/20">
                 PRO
               </span>
@@ -378,7 +378,7 @@ const HeatmapIntelligence = () => {
             <AlertCircle size={48} className="text-zinc-700 mb-4" />
             <p className="text-zinc-400 font-black uppercase tracking-widest text-xs">Dados Insuficientes</p>
             <p className="text-zinc-500 text-[10px] font-bold uppercase tracking-wider mt-2 max-w-[200px]">
-              Continue rodando com o rastreamento ativo para gerar seu mapa de calor inteligente.
+              Continue rodando com o rastreamento ativo para gerar seu mapa de calor de performance.
             </p>
           </div>
         )}
@@ -438,4 +438,4 @@ const TimeButton = ({ active, onClick, label }: any) => (
   </button>
 );
 
-export default HeatmapIntelligence;
+export default StrategicMap;
