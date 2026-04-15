@@ -1,8 +1,9 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Square, Navigation, Search, CircleStop, 
-  Check, X, Zap, TrendingUp, MapPin, Clock
+  Check, X, Zap, TrendingUp, MapPin, Clock,
+  Mic, MessageSquare, AlertCircle, Info
 } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { cn } from '../utils';
@@ -12,32 +13,41 @@ import { useLocation } from 'react-router-dom';
 export const TripControl = () => {
   const { 
     tracking, startTrip, endTrip, ignoreDetection, 
-    cycles, postTripActionSheet 
+    cycles, postTripActionSheet, voiceState,
+    setCopilotFeedback
   } = useDriverStore();
+  
   const location = useLocation();
   const openCycle = cycles.find(c => c.status === 'open');
   const isMobile = useIsMobile();
   const [isExpanded, setIsExpanded] = useState(false);
 
   const isFaturamentoPage = location.pathname.includes('faturamento');
+  const { copilotFeedback } = tracking;
+  const { isListening } = voiceState;
 
   // Determine Visual State
-  const getVisualState = () => {
-    if (!tracking.isActive) return 'not_active';
-    if (tracking.mode === 'in_trip') return 'in_trip';
+  const visualState = useMemo(() => {
+    if (copilotFeedback) return 'feedback';
+    if (isListening) return 'listening';
     if (tracking.tripDetectionState === 'pickup_candidate') return 'detected';
-    if (tracking.currentSmoothedSpeed > 5) return 'searching';
-    return 'minimized';
-  };
+    if (tracking.mode === 'in_trip') return 'in_trip';
+    if (tracking.isActive) return tracking.currentSmoothedSpeed > 5 ? 'searching' : 'minimized';
+    return 'not_active';
+  }, [tracking.isActive, tracking.mode, tracking.tripDetectionState, tracking.currentSmoothedSpeed, copilotFeedback, isListening]);
 
-  const visualState = getVisualState();
-
-  // Auto-expand when detected
+  // Auto-expand/minimize logic
   useEffect(() => {
-    if (visualState === 'detected') {
+    if (visualState === 'detected' || visualState === 'listening' || visualState === 'feedback') {
       setIsExpanded(true);
+    } else if (visualState === 'minimized' || visualState === 'not_active') {
+      // Auto-minimize after 5s if manually expanded
+      if (isExpanded) {
+        const timer = setTimeout(() => setIsExpanded(false), 5000);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [visualState]);
+  }, [visualState, isExpanded]);
 
   if (!openCycle || postTripActionSheet.isOpen || isFaturamentoPage) return null;
 
@@ -52,193 +62,238 @@ export const TripControl = () => {
     }
   };
 
+  const toggleVoice = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    const { plan, setPaywallOpen, setVoiceListening, voiceState } = useDriverStore.getState();
+    if (plan === 'free') {
+      setPaywallOpen(true);
+      return;
+    }
+    setVoiceListening(!voiceState.isListening);
+  };
+
   return (
     <div 
       className={cn(
-        "fixed right-4 z-[100] pointer-events-none transition-all duration-500",
+        "fixed left-1/2 -translate-x-1/2 z-[100] pointer-events-none transition-all duration-500 w-full max-w-md px-4",
         isMobile ? "bottom-24" : "bottom-8"
       )}
     >
-      <div className="pointer-events-auto flex flex-col items-end gap-3">
-        <AnimatePresence mode="wait">
-          {/* State 3: Detection (Special Layout) */}
-          {visualState === 'detected' && (
-            <motion.div
-              key="detected"
-              initial={{ scale: 0.8, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: 20 }}
-              className="bg-zinc-900/95 backdrop-blur-xl border border-emerald-500/30 shadow-[0_0_40px_rgba(16,185,129,0.2)] rounded-[2rem] p-4 flex flex-col gap-4 min-w-[240px]"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-zinc-950 animate-pulse">
-                  <Zap size={20} fill="currentColor" />
-                </div>
-                <div>
-                  <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest">Performance</p>
-                  <p className="text-sm font-black text-white tracking-tight">Corrida detectada!</p>
-                </div>
-              </div>
-              
-              <div className="flex gap-2">
-                <button
-                  onClick={() => ignoreDetection()}
-                  className="flex-1 h-10 rounded-xl bg-zinc-800 text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-700 transition-colors"
-                >
-                  Ignorar
-                </button>
-                <button
-                  onClick={() => startTrip()}
-                  className="flex-1 h-10 rounded-xl bg-emerald-500 text-zinc-950 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20"
-                >
-                  Confirmar
-                </button>
-              </div>
-            </motion.div>
+      <div className="pointer-events-auto flex flex-col items-center">
+        <motion.div
+          layout
+          initial={false}
+          className={cn(
+            "relative overflow-hidden transition-all duration-500 ease-[0.22,1,0.36,1]",
+            "bg-zinc-900/90 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[2rem]",
+            isExpanded ? "w-full p-4" : "w-auto px-4 py-2"
           )}
+          onClick={() => !isExpanded && setIsExpanded(true)}
+        >
+          <AnimatePresence mode="wait">
+            {/* 1. FEEDBACK STATE */}
+            {visualState === 'feedback' && copilotFeedback && (
+              <motion.div
+                key="feedback"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="flex items-center gap-3"
+              >
+                <div className={cn(
+                  "w-8 h-8 rounded-full flex items-center justify-center",
+                  copilotFeedback.type === 'success' ? "bg-emerald-500 text-zinc-950" :
+                  copilotFeedback.type === 'error' ? "bg-red-500 text-white" :
+                  copilotFeedback.type === 'voice' ? "bg-blue-500 text-white" :
+                  "bg-zinc-800 text-zinc-400"
+                )}>
+                  {copilotFeedback.type === 'success' ? <Check size={16} /> :
+                   copilotFeedback.type === 'error' ? <AlertCircle size={16} /> :
+                   copilotFeedback.type === 'voice' ? <Mic size={16} /> :
+                   <Info size={16} />}
+                </div>
+                <span className="text-sm font-black text-white tracking-tight">
+                  {copilotFeedback.message}
+                </span>
+              </motion.div>
+            )}
 
-          {/* State 4: In Trip (Uber Style) */}
-          {visualState === 'in_trip' && (
-            <motion.div
-              key="in_trip"
-              initial={{ scale: 0.8, opacity: 0, y: 20 }}
-              animate={{ scale: 1, opacity: 1, y: 0 }}
-              exit={{ scale: 0.8, opacity: 0, y: 20 }}
-              className="bg-zinc-900/95 backdrop-blur-xl border border-red-500/20 shadow-[0_0_50px_rgba(239,68,68,0.15)] rounded-[2rem] p-2 flex items-center gap-4 min-w-[280px]"
-            >
-              <div className="flex items-center gap-3 pl-3 py-1">
-                <div className="relative">
+            {/* 2. LISTENING STATE */}
+            {visualState === 'listening' && (
+              <motion.div
+                key="listening"
+                initial={{ opacity: 0, scale: 0.9 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.9 }}
+                className="flex items-center gap-4"
+              >
+                <div className="relative" onClick={toggleVoice}>
+                  <motion.div
+                    animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                    transition={{ duration: 1.5, repeat: Infinity }}
+                    className="absolute inset-0 bg-blue-500 rounded-full blur-md"
+                  />
+                  <div className="relative w-10 h-10 rounded-full bg-blue-500 flex items-center justify-center text-white cursor-pointer">
+                    <Mic size={20} />
+                  </div>
+                </div>
+                <div className="flex flex-col">
+                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-[0.2em] leading-none mb-1">Assistente</span>
+                  <span className="text-sm font-black text-white tracking-tight">Ouvindo comando...</span>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 3. DETECTED STATE */}
+            {visualState === 'detected' && (
+              <motion.div
+                key="detected"
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="flex flex-col gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-zinc-950">
+                    <Zap size={20} fill="currentColor" />
+                  </div>
+                  <div>
+                    <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none mb-1">Smart Detection</p>
+                    <p className="text-sm font-black text-white tracking-tight">Corrida detectada!</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); ignoreDetection(); }}
+                    className="flex-1 h-10 rounded-xl bg-zinc-800 text-zinc-400 text-[10px] font-black uppercase tracking-widest hover:bg-zinc-700 transition-colors"
+                  >
+                    Ignorar
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); startTrip(); }}
+                    className="flex-1 h-10 rounded-xl bg-emerald-500 text-zinc-950 text-[10px] font-black uppercase tracking-widest hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/20"
+                  >
+                    Confirmar
+                  </button>
+                </div>
+              </motion.div>
+            )}
+
+            {/* 4. IN TRIP STATE */}
+            {visualState === 'in_trip' && (
+              <motion.div
+                key="in_trip"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className={cn("flex items-center gap-4", !isExpanded && "justify-center")}
+              >
+                <div className="relative flex items-center justify-center">
                   <motion.div
                     animate={{ scale: [1, 1.4, 1], opacity: [0.3, 0.1, 0.3] }}
                     transition={{ duration: 2, repeat: Infinity }}
-                    className="absolute inset-0 bg-red-500/20 rounded-full blur-sm"
+                    className="absolute w-6 h-6 bg-red-500/30 rounded-full blur-sm"
                   />
                   <div className="relative w-2 h-2 rounded-full bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" />
                 </div>
-                
-                <div className="flex flex-col">
-                  <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Em Corrida</span>
-                  <div className="flex items-baseline gap-1">
-                    <span className="text-2xl font-black text-white tabular-nums tracking-tighter leading-none">
-                      {speed.toFixed(0)}
-                    </span>
-                    <span className="text-[8px] font-black text-zinc-600 uppercase">km/h</span>
-                    <div className="w-px h-4 bg-white/10 mx-1" />
-                    <span className="text-lg font-black text-zinc-300 tabular-nums tracking-tighter leading-none">
-                      {distance.toFixed(1)}
-                    </span>
-                    <span className="text-[8px] font-black text-zinc-600 uppercase">km</span>
+
+                {isExpanded ? (
+                  <div className="flex-1 flex items-center justify-between">
+                    <div className="flex flex-col">
+                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">Em Corrida</span>
+                      <div className="flex items-baseline gap-1">
+                        <span className="text-xl font-black text-white tabular-nums tracking-tighter leading-none">
+                          {speed.toFixed(0)}
+                        </span>
+                        <span className="text-[8px] font-black text-zinc-600 uppercase">km/h</span>
+                        <div className="w-px h-3 bg-white/10 mx-1" />
+                        <span className="text-lg font-black text-zinc-300 tabular-nums tracking-tighter leading-none">
+                          {distance.toFixed(1)}
+                        </span>
+                        <span className="text-[8px] font-black text-zinc-600 uppercase">km</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={toggleVoice}
+                        className="w-10 h-10 rounded-xl bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-zinc-700 transition-colors"
+                      >
+                        <Mic size={18} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); endTrip(); }}
+                        className="h-10 px-4 rounded-xl bg-red-500 text-white font-black text-[10px] uppercase tracking-widest hover:bg-red-400 transition-colors shadow-lg shadow-red-500/20"
+                      >
+                        Encerrar
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </div>
+                ) : (
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs font-black text-white tabular-nums">{speed.toFixed(0)} km/h</span>
+                    <div className="w-px h-3 bg-white/10" />
+                    <span className="text-xs font-black text-zinc-400 tabular-nums">{distance.toFixed(1)} km</span>
+                  </div>
+                )}
+              </motion.div>
+            )}
 
-              <motion.button
-                whileTap={{ scale: 0.95 }}
-                onClick={() => endTrip()}
-                className="ml-auto h-12 px-6 rounded-2xl bg-red-500 text-white font-black text-xs uppercase tracking-widest hover:bg-red-400 transition-colors shadow-lg shadow-red-500/20"
+            {/* 5. SEARCHING / MINIMIZED / NOT ACTIVE */}
+            {(visualState === 'searching' || visualState === 'minimized' || visualState === 'not_active') && (
+              <motion.div
+                key="default"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="flex items-center gap-3"
               >
-                Encerrar
-              </motion.button>
-            </motion.div>
-          )}
-
-          {/* State 1 & 2: Minimized / Searching / Not Active */}
-          {(visualState === 'minimized' || visualState === 'searching' || visualState === 'not_active') && (
-            <motion.div
-              key="pill"
-              layout
-              initial={{ scale: 0.8, opacity: 0 }}
-              animate={{ scale: 1, opacity: 1 }}
-              exit={{ scale: 0.8, opacity: 0 }}
-              onClick={() => setIsExpanded(!isExpanded)}
-              className={cn(
-                "bg-zinc-900/90 backdrop-blur-xl border border-white/5 shadow-xl rounded-full p-1.5 flex items-center transition-all duration-500 cursor-pointer",
-                (visualState === 'searching' || speed > 0 || (visualState === 'not_active' && isExpanded) || isExpanded) ? "gap-3 pr-4" : "gap-0"
-              )}
-            >
-              <div className={cn(
-                "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500",
-                visualState === 'searching' ? "bg-amber-500 text-zinc-950" : 
-                visualState === 'not_active' ? "bg-zinc-800 text-zinc-500" :
-                "bg-zinc-800 text-zinc-400"
-              )}>
-                {visualState === 'searching' ? <Search size={18} /> : 
-                 visualState === 'not_active' ? <Play size={18} fill="currentColor" className="ml-0.5" /> :
-                 <CircleStop size={18} />}
-              </div>
-
-              <AnimatePresence>
-                {(visualState === 'searching' || (visualState === 'minimized' && speed > 0)) && (
-                  <motion.div
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 'auto', opacity: 1 }}
-                    exit={{ width: 0, opacity: 0 }}
-                    className="flex flex-col overflow-hidden whitespace-nowrap"
-                  >
-                    <span className={cn(
-                      "text-[8px] font-black uppercase tracking-widest leading-none mb-0.5",
-                      visualState === 'searching' ? "text-amber-500" : "text-zinc-500"
-                    )}>
-                      {visualState === 'searching' ? 'Buscando' : 'Movimento'}
-                    </span>
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-lg font-black text-white tabular-nums tracking-tighter leading-none">
-                        {speed.toFixed(0)}
-                      </span>
-                      <span className="text-[8px] font-black text-zinc-600 uppercase">km/h</span>
-                    </div>
-                  </motion.div>
-                )}
-
-                {visualState === 'minimized' && speed === 0 && isExpanded && (
-                  <motion.div
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 'auto', opacity: 1 }}
-                    exit={{ width: 0, opacity: 0 }}
-                    className="flex items-center gap-3 pl-2 pr-4 overflow-hidden whitespace-nowrap"
-                  >
-                    <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-0.5">Status</span>
-                      <span className="text-xs font-black text-white uppercase tracking-tight">Parado</span>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStart();
-                      }}
-                      className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-zinc-950 shadow-lg shadow-emerald-500/20"
-                    >
-                      <Play size={14} fill="currentColor" className="ml-0.5" />
-                    </button>
-                  </motion.div>
-                )}
+                <div className={cn(
+                  "w-2 h-2 rounded-full",
+                  visualState === 'searching' ? "bg-amber-500 animate-pulse" : 
+                  visualState === 'minimized' ? "bg-emerald-500" :
+                  "bg-zinc-700"
+                )} />
                 
-                {visualState === 'not_active' && isExpanded && (
-                  <motion.div
-                    initial={{ width: 0, opacity: 0 }}
-                    animate={{ width: 'auto', opacity: 1 }}
-                    exit={{ width: 0, opacity: 0 }}
-                    className="flex items-center gap-3 pl-2 pr-4 overflow-hidden whitespace-nowrap"
-                  >
+                {isExpanded ? (
+                  <div className="flex-1 flex items-center justify-between min-w-[200px]">
                     <div className="flex flex-col">
-                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-0.5">Rastreamento</span>
-                      <span className="text-xs font-black text-white uppercase tracking-tight">Iniciar</span>
+                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">
+                        {visualState === 'searching' ? 'Buscando' : 
+                         visualState === 'minimized' ? 'Ativo' : 'Offline'}
+                      </span>
+                      <span className="text-sm font-black text-white tracking-tight">
+                        {visualState === 'not_active' ? 'Iniciar Rastreamento' : 
+                         speed > 0 ? `${speed.toFixed(0)} km/h` : 'Parado'}
+                      </span>
                     </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleStart();
-                      }}
-                      className="w-8 h-8 rounded-full bg-emerald-500 flex items-center justify-center text-zinc-950 shadow-lg shadow-emerald-500/20"
-                    >
-                      <Play size={14} fill="currentColor" className="ml-0.5" />
-                    </button>
-                  </motion.div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={toggleVoice}
+                        className="w-10 h-10 rounded-full bg-zinc-800 text-zinc-400 flex items-center justify-center hover:bg-zinc-700 transition-colors"
+                      >
+                        <Mic size={18} />
+                      </button>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); handleStart(); }}
+                        className={cn(
+                          "w-10 h-10 rounded-full flex items-center justify-center transition-all duration-300",
+                          visualState === 'not_active' ? "bg-emerald-500 text-zinc-950" : "bg-zinc-800 text-zinc-400"
+                        )}
+                      >
+                        {visualState === 'not_active' ? <Play size={18} fill="currentColor" className="ml-0.5" /> : <Square size={16} fill="currentColor" />}
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <span className="text-xs font-black text-white tracking-tight whitespace-nowrap">
+                    {visualState === 'not_active' ? 'Offline' : 
+                     speed > 5 ? `🚗 ${speed.toFixed(0)} km/h` : `• ${speed.toFixed(0)} km/h`}
+                  </span>
                 )}
-              </AnimatePresence>
-            </motion.div>
-          )}
-        </AnimatePresence>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.div>
       </div>
     </div>
   );

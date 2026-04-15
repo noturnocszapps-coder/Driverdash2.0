@@ -9,7 +9,6 @@ import { useLocation } from 'react-router-dom';
 
 export const ManualTripFAB = () => {
   const { tracking, startTrip, endTrip, isSaving, setQuickActionsOpen, settings, postTripActionSheet } = useDriverStore();
-  const { listen, isListening } = useVoiceAssistant();
   const isMobile = useIsMobile();
   const location = useLocation();
   const isActive = tracking.isActive;
@@ -181,24 +180,6 @@ export const ManualTripFAB = () => {
               </svg>
             )}
           </motion.button>
-
-          {/* Voice Assistant Button (FAB context) */}
-          {settings.voiceCommandsEnabled && (
-            <motion.button
-              initial={{ scale: 0, x: 20 }}
-              animate={{ scale: 1, x: 0 }}
-              whileTap={{ scale: 0.9 }}
-              onClick={listen}
-              className={cn(
-                "absolute -left-14 bottom-0 w-12 h-12 rounded-full flex items-center justify-center shadow-2xl transition-all duration-300",
-                isListening 
-                  ? "bg-red-500 text-white animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.3)]" 
-                  : "bg-zinc-900/90 backdrop-blur-xl border border-white/10 text-white/60 hover:text-white"
-              )}
-            >
-              <Mic size={20} />
-            </motion.button>
-          )}
 
           {/* Mini Status Indicator - Refined for zero distraction */}
           {isActive && (

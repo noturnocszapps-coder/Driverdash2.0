@@ -406,6 +406,30 @@ export const useDriverStore = create<DriverState>()(
         }
       })),
 
+      setCopilotFeedback: (message, type, duration = 3000) => {
+        const timestamp = Date.now();
+        set((state) => ({
+          tracking: {
+            ...state.tracking,
+            copilotFeedback: { message, type, timestamp }
+          }
+        }));
+
+        if (duration > 0) {
+          setTimeout(() => {
+            const current = get().tracking.copilotFeedback;
+            if (current && current.timestamp === timestamp) {
+              set((state) => ({
+                tracking: {
+                  ...state.tracking,
+                  copilotFeedback: undefined
+                }
+              }));
+            }
+          }, duration);
+        }
+      },
+
       updateUserLearning: (action, type) => set((state) => {
         const learning = { ...state.userLearning };
         if (action === 'accept') {

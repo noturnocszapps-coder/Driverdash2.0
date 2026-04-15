@@ -319,6 +319,12 @@ export interface Route {
   totalDistance: number;
 }
 
+export interface CopilotFeedback {
+  message: string;
+  type: 'success' | 'error' | 'info' | 'voice';
+  timestamp: number;
+}
+
 export interface TrackingSession {
   isActive: boolean;
   isLoading: boolean;
@@ -360,6 +366,7 @@ export interface TrackingSession {
   hudState: HUDState;
   lastAlertMessage?: string;
   lastAlerts: Record<string, number>;
+  copilotFeedback?: CopilotFeedback;
 }
 
 export type TripStatus = 'good' | 'acceptable' | 'bad' | 'analyzing';
@@ -713,4 +720,5 @@ export interface DriverState {
   saveRoute: (route: Omit<Route, 'id'>) => Promise<void>;
   loadRoutes: () => Promise<void>;
   speak: (text: string) => void;
+  setCopilotFeedback: (message: string, type: 'success' | 'error' | 'info' | 'voice', duration?: number) => void;
 }

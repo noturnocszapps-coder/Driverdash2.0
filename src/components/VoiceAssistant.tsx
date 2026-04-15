@@ -4,6 +4,7 @@ import { toast } from 'sonner';
 import { Mic, MicOff } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { cn } from '../utils';
+import { useIsMobile } from '../hooks/useIsMobile';
 
 // Types for Web Speech API
 interface SpeechRecognitionEvent extends Event {
@@ -54,6 +55,7 @@ export const VoiceAssistant = () => {
 
   const processCommand = useCallback((transcript: string) => {
     const command = transcript.toLowerCase().trim();
+    const { setCopilotFeedback } = useDriverStore.getState();
     console.log('[VOICE] Command received:', command);
 
     // Trip Management
@@ -61,8 +63,10 @@ export const VoiceAssistant = () => {
       if (tracking.mode !== 'in_trip') {
         startTrip();
         speak('Corrida iniciada. Boa viagem!');
+        setCopilotFeedback('Corrida iniciada', 'success');
       } else {
         speak('A corrida já está em andamento.');
+        setCopilotFeedback('Já em andamento', 'info');
       }
       return;
     }
@@ -71,8 +75,10 @@ export const VoiceAssistant = () => {
       if (tracking.mode === 'in_trip') {
         endTrip();
         speak('Corrida finalizada. Confira o valor.');
+        setCopilotFeedback('Corrida finalizada', 'success');
       } else {
         speak('Não há nenhuma corrida ativa para finalizar.');
+        setCopilotFeedback('Sem corrida ativa', 'info');
       }
       return;
     }
@@ -84,14 +90,17 @@ export const VoiceAssistant = () => {
         const duration = tracking.productiveTime || 0;
         const suggestedValue = Math.round((distance * ratePerKm + (duration / 60000) * 0.1) * 100) / 100;
         speak(`O valor estimado da corrida é de ${suggestedValue.toFixed(2)} reais.`);
+        setCopilotFeedback(`Valor: R$ ${suggestedValue.toFixed(2)}`, 'success', 5000);
       } else {
         speak('Inicie uma corrida para ver o valor estimado.');
+        setCopilotFeedback('Inicie uma corrida', 'info');
       }
       return;
     }
 
     if (command.includes('comandos') || command.includes('ajuda')) {
       speak('Comandos disponíveis: Iniciar corrida, Finalizar corrida, Valor da corrida, Polícia, Banheiro e Via interditada.');
+      setCopilotFeedback('Comandos de voz', 'info');
       return;
     }
 
@@ -106,8 +115,10 @@ export const VoiceAssistant = () => {
           description: 'Polícia reportada por voz'
         });
         speak('Polícia marcada no mapa.');
+        setCopilotFeedback('Polícia marcada', 'success');
       } else {
         speak('Não consegui obter sua localização atual.');
+        setCopilotFeedback('Erro de localização', 'error');
       }
       return;
     }
@@ -122,8 +133,10 @@ export const VoiceAssistant = () => {
           description: 'Banheiro reportado por voz'
         });
         speak('Banheiro marcado no mapa.');
+        setCopilotFeedback('Banheiro marcado', 'success');
       } else {
         speak('Não consegui obter sua localização atual.');
+        setCopilotFeedback('Erro de localização', 'error');
       }
       return;
     }
@@ -138,8 +151,10 @@ export const VoiceAssistant = () => {
           description: 'Via interditada reportada por voz'
         });
         speak('Interdição marcada no mapa.');
+        setCopilotFeedback('Interdição marcada', 'success');
       } else {
         speak('Não consegui obter sua localização atual.');
+        setCopilotFeedback('Erro de localização', 'error');
       }
       return;
     }
@@ -147,8 +162,9 @@ export const VoiceAssistant = () => {
     // If no command matched but it sounded like one
     if (command.length > 3) {
       console.log('[VOICE] Command not recognized:', command);
+      setCopilotFeedback('Não entendi', 'info');
     }
-  }, [tracking, startTrip, endTrip, addMapMarker, speak]);
+  }, [tracking, startTrip, endTrip, addMapMarker, speak, driverProfile]);
 
   useEffect(() => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -165,14 +181,22 @@ export const VoiceAssistant = () => {
 
     recognition.onresult = (event: SpeechRecognitionEvent) => {
       const transcript = event.results[event.results.length - 1][0].transcript;
+      useDriverStore.getState().setCopilotFeedback(transcript, 'voice', 2000);
       processCommand(transcript);
     };
 
     recognition.onerror = (event: SpeechRecognitionErrorEvent) => {
       console.error('[VOICE] Recognition error:', event.error);
       if (event.error === 'not-allowed') {
-        toast.error('Permissão de microfone negada para comandos de voz.');
+        useDriverStore.getState().setCopilotFeedback('Microfone bloqueado', 'error', 4000);
         setVoiceListening(false);
+      } else if (event.error === 'network') {
+        useDriverStore.getState().setCopilotFeedback('Erro de rede', 'error', 4000);
+        setVoiceListening(false);
+      } else if (event.error === 'no-speech') {
+        // Silent error, just log
+      } else {
+        useDriverStore.getState().setCopilotFeedback('Não consegui ouvir', 'error', 3000);
       }
     };
 
@@ -215,39 +239,5 @@ export const VoiceAssistant = () => {
 
   if (!settings.voiceCommandsEnabled) return null;
 
-  return (
-    <div className="fixed bottom-28 right-4 z-[110] pointer-events-none">
-      <div className="pointer-events-auto">
-        <motion.button
-          whileTap={{ scale: 0.9 }}
-          onClick={() => {
-            if (plan === 'free') {
-              setPaywallOpen(true);
-              return;
-            }
-            setVoiceListening(!voiceState.isListening);
-          }}
-          className={cn(
-            "w-12 h-12 rounded-full flex items-center justify-center transition-all duration-500 shadow-lg",
-            voiceState.isListening 
-              ? "bg-emerald-500 text-zinc-950 shadow-emerald-500/40 animate-pulse" 
-              : "bg-zinc-900 text-zinc-400 border border-white/5"
-          )}
-        >
-          {voiceState.isListening ? <Mic size={20} /> : <MicOff size={20} />}
-          
-          <AnimatePresence>
-            {voiceState.isListening && (
-              <motion.div
-                initial={{ scale: 0, opacity: 0 }}
-                animate={{ scale: 1, opacity: 1 }}
-                exit={{ scale: 0, opacity: 0 }}
-                className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-zinc-950"
-              />
-            )}
-          </AnimatePresence>
-        </motion.button>
-      </div>
-    </div>
-  );
+  return null;
 };
