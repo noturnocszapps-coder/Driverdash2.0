@@ -180,6 +180,7 @@ const SafeRoute = ({
 
 import { TripControl } from './components/TripControl';
 import { ManualTripFAB } from './components/ManualTripFAB';
+import { VoiceAssistant } from './components/VoiceAssistant';
 import { Paywall } from './components/Paywall';
 import { useWakeLock } from './hooks/useWakeLock';
 
@@ -260,6 +261,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
         <>
           <TripControl />
           <ManualTripFAB />
+          <VoiceAssistant />
         </>
       )}
       <BottomNav />

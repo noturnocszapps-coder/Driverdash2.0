@@ -374,6 +374,29 @@ export const useDriverStore = create<DriverState>()(
       setVoiceListening: (isListening) => set((state) => ({
         voiceState: { ...state.voiceState, isListening }
       })),
+
+      speak: (text: string) => {
+        const { settings } = get();
+        if (!settings.voiceEnabled || !window.speechSynthesis) return;
+        
+        // Cancel current speaking
+        window.speechSynthesis.cancel();
+        
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.lang = 'pt-BR';
+        utterance.volume = settings.voiceVolume || 1;
+        utterance.rate = 1;
+        
+        window.speechSynthesis.speak(utterance);
+        
+        set((state) => ({
+          voiceState: {
+            ...state.voiceState,
+            lastSpokenMessage: text,
+            lastSpokenAt: Date.now()
+          }
+        }));
+      },
       
       setLastSpoken: (message) => set((state) => ({
         voiceState: { 
@@ -408,13 +431,33 @@ export const useDriverStore = create<DriverState>()(
 
       addMapMarker: async (markerData) => {
         const { user } = get();
-        if (!user || !isSupabaseConfigured) return;
+        
+        const newMarker = {
+          ...markerData,
+          id: crypto.randomUUID(),
+          createdBy: user?.id || 'local-user',
+          createdAt: new Date().toISOString(),
+          status: 'pending' as const
+        };
+
+        // Update local state immediately for responsiveness
+        set(state => ({
+          mapMarkers: [...state.mapMarkers, newMarker]
+        }));
+
+        if (!user || !isSupabaseConfigured) {
+          toast.success('Marcador adicionado localmente');
+          return;
+        }
 
         try {
           const { data, error } = await supabase
             .from('map_markers')
             .insert([{
-              ...markerData,
+              type: markerData.type,
+              lat: markerData.lat,
+              lng: markerData.lng,
+              description: markerData.description,
               user_id: user.id,
               status: 'pending',
               created_at: new Date().toISOString()
@@ -424,9 +467,6 @@ export const useDriverStore = create<DriverState>()(
 
           if (error) throw error;
           
-          set(state => ({
-            mapMarkers: [...state.mapMarkers, data]
-          }));
           toast.success('Sugestão enviada para aprovação');
         } catch (error) {
           console.error('[MAP] Error adding marker:', error);

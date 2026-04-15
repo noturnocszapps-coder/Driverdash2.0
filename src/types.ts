@@ -712,4 +712,5 @@ export interface DriverState {
   loadMapMarkers: () => Promise<void>;
   saveRoute: (route: Omit<Route, 'id'>) => Promise<void>;
   loadRoutes: () => Promise<void>;
+  speak: (text: string) => void;
 }
