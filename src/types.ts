@@ -668,8 +668,8 @@ export interface DriverState {
   addMaintenance: (maintenance: Omit<Maintenance, 'id'>) => Promise<void>;
   addImportedReport: (report: Omit<ImportedReport, 'id' | 'user_id' | 'imported_at'>) => Promise<void>;
   addFaturamentoLog: (log: Omit<FaturamentoLog, 'id' | 'user_id'>) => Promise<void>;
-  deleteCycle: (id: string) => Promise<void>;
-  deleteImportedReport: (id: string) => Promise<void>;
+  deleteCycle: (id: string) => Promise<{ success: boolean; error?: string }>;
+  deleteImportedReport: (id: string) => Promise<{ success: boolean; error?: string }>;
   
   // Vehicle methods
   loadVehicles: () => Promise<void>;

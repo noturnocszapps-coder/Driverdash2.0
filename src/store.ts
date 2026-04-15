@@ -1489,37 +1489,15 @@ export const useDriverStore = create<DriverState>()(
 
       deleteCycle: async (id) => {
         const { user, isSaving, cycles } = get();
-        if (isSaving) return;
+        if (isSaving) return { success: false, error: 'Operação em andamento' };
 
         const cycleToDelete = cycles.find(c => c.id === id);
+        if (!cycleToDelete) return { success: false, error: 'Ciclo não encontrado' };
+        
         const importedReportId = cycleToDelete?.imported_report_id;
 
         set({ isSaving: true });
         try {
-          // Local state update
-          set((state) => {
-            const updatedCycles = state.cycles.filter(c => c.id !== id);
-            const updatedReports = importedReportId 
-              ? state.importedReports.filter(r => r.id !== importedReportId)
-              : state.importedReports;
-
-            return {
-              cycles: updatedCycles,
-              importedReports: updatedReports,
-              hasOpenCycle: updatedCycles.some(c => c.status === 'open')
-            };
-          });
-
-          // Clear localStorage if deleted cycle was the open one
-          const localCycle = localStorage.getItem('driver_dash_open_cycle');
-          if (localCycle) {
-            try {
-              if (JSON.parse(localCycle).id === id) {
-                localStorage.removeItem('driver_dash_open_cycle');
-              }
-            } catch (e) {}
-          }
-
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             
@@ -1548,9 +1526,36 @@ export const useDriverStore = create<DriverState>()(
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
           }
+
+          // Local state update AFTER successful deletion
+          set((state) => {
+            const updatedCycles = state.cycles.filter(c => c.id !== id);
+            const updatedReports = importedReportId 
+              ? state.importedReports.filter(r => r.id !== importedReportId)
+              : state.importedReports;
+
+            return {
+              cycles: updatedCycles,
+              importedReports: updatedReports,
+              hasOpenCycle: updatedCycles.some(c => c.status === 'open')
+            };
+          });
+
+          // Clear localStorage if deleted cycle was the open one
+          const localCycle = localStorage.getItem('driver_dash_open_cycle');
+          if (localCycle) {
+            try {
+              if (JSON.parse(localCycle).id === id) {
+                localStorage.removeItem('driver_dash_open_cycle');
+              }
+            } catch (e) {}
+          }
+
+          return { success: true };
         } catch (error) {
           console.error('[CYCLE] Delete error:', error);
           set({ syncStatus: 'offline' });
+          return { success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
         } finally {
           set({ isSaving: false });
         }
@@ -1558,23 +1563,32 @@ export const useDriverStore = create<DriverState>()(
 
       deleteImportedReport: async (id) => {
         const { user, isSaving } = get();
-        if (isSaving) return;
+        if (isSaving) return { success: false, error: 'Operação em andamento' };
 
         set({ isSaving: true });
         try {
-          set((state) => ({
-            importedReports: state.importedReports.filter(r => r.id !== id)
-          }));
-
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('imported_reports').delete().eq('id', id).eq('user_id', user.id);
-            if (error) console.error('[SYNC] Error (delete imported report):', error);
-            set({ syncStatus: error ? 'offline' : 'synced' });
+            if (error) {
+              console.error('[SYNC] Error (delete imported report):', error);
+              throw error;
+            }
+            set({ syncStatus: 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
           }
+
+          set((state) => ({
+            importedReports: state.importedReports.filter(r => r.id !== id)
+          }));
+
+          return { success: true };
+        } catch (error) {
+          console.error('[REPORT] Delete error:', error);
+          set({ syncStatus: 'offline' });
+          return { success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
         } finally {
           set({ isSaving: false });
         }

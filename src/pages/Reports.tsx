@@ -641,9 +641,14 @@ export const Reports = () => {
       <ConfirmationModal
         isOpen={!!reportToDelete}
         onClose={() => setReportToDelete(null)}
-        onConfirm={() => {
+        onConfirm={async () => {
           if (reportToDelete) {
-            deleteImportedReport(reportToDelete);
+            const result = await deleteImportedReport(reportToDelete);
+            if (result.success) {
+              toast.success('Relatório excluído com sucesso');
+            } else {
+              toast.error(result.error || 'Erro ao excluir relatório');
+            }
             setReportToDelete(null);
           }
         }}

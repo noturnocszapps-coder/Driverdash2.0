@@ -23,13 +23,15 @@ import { motion } from 'motion/react';
 import { format, parseISO, isSameDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
+import { toast } from 'sonner';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 
 export const CycleDetail = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { cycles, deleteCycle, settings, importedReports } = useDriverStore();
+  const { cycles, deleteCycle, settings, importedReports, isSaving } = useDriverStore();
   const [showDeleteConfirm, setShowDeleteConfirm] = React.useState(false);
+  const [isDeleting, setIsDeleting] = React.useState(false);
 
   const cycle = useMemo(() => cycles.find(c => c.id === id), [cycles, id]);
 
@@ -48,7 +50,7 @@ export const CycleDetail = () => {
     return dayCycles.length > 1 || dayImports.length > 0;
   }, [cycles, importedReports, dayDate]);
 
-  if (!cycle) {
+  if (!cycle && !isDeleting) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
         <div className="w-16 h-16 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-400">
@@ -66,10 +68,37 @@ export const CycleDetail = () => {
   }
 
   const handleDelete = async () => {
-    if (!cycle) return;
-    await deleteCycle(cycle.id);
-    navigate('/reports');
+    if (!cycle || isDeleting) return;
+    
+    setIsDeleting(true);
+    try {
+      const result = await deleteCycle(cycle.id);
+      
+      if (result?.success) {
+        toast.success('Ciclo excluído com sucesso');
+        navigate('/reports', { replace: true });
+      } else {
+        toast.error(result?.error || 'Erro ao excluir ciclo');
+        setIsDeleting(false);
+      }
+    } catch (error) {
+      console.error('[CYCLE] Delete error:', error);
+      toast.error('Erro inesperado ao excluir ciclo');
+      setIsDeleting(false);
+    }
   };
+
+  if (isDeleting || (isSaving && !cycle)) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-[60vh] text-center space-y-4">
+        <div className="w-12 h-12 rounded-full border-4 border-zinc-200 border-t-emerald-500 animate-spin" />
+        <div className="space-y-1">
+          <h2 className="text-xl font-black tracking-tight">Excluindo ciclo...</h2>
+          <p className="text-sm text-zinc-500">Aguarde enquanto removemos os dados.</p>
+        </div>
+      </div>
+    );
+  }
 
   const platforms = [
     { label: 'Uber', value: cycle.uber_amount, color: 'bg-zinc-900 dark:bg-white' },
