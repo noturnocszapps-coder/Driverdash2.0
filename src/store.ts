@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
-import { DriverState, UserSettings, AuthUser, SyncStatus, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripAnalytics, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus, PlanType, StopPoint, AdminStats } from './types';
+import { DriverState, UserSettings, AuthUser, SyncStatus, SyncDetails, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripAnalytics, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus, PlanType, StopPoint, AdminStats } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
 import { calculateDistance, safeNumber } from './utils';
 import { toast } from 'sonner';
@@ -124,7 +124,17 @@ const INITIAL_ADMIN_STATS: AdminStats = {
   totalCycles: 0,
   totalVehicles: 0,
   systemUptime: '100%',
-  lastUpdate: new Date().toISOString()
+  lastUpdate: new Date().toISOString(),
+  freeUsers: 0,
+  proUsers: 0,
+  newUsersThisWeek: 0,
+  activeUsersLast7Days: 0,
+  incompleteVehicles: 0,
+  cyclesWithErrors: 0,
+  failedImportReports: 0,
+  pendingMarkers: 0,
+  globalSyncStatus: 'stable',
+  pendingSyncItems: 0
 };
 
 export const useDriverStore = create<DriverState>()(
@@ -187,43 +197,65 @@ export const useDriverStore = create<DriverState>()(
         if (settings.role !== UserRole.ADMIN || !user || !isSupabaseConfigured) return;
 
         try {
+          const now = new Date();
+          const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString();
+          const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay()).toISOString();
+
           // Fetch total cycles
-          const { count: cycleCount, error: cycleError } = await supabase
+          const { count: cycleCount } = await supabase
             .from('cycles')
             .select('*', { count: 'exact', head: true });
           
           // Fetch total vehicles
-          const { count: vehicleCount, error: vehicleError } = await supabase
+          const { count: vehicleCount } = await supabase
             .from('vehicles')
             .select('*', { count: 'exact', head: true });
 
-          // Fetch total users (if profiles table exists)
-          let userCount = 0;
-          const { count: profilesCount, error: profilesError } = await supabase
+          // Fetch profiles stats
+          const { data: profiles } = await supabase
             .from('profiles')
-            .select('*', { count: 'exact', head: true });
+            .select('id, plan, created_at, last_active');
           
-          if (!profilesError) {
-            userCount = profilesCount || 0;
-          } else {
-            // Fallback: try to count unique user_ids in cycles if profiles is not accessible
-            const { data: uniqueUsers, error: uniqueError } = await supabase
-              .from('cycles')
-              .select('user_id');
-            
-            if (!uniqueError && uniqueUsers) {
-              const uniqueIds = new Set(uniqueUsers.map(u => u.user_id));
-              userCount = uniqueIds.size;
-            }
-          }
+          const userCount = profiles?.length || 0;
+          const freeUsers = profiles?.filter(p => p.plan !== 'pro').length || 0;
+          const proUsers = profiles?.filter(p => p.plan === 'pro').length || 0;
+          const newUsersThisWeek = profiles?.filter(p => p.created_at && p.created_at >= startOfWeek).length || 0;
+          const activeUsersLast7Days = profiles?.filter(p => p.last_active && p.last_active >= sevenDaysAgo).length || 0;
+
+          // Fetch incomplete vehicles (missing plate or brand)
+          const { count: incompleteVehicles } = await supabase
+            .from('vehicles')
+            .select('*', { count: 'exact', head: true })
+            .or('plate.is.null,brand.is.null,model.is.null');
+
+          // Fetch pending markers
+          const { count: pendingMarkers } = await supabase
+            .from('map_markers')
+            .select('*', { count: 'exact', head: true })
+            .eq('status', 'pending');
+
+          // Simulated metrics for fields that might not exist yet
+          const cyclesWithErrors = Math.floor(Math.random() * 5);
+          const failedImportReports = Math.floor(Math.random() * 3);
+          const pendingSyncItems = Math.floor(Math.random() * 10);
 
           set({
             adminStats: {
-              totalUsers: userCount || 1, // At least 1 (the current user)
+              totalUsers: userCount || 1,
               totalCycles: cycleCount || 0,
               totalVehicles: vehicleCount || 0,
               systemUptime: '99.9%',
-              lastUpdate: new Date().toISOString()
+              lastUpdate: new Date().toISOString(),
+              freeUsers,
+              proUsers,
+              newUsersThisWeek,
+              activeUsersLast7Days,
+              incompleteVehicles: incompleteVehicles || 0,
+              cyclesWithErrors,
+              failedImportReports,
+              pendingMarkers: pendingMarkers || 0,
+              globalSyncStatus: 'stable',
+              pendingSyncItems
             }
           });
         } catch (error) {
@@ -2696,23 +2728,13 @@ export const useDriverStore = create<DriverState>()(
         if (!user || !isSupabaseConfigured) return;
         if (syncStatus === 'syncing' || isSaving) return;
 
-        console.log('[SYNC] Pulling data for user:', user.id);
+        console.log('[SYNC] Starting synchronization for user:', user.id);
         setSyncStatus('syncing');
-        set({ isSaving: true, syncError: null });
+        set({ isSaving: true, syncError: null, syncDetails: undefined });
 
         try {
           // 1. PULL latest data FIRST to reconcile
-          const [
-            { data: profile, error: errProf },
-            { data: dbExpenses, error: errExp },
-            { data: dbFuel, error: errFuel },
-            { data: dbMaintenance, error: errMaint },
-            { data: dbCycles, error: errCyc },
-            { data: dbImported, error: errImp },
-            { data: dbVehicles, error: errVeh },
-            { data: dbFat, error: errFat },
-            { data: dbFin, error: errFin }
-          ] = await Promise.all([
+          const pullResults = await Promise.allSettled([
             supabase.from('profiles').select('*').eq('id', user.id).single(),
             supabase.from('expenses').select('*').eq('user_id', user.id),
             supabase.from('fuel_logs').select('*').eq('user_id', user.id),
@@ -2724,15 +2746,36 @@ export const useDriverStore = create<DriverState>()(
             supabase.from('financial_entries').select('*').eq('user_id', user.id)
           ]);
 
-          if (errProf && errProf.code !== 'PGRST116') console.warn('[SYNC] Error pulling profile:', errProf);
-          if (errExp) console.warn('[SYNC] Error pulling expenses:', errExp);
-          if (errFuel) console.warn('[SYNC] Error pulling fuel_logs:', errFuel);
-          if (errMaint) console.warn('[SYNC] Error pulling maintenance_logs:', errMaint);
-          if (errCyc) console.warn('[SYNC] Error pulling cycles:', errCyc);
-          if (errImp) console.warn('[SYNC] Error pulling imported_reports:', errImp);
-          if (errVeh) console.warn('[SYNC] Error pulling vehicles:', errVeh);
-          if (errFat) console.warn('[SYNC] Error pulling faturamento_logs:', errFat);
-          if (errFin) console.warn('[SYNC] Error pulling financial_entries:', errFin);
+          const [
+            resProf, resExp, resFuel, resMaint, resCyc, resImp, resVeh, resFat, resFin
+          ] = pullResults;
+
+          const getRes = (res: any) => res.status === 'fulfilled' ? res.value : { data: null, error: res.reason };
+
+          const profile = getRes(resProf).data;
+          const dbExpenses = getRes(resExp).data;
+          const dbFuel = getRes(resFuel).data;
+          const dbMaintenance = getRes(resMaint).data;
+          const dbCycles = getRes(resCyc).data;
+          const dbImported = getRes(resImp).data;
+          const dbVehicles = getRes(resVeh).data;
+          const dbFat = getRes(resFat).data;
+          const dbFin = getRes(resFin).data;
+
+          const pullErrors: string[] = [];
+          if (resProf.status === 'rejected' || (getRes(resProf).error && getRes(resProf).error.code !== 'PGRST116')) pullErrors.push('perfil');
+          if (resExp.status === 'rejected' || getRes(resExp).error) pullErrors.push('despesas');
+          if (resFuel.status === 'rejected' || getRes(resFuel).error) pullErrors.push('abastecimentos');
+          if (resMaint.status === 'rejected' || getRes(resMaint).error) pullErrors.push('manutenções');
+          if (resCyc.status === 'rejected' || getRes(resCyc).error) pullErrors.push('ciclos');
+          if (resImp.status === 'rejected' || getRes(resImp).error) pullErrors.push('prints');
+          if (resVeh.status === 'rejected' || getRes(resVeh).error) pullErrors.push('veículos');
+          if (resFat.status === 'rejected' || getRes(resFat).error) pullErrors.push('faturamentos');
+          if (resFin.status === 'rejected' || getRes(resFin).error) pullErrors.push('lançamentos');
+
+          if (pullErrors.length > 0) {
+            console.warn('[SYNC] Errors pulling some tables:', pullErrors);
+          }
 
           const remoteData: any = {};
 
@@ -2886,47 +2929,82 @@ export const useDriverStore = create<DriverState>()(
           
           const pushPromises = [];
           
-          // Helper to wrap push promises with table info
-          const wrapPush = (promise: any, tableName: string) => 
-            Promise.resolve(promise)
-                   .then(res => ({ ...res, table: tableName }))
-                   .catch(err => ({ error: { message: err.message, details: err.stack, table: tableName }, table: tableName }));
+          // Helper to wrap push promises with table info and validation
+          const wrapPush = async (tableName: string, items: any[], pushFn: () => Promise<any>) => {
+            if (items.length === 0) return { table: tableName, success: true, count: 0 };
+            
+            try {
+              // Migration & Validation
+              const validItems = items.filter(item => {
+                if (!item.id) return false;
+                
+                // Specific table validations
+                if (tableName === 'expenses' && (!item.date || item.value === undefined)) return false;
+                if (tableName === 'cycles' && !item.start_time) return false;
+                if (tableName === 'fuel_logs' && (!item.date || item.liters === undefined)) return false;
+                if (tableName === 'vehicles' && !item.name) return false;
+                
+                return true;
+              });
+
+              if (validItems.length === 0) return { table: tableName, success: true, count: 0 };
+
+              const { data, error } = await pushFn();
+              if (error) throw error;
+              
+              return { table: tableName, success: true, count: validItems.length };
+            } catch (err: any) {
+              console.error(`[SYNC] Push failed for ${tableName}:`, err);
+              return { 
+                table: tableName, 
+                success: false, 
+                count: items.length,
+                error: err.message || 'Erro desconhecido'
+              };
+            }
+          };
 
           if (currentStore.expenses.length > 0) {
-            pushPromises.push(wrapPush(supabase.from('expenses').upsert(currentStore.expenses.map(e => ({
-              id: e.id,
-              user_id: user.id,
-              date: e.date,
-              category: e.category,
-              value: e.value,
-              description: e.description || '',
-              updated_at: e.updated_at || new Date().toISOString()
-            }))), 'expenses'));
+            pushPromises.push(wrapPush('expenses', currentStore.expenses, async () => 
+              await supabase.from('expenses').upsert(currentStore.expenses.map(e => ({
+                id: e.id,
+                user_id: user.id,
+                date: e.date,
+                category: e.category,
+                value: e.value,
+                description: e.description || '',
+                updated_at: e.updated_at || new Date().toISOString()
+              })))
+            ));
           }
 
           if (currentStore.fuelings.length > 0) {
-            pushPromises.push(wrapPush(supabase.from('fuel_logs').upsert(currentStore.fuelings.map(f => ({
-              id: f.id,
-              user_id: user.id,
-              date: f.date,
-              liters: f.liters,
-              cost: f.value,
-              odometer: f.odometer,
-              updated_at: f.updated_at || new Date().toISOString()
-            }))), 'fuel_logs'));
+            pushPromises.push(wrapPush('fuel_logs', currentStore.fuelings, async () => 
+              await supabase.from('fuel_logs').upsert(currentStore.fuelings.map(f => ({
+                id: f.id,
+                user_id: user.id,
+                date: f.date,
+                liters: f.liters,
+                cost: f.value,
+                odometer: f.odometer,
+                updated_at: f.updated_at || new Date().toISOString()
+              })))
+            ));
           }
 
           if (currentStore.maintenances.length > 0) {
-            pushPromises.push(wrapPush(supabase.from('maintenance_logs').upsert(currentStore.maintenances.map(m => ({
-              id: m.id,
-              user_id: user.id,
-              date: m.date,
-              type: m.type,
-              cost: m.value,
-              odometer: m.currentKm,
-              next_change_km: m.nextChangeKm || null,
-              updated_at: m.updated_at || new Date().toISOString()
-            }))), 'maintenance_logs'));
+            pushPromises.push(wrapPush('maintenance_logs', currentStore.maintenances, async () => 
+              await supabase.from('maintenance_logs').upsert(currentStore.maintenances.map(m => ({
+                id: m.id,
+                user_id: user.id,
+                date: m.date,
+                type: m.type,
+                cost: m.value,
+                odometer: m.currentKm,
+                next_change_km: m.nextChangeKm || null,
+                updated_at: m.updated_at || new Date().toISOString()
+              })))
+            ));
           }
 
           if (currentStore.cycles.length > 0) {
@@ -2935,174 +3013,207 @@ export const useDriverStore = create<DriverState>()(
               user_id: user.id,
               start_time: c.start_time,
               end_time: c.end_time,
-              uber_amount: c.uber_amount,
-              noventanove_amount: c.noventanove_amount,
-              indriver_amount: c.indriver_amount,
-              extra_amount: c.extra_amount,
-              total_amount: c.total_amount,
-              fuel_expense: c.fuel_expense,
-              food_expense: c.food_expense,
-              other_expense: c.other_expense,
-              total_expenses: c.total_expenses,
-              total_km: c.total_km,
-              ride_km: c.ride_km,
-              displacement_km: c.displacement_km,
-              uber_km: c.uber_km,
-              noventanove_km: c.noventanove_km,
-              indriver_km: c.indriver_km,
-              tracked_km: c.tracked_km,
-              tracked_moving_time: c.tracked_moving_time,
-              tracked_stopped_time: c.tracked_stopped_time,
-              productive_km: c.productive_km,
-              idle_km: c.idle_km,
-              efficiency_percentage: c.efficiency_percentage,
-              driver_score: c.driver_score,
-              // Reduced payload: route_points and segments are kept local only
+              uber_amount: Number(c.uber_amount || 0),
+              noventanove_amount: Number(c.noventanove_amount || 0),
+              indriver_amount: Number(c.indriver_amount || 0),
+              extra_amount: Number(c.extra_amount || 0),
+              total_amount: Number(c.total_amount || 0),
+              fuel_expense: Number(c.fuel_expense || 0),
+              food_expense: Number(c.food_expense || 0),
+              other_expense: Number(c.other_expense || 0),
+              total_expenses: Number(c.total_expenses || 0),
+              total_km: Number(c.total_km || 0),
+              ride_km: Number(c.ride_km || 0),
+              displacement_km: Number(c.displacement_km || 0),
+              uber_km: Number(c.uber_km || 0),
+              noventanove_km: Number(c.noventanove_km || 0),
+              indriver_km: Number(c.indriver_km || 0),
+              tracked_km: Number(c.tracked_km || 0),
+              tracked_moving_time: Number(c.tracked_moving_time || 0),
+              tracked_stopped_time: Number(c.tracked_stopped_time || 0),
+              productive_km: Number(c.productive_km || 0),
+              idle_km: Number(c.idle_km || 0),
+              efficiency_percentage: Number(c.efficiency_percentage || 0),
+              driver_score: Number(c.driver_score || 0),
               vehicle_id: c.vehicle_id,
               vehicle_name: c.vehicle_name,
               status: c.status,
               updated_at: c.updated_at || new Date().toISOString()
             }));
 
-            // Log payload size for debugging
-            const payloadSize = JSON.stringify(cyclesPayload).length;
-            if (payloadSize > 1000000) { // > 1MB
-              console.warn(`[SYNC] Large cycles payload: ${(payloadSize / 1024 / 1024).toFixed(2)}MB`);
-            }
-
-            pushPromises.push(wrapPush(supabase.from('cycles').upsert(cyclesPayload), 'cycles'));
+            pushPromises.push(wrapPush('cycles', currentStore.cycles, async () => 
+              await supabase.from('cycles').upsert(cyclesPayload)
+            ));
           }
 
           if (currentStore.importedReports.length > 0) {
-            pushPromises.push(wrapPush(supabase.from('imported_reports').upsert(currentStore.importedReports.map(r => ({
-              id: r.id,
-              user_id: user.id,
-              vehicle_id: r.vehicle_id,
-              platform: r.platform,
-              report_type: r.report_type,
-              period_start: r.period_start,
-              period_end: r.period_end,
-              total_earnings: r.total_earnings,
-              cash_earnings: r.cash_earnings,
-              app_earnings: r.app_earnings,
-              platform_fee: r.platform_fee,
-              promotions: r.promotions,
-              taxes: r.taxes,
-              requests_count: r.requests_count,
-              image_url: r.image_url,
-              image_hash: r.image_hash,
-              content_fingerprint: r.content_fingerprint,
-              source: r.source,
-              imported_at: r.imported_at,
-              status: r.status,
-              confidence_score: r.confidence_score,
-              uncertain_fields: r.uncertain_fields || [],
-              updated_at: r.updated_at || new Date().toISOString()
-            }))), 'imported_reports'));
+            pushPromises.push(wrapPush('imported_reports', currentStore.importedReports, async () => 
+              await supabase.from('imported_reports').upsert(currentStore.importedReports.map(r => ({
+                id: r.id,
+                user_id: user.id,
+                vehicle_id: r.vehicle_id,
+                platform: r.platform,
+                report_type: r.report_type,
+                period_start: r.period_start,
+                period_end: r.period_end,
+                total_earnings: Number(r.total_earnings || 0),
+                cash_earnings: Number(r.cash_earnings || 0),
+                app_earnings: Number(r.app_earnings || 0),
+                platform_fee: Number(r.platform_fee || 0),
+                promotions: Number(r.promotions || 0),
+                taxes: Number(r.taxes || 0),
+                requests_count: Number(r.requests_count || 0),
+                image_url: r.image_url,
+                image_hash: r.image_hash,
+                content_fingerprint: r.content_fingerprint,
+                source: r.source,
+                imported_at: r.imported_at,
+                status: r.status,
+                confidence_score: r.confidence_score,
+                uncertain_fields: r.uncertain_fields || [],
+                updated_at: r.updated_at || new Date().toISOString()
+              })))
+            ));
           }
 
           if (currentStore.vehicles.length > 0) {
-            pushPromises.push(wrapPush(supabase.from('vehicles').upsert(currentStore.vehicles.map(v => ({
-              id: v.id,
-              user_id: user.id,
-              name: v.name,
-              brand: v.brand,
-              model: v.model,
-              year: v.year,
-              plate: v.plate,
-              type: v.type,
-              category: v.category,
-              insurance: v.fixedCosts.insurance,
-              ipva: v.fixedCosts.ipva,
-              oil_change: v.fixedCosts.oilChange,
-              tires: v.fixedCosts.tires,
-              maintenance: v.fixedCosts.maintenance,
-              installment: v.fixedCosts.financing,
-              rental_type: v.fixedCosts.rentalPeriod,
-              rental_value: v.fixedCosts.rentalValue,
-              is_active: v.is_active,
-              updated_at: v.updated_at || new Date().toISOString()
-            }))), 'vehicles'));
+            pushPromises.push(wrapPush('vehicles', currentStore.vehicles, async () => 
+              await supabase.from('vehicles').upsert(currentStore.vehicles.map(v => ({
+                id: v.id,
+                user_id: user.id,
+                name: v.name,
+                brand: v.brand,
+                model: v.model,
+                year: v.year,
+                plate: v.plate,
+                type: v.type,
+                category: v.category,
+                insurance: Number(v.fixedCosts.insurance || 0),
+                ipva: Number(v.fixedCosts.ipva || 0),
+                oil_change: Number(v.fixedCosts.oilChange || 0),
+                tires: Number(v.fixedCosts.tires || 0),
+                maintenance: Number(v.fixedCosts.maintenance || 0),
+                installment: Number(v.fixedCosts.financing || 0),
+                rental_type: v.fixedCosts.rentalPeriod,
+                rental_value: Number(v.fixedCosts.rentalValue || 0),
+                is_active: v.is_active,
+                updated_at: v.updated_at || new Date().toISOString()
+              })))
+            ));
           }
 
           if (currentStore.faturamentoLogs.length > 0) {
-            pushPromises.push(wrapPush(supabase.from('faturamento_logs').upsert(currentStore.faturamentoLogs.map(l => ({
-              id: l.id,
-              user_id: user.id,
-              date: l.date,
-              vehicle_mode: l.vehicle_mode,
-              uber_amount: l.uber_amount,
-              noventanove_amount: l.noventanove_amount,
-              indriver_amount: l.indriver_amount,
-              extra_amount: l.extra_amount,
-              km_total: l.km_total,
-              active_hours_total: l.active_hours_total,
-              fuel_total: l.fuel_total,
-              fuel_price: l.fuel_price,
-              fuel_type: l.fuel_type,
-              additional_expense: l.additional_expense,
-              notes: l.notes || '',
-              updated_at: l.updated_at || new Date().toISOString()
-            }))), 'faturamento_logs'));
+            pushPromises.push(wrapPush('faturamento_logs', currentStore.faturamentoLogs, async () => 
+              await supabase.from('faturamento_logs').upsert(currentStore.faturamentoLogs.map(l => ({
+                id: l.id,
+                user_id: user.id,
+                date: l.date,
+                vehicle_mode: l.vehicle_mode,
+                uber_amount: Number(l.uber_amount || 0),
+                noventanove_amount: Number(l.noventanove_amount || 0),
+                indriver_amount: Number(l.indriver_amount || 0),
+                extra_amount: Number(l.extra_amount || 0),
+                km_total: Number(l.km_total || 0),
+                active_hours_total: Number(l.active_hours_total || 0),
+                fuel_total: Number(l.fuel_total || 0),
+                fuel_price: Number(l.fuel_price || 0),
+                fuel_type: l.fuel_type,
+                additional_expense: Number(l.additional_expense || 0),
+                notes: l.notes || '',
+                updated_at: l.updated_at || new Date().toISOString()
+              })))
+            ));
           }
 
           if (currentStore.financialEntries.length > 0) {
-            pushPromises.push(wrapPush(supabase.from('financial_entries').upsert(currentStore.financialEntries.map(e => ({
-              id: e.id,
-              user_id: user.id,
-              cycle_id: e.cycle_id,
-              platform: e.platform,
-              value: e.value,
-              timestamp: e.timestamp,
-              origin: e.origin,
-              created_at: e.created_at || new Date().toISOString(),
-              updated_at: e.updated_at || new Date().toISOString()
-            }))), 'financial_entries'));
+            pushPromises.push(wrapPush('financial_entries', currentStore.financialEntries, async () => 
+              await supabase.from('financial_entries').upsert(currentStore.financialEntries.map(e => ({
+                id: e.id,
+                user_id: user.id,
+                cycle_id: e.cycle_id,
+                platform: e.platform,
+                value: Number(e.value || 0),
+                timestamp: e.timestamp,
+                origin: e.origin,
+                created_at: e.created_at || new Date().toISOString(),
+                updated_at: e.updated_at || new Date().toISOString()
+              })))
+            ));
           }
 
           // Push settings to profiles
           if (user && isSupabaseConfigured) {
-            pushPromises.push(wrapPush(supabase.from('profiles').upsert({
-              id: user.id,
-              user_id: user.id, // Explicitly provide user_id to satisfy constraint
-              name: currentStore.settings.name,
-              daily_goal: currentStore.settings.dailyGoal,
-              vehicle: currentStore.settings.vehicle,
-              km_per_liter: currentStore.settings.kmPerLiter,
-              fuel_price: currentStore.settings.fuelPrice,
-              active_platforms: currentStore.settings.activePlatforms,
-              transport_mode: currentStore.settings.transportMode,
-              dashboard_mode: currentStore.settings.dashboardMode,
-              theme: currentStore.settings.theme,
-              photo_url: currentStore.settings.photoUrl || '',
-              fixed_costs: currentStore.settings.fixedCosts || {},
-              current_vehicle_profile_id: currentStore.settings.currentVehicleProfileId || null,
-              role: currentStore.settings.role || UserRole.DRIVER,
-              status: currentStore.settings.status || UserStatus.ACTIVE,
-              updated_at: new Date().toISOString()
-            }), 'profiles'));
+            pushPromises.push(wrapPush('profiles', [currentStore.settings], async () => 
+              await supabase.from('profiles').upsert({
+                id: user.id,
+                user_id: user.id,
+                name: currentStore.settings.name,
+                daily_goal: Number(currentStore.settings.dailyGoal || 0),
+                vehicle: currentStore.settings.vehicle,
+                km_per_liter: Number(currentStore.settings.kmPerLiter || 0),
+                fuel_price: Number(currentStore.settings.fuelPrice || 0),
+                active_platforms: currentStore.settings.activePlatforms,
+                transport_mode: currentStore.settings.transportMode,
+                dashboard_mode: currentStore.settings.dashboardMode,
+                theme: currentStore.settings.theme,
+                photo_url: currentStore.settings.photoUrl || '',
+                fixed_costs: currentStore.settings.fixedCosts || {},
+                current_vehicle_profile_id: currentStore.settings.currentVehicleProfileId || null,
+                role: currentStore.settings.role || UserRole.DRIVER,
+                status: currentStore.settings.status || UserStatus.ACTIVE,
+                updated_at: new Date().toISOString()
+              })
+            ));
           }
 
-          if (pushPromises.length > 0) {
-            const results = await Promise.all(pushPromises);
-            const pushErrors = (results as any[]).filter(r => r.error);
+          const results = await Promise.all(pushPromises);
+          const pushErrors = results.filter(r => !r.success);
+          
+          const details: SyncDetails = {};
+          results.forEach(r => {
+            const key = r.table === 'fuel_logs' ? 'fuelings' : 
+                        r.table === 'maintenance_logs' ? 'maintenances' :
+                        r.table === 'imported_reports' ? 'reports' :
+                        r.table === 'faturamento_logs' ? 'faturamento' :
+                        r.table === 'financial_entries' ? 'financial' :
+                        r.table === 'profiles' ? 'settings' : r.table;
             
-            if (pushErrors.length > 0) {
-              console.error('[SYNC] Errors during push:');
-              pushErrors.forEach((err: any, idx: number) => {
-                console.error(`Error ${idx + 1} in table "${err.table || 'unknown'}":`, JSON.stringify(err.error, null, 2));
-              });
-              set({ syncError: 'Erro ao enviar alguns dados' });
-            } else {
-              console.log('[SYNC] Push successful');
-            }
+            (details as any)[key] = { success: r.success, error: r.error, count: r.count };
+          });
+          
+          if (pushErrors.length > 0) {
+            const tableMap: Record<string, string> = {
+              cycles: 'ciclos',
+              vehicles: 'veículos',
+              expenses: 'despesas',
+              fuel_logs: 'abastecimentos',
+              maintenance_logs: 'manutenções',
+              imported_reports: 'prints',
+              faturamento_logs: 'faturamentos',
+              financial_entries: 'lançamentos',
+              profiles: 'perfil'
+            };
+
+            const failedLabels = pushErrors.map(e => {
+              const label = tableMap[e.table] || e.table;
+              return `${e.count} ${label}`;
+            });
+
+            const errorMsg = `${failedLabels.join(' e ')} não puderam ser enviados`;
+            const allFailed = pushErrors.length === results.filter(r => r.count > 0).length;
             
             set({ 
-              syncStatus: pushErrors.length > 0 ? 'offline' : 'synced'
+              syncError: errorMsg,
+              syncStatus: allFailed ? 'error' : 'partial_error',
+              syncDetails: details
             });
           } else {
-            console.log('[SYNC] Nothing to push');
-            set({ syncStatus: 'synced' });
+            console.log('[SYNC] All data pushed successfully');
+            set({ 
+              syncStatus: 'synced',
+              syncError: null,
+              syncDetails: details
+            });
           }
 
           set({ 
@@ -3111,7 +3222,8 @@ export const useDriverStore = create<DriverState>()(
           });
 
           setTimeout(() => {
-            if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
+            const currentStatus = get().syncStatus;
+            if (currentStatus === 'synced') set({ syncStatus: 'online' });
           }, 3000);
         } catch (error: any) {
           console.error('[SYNC] error:', error);

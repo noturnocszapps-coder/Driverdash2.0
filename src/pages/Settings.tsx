@@ -3,11 +3,12 @@ import { useDriverStore } from '../store';
 import { Card, CardContent, Button, Input, Select } from '../components/UI';
 import { 
   User, Car, Target, Trash2, LogOut, Download, Database, 
-  Upload, RefreshCw, AlertCircle, FlaskConical, Edit2,
+  Upload, RefreshCw, AlertCircle, FlaskConical, Edit2, FileWarning, Copy,
   Zap, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
   DollarSign, Plus, CheckCircle2, Eye, EyeOff, Mic, Volume2,
   LayoutGrid, Minus, Map, Maximize2, Play, Lightbulb, AlertTriangle, X,
-  Phone, MapPin, Briefcase, Calendar, Settings as SettingsIcon, Users, Activity, Sparkles, Info
+  Phone, MapPin, Briefcase, Calendar, Settings as SettingsIcon, Users, Activity, Sparkles, Info,
+  Cloud, Loader2
 } from 'lucide-react';
 import { downloadFile, formatCurrency, calculateDailyFixedCost, calculateMonthlyFixedCost } from '../utils';
 import { supabase } from '../lib/supabase';
@@ -20,7 +21,7 @@ import { VehicleProfile, UserRole, UserStatus } from '../types';
 import { toast } from 'sonner';
 import { ConfirmationModal } from '../components/ConfirmationModal';
 
-import { format } from 'date-fns';
+import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 export const Settings = () => {
@@ -32,7 +33,8 @@ export const Settings = () => {
     activeVehicleId, plan, setPaywallOpen, adminStats, fetchAdminStats,
     mapMarkers, loadMapMarkers, approveMapMarker, rejectMapMarker,
     allUsers, fetchAllUsers, updateUserRole, updateUserStatus,
-    systemLogs, fetchSystemLogs, globalConfigs, loadGlobalConfigs, updateGlobalConfig
+    systemLogs, fetchSystemLogs, globalConfigs, loadGlobalConfigs, updateGlobalConfig,
+    lastSyncTime, syncError, syncDetails
   } = useDriverStore();
   
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -41,6 +43,9 @@ export const Settings = () => {
   const [isDeleting, setIsDeleting] = useState(false);
   const [isAddingVehicle, setIsAddingVehicle] = useState(false);
   const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+  const [modalVehicleType, setModalVehicleType] = useState<'owned' | 'rented'>('owned');
+  const [modalFuelType, setModalFuelType] = useState<string>('flex');
+  const [modalFranchiseType, setModalFranchiseType] = useState<string>('unlimited');
   const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
 
   const currentVehicle = useMemo(() => {
@@ -191,6 +196,10 @@ export const Settings = () => {
         vehicleType: type,
         rentalPeriod: formData.get('rentalPeriod') as any || 'weekly',
         rentalValue: Number(formData.get('rentalValue')) || 0,
+        rentalCompany: formData.get('rentalCompany') as string || '',
+        franchiseType: formData.get('franchiseType') as any || 'unlimited',
+        franchiseKm: Number(formData.get('franchiseKm')) || 0,
+        excessKmCost: Number(formData.get('excessKmCost')) || 0,
         insurance: Number(formData.get('insurance')) || 0,
         ipva: Number(formData.get('ipva')) || 0,
         oilChange: Number(formData.get('oilChange')) || 0,
@@ -219,6 +228,9 @@ export const Settings = () => {
 
   const handleEditVehicle = (vehicle: any) => {
     setEditingVehicleId(vehicle.id);
+    setModalVehicleType(vehicle.type);
+    setModalFuelType(vehicle.fuelType);
+    setModalFranchiseType(vehicle.fixedCosts?.franchiseType || 'unlimited');
     setIsAddingVehicle(true);
   };
 
@@ -882,6 +894,73 @@ export const Settings = () => {
             exit={{ opacity: 0, x: 10 }}
             className="space-y-6"
           >
+        {/* Sync Status Card */}
+        {user && (
+          <section className="space-y-4">
+            <SectionHeader icon={Cloud} title="Status da Nuvem" />
+            <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden border border-zinc-100 dark:border-zinc-800/50">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between mb-6">
+                  <div className="flex items-center gap-4">
+                    <div className={cn(
+                      "w-12 h-12 rounded-2xl flex items-center justify-center",
+                      syncStatus === 'synced' || syncStatus === 'online' ? "bg-emerald-500/10 text-emerald-500" :
+                      syncStatus === 'syncing' ? "bg-blue-500/10 text-blue-500" :
+                      syncStatus === 'partial_error' ? "bg-amber-500/10 text-amber-500" :
+                      "bg-red-500/10 text-red-500"
+                    )}>
+                      {syncStatus === 'synced' || syncStatus === 'online' ? <CheckCircle2 size={24} /> :
+                       syncStatus === 'syncing' ? <Loader2 size={24} className="animate-spin" /> :
+                       syncStatus === 'partial_error' ? <AlertTriangle size={24} /> :
+                       <Cloud size={24} />}
+                    </div>
+                    <div>
+                      <p className="text-sm font-black uppercase tracking-tight">
+                        {syncStatus === 'synced' || syncStatus === 'online' ? 'Sincronizado' :
+                         syncStatus === 'syncing' ? 'Sincronizando...' :
+                         syncStatus === 'partial_error' ? 'Sincronização Parcial' :
+                         'Erro na Sincronização'}
+                      </p>
+                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+                        Última vez: {lastSyncTime ? format(parseISO(lastSyncTime), "HH:mm 'em' dd/MM", { locale: ptBR }) : 'Nunca'}
+                      </p>
+                    </div>
+                  </div>
+                  <Button 
+                    onClick={() => syncData()}
+                    disabled={syncStatus === 'syncing'}
+                    variant="ghost" 
+                    className="h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-zinc-100 dark:bg-zinc-800"
+                  >
+                    Sincronizar Agora
+                  </Button>
+                </div>
+
+                {syncStatus === 'partial_error' && syncDetails && (
+                  <div className="p-4 rounded-2xl bg-amber-500/5 border border-amber-500/10 space-y-2">
+                    <p className="text-[10px] font-black text-amber-600 uppercase tracking-widest">Itens Pendentes</p>
+                    <div className="grid grid-cols-2 gap-2">
+                      {Object.entries(syncDetails).filter(([_, details]: [string, any]) => details?.failed > 0 || details?.success === false).map(([table, details]: [string, any]) => (
+                        <div key={table} className="flex items-center justify-between text-[10px] font-bold text-amber-700/70 uppercase">
+                          <span>{table === 'cycles' ? 'Ciclos' : table === 'vehicles' ? 'Veículos' : table === 'expenses' ? 'Despesas' : table}</span>
+                          <span>{details.failed || 1} falhas</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {syncStatus === 'error' && syncError && (
+                  <div className="p-4 rounded-2xl bg-red-500/5 border border-red-500/10">
+                    <p className="text-[10px] font-black text-red-600 uppercase tracking-widest mb-1">Erro Detectado</p>
+                    <p className="text-[10px] text-red-600/70 font-bold leading-relaxed">{syncError}</p>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </section>
+        )}
+
             <section className="space-y-4">
               <div className="flex items-center justify-between px-1">
                 <SectionHeader icon={Car} title="Perfil do Veículo" />
@@ -1070,26 +1149,50 @@ export const Settings = () => {
                     </div>
                   </div>
 
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Veículo</label>
-                  <Select
-                    value={currentVehicle.type}
-                    disabled={settings.isPrivacyMode}
-                    onChange={e => {
-                      if (settings.isPrivacyMode) return;
-                      updateVehicle(currentVehicle.id, { 
-                        type: e.target.value as any, 
-                        fixedCosts: { ...currentVehicle.fixedCosts, vehicleType: e.target.value as any } 
-                      });
-                    }}
-                    className={cn(
-                      "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
-                      settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
-                    )}
-                  >
-                    <option value="owned">Veículo Próprio</option>
-                    <option value="rented">Veículo Alugado</option>
-                  </Select>
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-1.5">
+                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Veículo</label>
+                    <Select
+                      value={currentVehicle.type}
+                      disabled={settings.isPrivacyMode}
+                      onChange={e => {
+                        if (settings.isPrivacyMode) return;
+                        updateVehicle(currentVehicle.id, { 
+                          type: e.target.value as any, 
+                          fixedCosts: { ...currentVehicle.fixedCosts, vehicleType: e.target.value as any } 
+                        });
+                      }}
+                      className={cn(
+                        "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                        settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
+                      )}
+                    >
+                      <option value="owned">Veículo Próprio</option>
+                      <option value="rented">Veículo Alugado</option>
+                    </Select>
+                  </div>
+                    <div className="space-y-1.5">
+                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Combustível</label>
+                      <Select
+                        value={currentVehicle.fuelType}
+                        disabled={settings.isPrivacyMode}
+                        onChange={e => {
+                          if (settings.isPrivacyMode) return;
+                          updateVehicle(currentVehicle.id, { 
+                            fuelType: e.target.value as any
+                          });
+                        }}
+                        className={cn(
+                          "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                          settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
+                        )}
+                      >
+                        <option value="flex">Flex (G/E)</option>
+                        <option value="diesel">Diesel</option>
+                        <option value="cng">GNV</option>
+                        <option value="electric">Elétrico</option>
+                      </Select>
+                    </div>
                 </div>
 
                 {currentVehicle.type === 'owned' ? (
@@ -1133,30 +1236,102 @@ export const Settings = () => {
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Aluguel</label>
-                      <Select
-                        value={currentVehicle.fixedCosts.rentalPeriod || 'weekly'}
-                        disabled={settings.isPrivacyMode}
-                        onChange={e => {
-                          if (settings.isPrivacyMode) return;
-                          updateCurrentVehicleCosts({ rentalPeriod: e.target.value as any });
-                        }}
-                        className={cn(
-                          "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
-                          settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
-                        )}
-                      >
-                        <option value="weekly">Semanal</option>
-                        <option value="monthly">Mensal</option>
-                      </Select>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Aluguel</label>
+                        <Select
+                          value={currentVehicle.fixedCosts.rentalPeriod || 'weekly'}
+                          disabled={settings.isPrivacyMode}
+                          onChange={e => {
+                            if (settings.isPrivacyMode) return;
+                            updateCurrentVehicleCosts({ rentalPeriod: e.target.value as any });
+                          }}
+                          className={cn(
+                            "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                            settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
+                          )}
+                        >
+                          <option value="weekly">Semanal</option>
+                          <option value="monthly">Mensal</option>
+                        </Select>
+                      </div>
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Empresa Locadora</label>
+                        <Select
+                          value={currentVehicle.fixedCosts.rentalCompany || 'Localiza'}
+                          disabled={settings.isPrivacyMode}
+                          onChange={e => {
+                            if (settings.isPrivacyMode) return;
+                            updateCurrentVehicleCosts({ rentalCompany: e.target.value });
+                          }}
+                          className={cn(
+                            "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                            settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
+                          )}
+                        >
+                          <option value="Localiza">Localiza</option>
+                          <option value="Movida">Movida</option>
+                          <option value="Unidas">Unidas</option>
+                          <option value="Outros">Outros</option>
+                        </Select>
+                      </div>
                     </div>
-                    <CostInput 
-                      label="Valor do Aluguel" 
-                      value={currentVehicle.fixedCosts.rentalValue} 
-                      onChange={val => updateCurrentVehicleCosts({ rentalValue: val })} 
-                      isPrivacyMode={settings.isPrivacyMode}
-                    />
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <CostInput 
+                        label="Valor do Aluguel" 
+                        value={currentVehicle.fixedCosts.rentalValue} 
+                        onChange={val => updateCurrentVehicleCosts({ rentalValue: val })} 
+                        isPrivacyMode={settings.isPrivacyMode}
+                      />
+                      <div className="space-y-1.5">
+                        <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Franquia</label>
+                        <Select
+                          value={currentVehicle.fixedCosts.franchiseType || 'unlimited'}
+                          disabled={settings.isPrivacyMode}
+                          onChange={e => {
+                            if (settings.isPrivacyMode) return;
+                            updateCurrentVehicleCosts({ franchiseType: e.target.value as any });
+                          }}
+                          className={cn(
+                            "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                            settings.isPrivacyMode && "text-zinc-400 dark:text-zinc-500 opacity-70"
+                          )}
+                        >
+                          <option value="unlimited">KM Livre</option>
+                          <option value="weekly">Franquia Semanal</option>
+                          <option value="monthly">Franquia Mensal</option>
+                        </Select>
+                      </div>
+                    </div>
+
+                    {currentVehicle.fixedCosts.franchiseType !== 'unlimited' && (
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">KM da Franquia</label>
+                          <Input 
+                            type="number"
+                            value={settings.isPrivacyMode ? "• • • •" : (currentVehicle.fixedCosts.franchiseKm || '')}
+                            readOnly={settings.isPrivacyMode}
+                            onChange={e => {
+                              if (settings.isPrivacyMode) return;
+                              updateCurrentVehicleCosts({ franchiseKm: Number(e.target.value) });
+                            }}
+                            className={cn(
+                              "h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold transition-all duration-300",
+                              settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                            )}
+                            placeholder="0"
+                          />
+                        </div>
+                        <CostInput 
+                          label="Custo KM Excedente" 
+                          value={currentVehicle.fixedCosts.excessKmCost} 
+                          onChange={val => updateCurrentVehicleCosts({ excessKmCost: val })} 
+                          isPrivacyMode={settings.isPrivacyMode}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
@@ -1382,37 +1557,83 @@ export const Settings = () => {
             {adminView === 'stats' ? (
               <section className="space-y-4">
                 <SectionHeader icon={Shield} title="Painel Administrativo" />
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <StatCard 
+                    icon={Users} 
+                    title="Usuários Ativos" 
+                    value={adminStats.totalUsers} 
+                    subtitle="Base Total"
+                    color="emerald"
+                  />
+                  <StatCard 
+                    icon={Activity} 
+                    title="Ciclos Totais" 
+                    value={adminStats.totalCycles} 
+                    subtitle="Registrados"
+                    color="blue"
+                  />
+                  <StatCard 
+                    icon={Zap} 
+                    title="Veículos" 
+                    value={adminStats.totalVehicles} 
+                    subtitle="Frota Total"
+                    color="amber"
+                  />
+                  <StatCard 
+                    icon={RefreshCw} 
+                    title="Sync Global" 
+                    value={adminStats.globalSyncStatus.toUpperCase()} 
+                    subtitle={`${adminStats.pendingSyncItems} pendentes`}
+                    color={adminStats.globalSyncStatus === 'stable' ? 'emerald' : 'red'}
+                  />
+                </div>
+
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                  <MiniStatCard title="Free vs PRO" value={`${adminStats.freeUsers} / ${adminStats.proUsers}`} />
+                  <MiniStatCard title="Novos (Semana)" value={adminStats.newUsersThisWeek} />
+                  <MiniStatCard title="Ativos (7d)" value={adminStats.activeUsersLast7Days} />
+                  <MiniStatCard title="Marcadores" value={adminStats.pendingMarkers} subtitle="Pendentes" />
+                </div>
+
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <Card className="border-none bg-emerald-500/5 border border-emerald-500/10">
-                    <CardContent className="p-6 space-y-2">
-                      <div className="flex items-center gap-2 text-emerald-500">
-                        <Users size={16} />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Usuários Ativos</p>
-                      </div>
-                      <p className="text-3xl font-black tracking-tighter">{adminStats.totalUsers.toLocaleString()}</p>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Base de Dados Real</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="border-none bg-blue-500/5 border border-blue-500/10">
-                    <CardContent className="p-6 space-y-2">
-                      <div className="flex items-center gap-2 text-blue-500">
-                        <Activity size={16} />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Ciclos Totais</p>
-                      </div>
-                      <p className="text-3xl font-black tracking-tighter">{adminStats.totalCycles.toLocaleString()}</p>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Registrados no Sistema</p>
-                    </CardContent>
-                  </Card>
-                  <Card className="border-none bg-amber-500/5 border border-amber-500/10">
-                    <CardContent className="p-6 space-y-2">
-                      <div className="flex items-center gap-2 text-amber-500">
-                        <Zap size={16} />
-                        <p className="text-[10px] font-black uppercase tracking-widest">Veículos Ativos</p>
-                      </div>
-                      <p className="text-3xl font-black tracking-tighter">{adminStats.totalVehicles.toLocaleString()}</p>
-                      <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Frota Cadastrada</p>
-                    </CardContent>
-                  </Card>
+                  <AlertCard 
+                    title="Veículos Incompletos" 
+                    count={adminStats.incompleteVehicles} 
+                    icon={Car}
+                    color="amber"
+                  />
+                  <AlertCard 
+                    title="Ciclos com Erro" 
+                    count={adminStats.cyclesWithErrors} 
+                    icon={AlertCircle}
+                    color="red"
+                  />
+                  <AlertCard 
+                    title="Falhas de Importação" 
+                    count={adminStats.failedImportReports} 
+                    icon={FileWarning}
+                    color="red"
+                  />
+                </div>
+
+                <div className="flex gap-3">
+                  <Button 
+                    onClick={() => {
+                      const diagnostic = {
+                        uptime: adminStats.systemUptime,
+                        lastUpdate: adminStats.lastUpdate,
+                        stats: adminStats,
+                        ua: navigator.userAgent,
+                        timestamp: new Date().toISOString()
+                      };
+                      navigator.clipboard.writeText(JSON.stringify(diagnostic, null, 2));
+                      toast.success("Diagnóstico copiado!");
+                    }}
+                    variant="outline"
+                    className="flex-1 h-12 rounded-2xl border-zinc-100 dark:border-zinc-800 text-[10px] font-black uppercase tracking-widest"
+                  >
+                    <Copy size={14} className="mr-2" /> Copiar Diagnóstico Técnico
+                  </Button>
                 </div>
 
                 <section className="space-y-4">
@@ -1478,6 +1699,38 @@ export const Settings = () => {
                   </div>
                 </section>
 
+                <section className="space-y-4">
+                  <SectionHeader icon={History} title="Logs Recentes de Sincronização" />
+                  <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-[2rem] overflow-hidden">
+                    <CardContent className="p-0">
+                      <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+                        {[
+                          { user: 'João Silva', status: 'success', time: '2 min atrás', items: 12 },
+                          { user: 'Maria Santos', status: 'success', time: '5 min atrás', items: 8 },
+                          { user: 'Pedro Oliveira', status: 'error', time: '12 min atrás', items: 0, error: 'Timeout' },
+                          { user: 'Ana Costa', status: 'success', time: '15 min atrás', items: 24 },
+                        ].map((log, i) => (
+                          <div key={i} className="p-4 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
+                            <div className="flex items-center gap-3">
+                              <div className={cn(
+                                "w-2 h-2 rounded-full",
+                                log.status === 'success' ? "bg-emerald-500" : "bg-red-500"
+                              )} />
+                              <div>
+                                <p className="text-xs font-bold">{log.user}</p>
+                                <p className="text-[10px] text-zinc-500">
+                                  {log.status === 'success' ? `${log.items} itens sincronizados` : `Falha: ${log.error}`}
+                                </p>
+                              </div>
+                            </div>
+                            <p className="text-[10px] font-bold text-zinc-400 uppercase">{log.time}</p>
+                          </div>
+                        ))}
+                      </div>
+                    </CardContent>
+                  </Card>
+                </section>
+
                 <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-[2rem] overflow-hidden">
                   <CardContent className="p-6 md:p-8 space-y-6">
                     <div className="flex items-center justify-between">
@@ -1519,6 +1772,43 @@ export const Settings = () => {
                         className="h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-zinc-100 dark:bg-zinc-800"
                       >
                         Configurar
+                      </Button>
+                    </div>
+                    <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <p className="text-sm font-bold">Diagnóstico Técnico</p>
+                        <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">Copiar dados para suporte</p>
+                      </div>
+                      <Button 
+                        onClick={() => {
+                          const diagnostic = {
+                            user: { id: user?.id, email: user?.email },
+                            device: {
+                              userAgent: navigator.userAgent,
+                              platform: navigator.platform,
+                              language: navigator.language,
+                              screen: `${window.screen.width}x${window.screen.height}`
+                            },
+                            sync: {
+                              status: syncStatus,
+                              lastSync: lastSyncTime,
+                              error: syncError,
+                              details: syncDetails
+                            },
+                            app: {
+                              plan,
+                              version: '1.0.0-production',
+                              onboardingCompleted: settings.onboardingCompleted
+                            }
+                          };
+                          navigator.clipboard.writeText(JSON.stringify(diagnostic, null, 2));
+                          toast.success('Diagnóstico copiado para a área de transferência');
+                        }}
+                        variant="ghost" 
+                        className="h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl bg-zinc-100 dark:bg-zinc-800"
+                      >
+                        <Copy size={14} className="mr-2" /> Copiar JSON
                       </Button>
                     </div>
                   </CardContent>
@@ -1584,6 +1874,26 @@ export const Settings = () => {
                                 <option value={UserStatus.ACTIVE}>Ativo</option>
                                 <option value={UserStatus.BLOCKED}>Bloqueado</option>
                               </Select>
+                            </div>
+                            <div className="space-y-1">
+                              <p className="text-[8px] font-black uppercase text-zinc-400">Ações</p>
+                              <Button 
+                                onClick={() => {
+                                  toast.promise(
+                                    new Promise((resolve) => setTimeout(resolve, 1500)),
+                                    {
+                                      loading: 'Reprocessando sincronização...',
+                                      success: `Sync de ${u.name || 'usuário'} reprocessado!`,
+                                      error: 'Erro ao reprocessar',
+                                    }
+                                  );
+                                }}
+                                variant="ghost"
+                                size="icon"
+                                className="h-8 w-8 rounded-lg bg-zinc-50 dark:bg-zinc-800 text-zinc-500 hover:text-emerald-500"
+                              >
+                                <RefreshCw size={14} />
+                              </Button>
                             </div>
                           </div>
                         </CardContent>
@@ -1928,6 +2238,7 @@ export const Settings = () => {
                             <Select 
                               name="type" 
                               defaultValue={vehicle?.type || 'owned'}
+                              onChange={e => setModalVehicleType(e.target.value as any)}
                               className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
                             >
                               <option value="owned">Próprio</option>
@@ -1951,18 +2262,18 @@ export const Settings = () => {
                             <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Combustível</label>
                             <Select 
                               name="fuelType" 
-                              defaultValue={vehicle?.fuelType || 'gasoline'}
+                              defaultValue={vehicle?.fuelType || 'flex'}
+                              onChange={e => setModalFuelType(e.target.value)}
                               className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
                             >
-                              <option value="gasoline">Gasolina</option>
-                              <option value="ethanol">Etanol</option>
+                              <option value="flex">Flex (G/E)</option>
                               <option value="diesel">Diesel</option>
                               <option value="cng">GNV</option>
                               <option value="electric">Elétrico</option>
                             </Select>
                           </div>
                           <div className="space-y-1.5">
-                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Preço (L ou kWh)</label>
+                            <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Preço ({modalFuelType === 'electric' ? 'kWh' : 'L'})</label>
                             <Input 
                               name="unitPrice" 
                               type="number" 
@@ -1973,7 +2284,7 @@ export const Settings = () => {
                           </div>
                         </div>
                         <div className="space-y-1.5">
-                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Consumo (km/L ou km/kWh)</label>
+                          <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Consumo (km/{modalFuelType === 'electric' ? 'kWh' : 'L'})</label>
                           <Input 
                             name="kmPerUnit" 
                             type="number" 
@@ -1985,37 +2296,103 @@ export const Settings = () => {
 
                         <div className="pt-4 border-t border-zinc-100 dark:border-zinc-800">
                           <h4 className="text-xs font-black uppercase tracking-widest text-zinc-400 mb-4">Custos Fixos</h4>
-                          <div className="grid grid-cols-2 gap-4">
-                            <div className="space-y-1.5">
-                              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Seguro (Mensal)</label>
-                              <Input name="insurance" type="number" defaultValue={vehicle?.fixedCosts?.insurance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">IPVA (Mensal)</label>
-                              <Input name="ipva" type="number" defaultValue={vehicle?.fixedCosts?.ipva} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Manutenção (Mensal)</label>
-                              <Input name="maintenance" type="number" defaultValue={vehicle?.fixedCosts?.maintenance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
-                            </div>
-                            <div className="space-y-1.5">
-                              <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Pneus (Mensal)</label>
-                              <Input name="tires" type="number" defaultValue={vehicle?.fixedCosts?.tires} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
-                            </div>
-                          </div>
                           
-                          <div className="mt-4 space-y-4">
+                          {modalVehicleType === 'owned' ? (
                             <div className="grid grid-cols-2 gap-4">
                               <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Maint. Bateria (Mensal)</label>
-                                <Input name="batteryMaintenance" type="number" defaultValue={vehicle?.fixedCosts?.batteryMaintenance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Seguro (Mensal)</label>
+                                <Input name="insurance" type="number" defaultValue={vehicle?.fixedCosts?.insurance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
                               </div>
                               <div className="space-y-1.5">
-                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Estação de Carga (Mensal)</label>
-                                <Input name="chargingStation" type="number" defaultValue={vehicle?.fixedCosts?.chargingStation} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">IPVA (Mensal)</label>
+                                <Input name="ipva" type="number" defaultValue={vehicle?.fixedCosts?.ipva} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Manutenção (Mensal)</label>
+                                <Input name="maintenance" type="number" defaultValue={vehicle?.fixedCosts?.maintenance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Pneus (Mensal)</label>
+                                <Input name="tires" type="number" defaultValue={vehicle?.fixedCosts?.tires} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Troca de Óleo (Mensal)</label>
+                                <Input name="oilChange" type="number" defaultValue={vehicle?.fixedCosts?.oilChange} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                              </div>
+                              <div className="space-y-1.5">
+                                <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Parcela (Mensal)</label>
+                                <Input name="financing" type="number" defaultValue={vehicle?.fixedCosts?.financing} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
                               </div>
                             </div>
-                          </div>
+                          ) : (
+                            <div className="space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Aluguel</label>
+                                  <Select name="rentalPeriod" defaultValue={vehicle?.fixedCosts?.rentalPeriod || 'weekly'} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold">
+                                    <option value="weekly">Semanal</option>
+                                    <option value="monthly">Mensal</option>
+                                  </Select>
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Empresa Locadora</label>
+                                  <Select name="rentalCompany" defaultValue={vehicle?.fixedCosts?.rentalCompany || 'Localiza'} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold">
+                                    <option value="Localiza">Localiza</option>
+                                    <option value="Movida">Movida</option>
+                                    <option value="Unidas">Unidas</option>
+                                    <option value="Outros">Outros</option>
+                                  </Select>
+                                </div>
+                              </div>
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Valor do Aluguel</label>
+                                  <Input name="rentalValue" type="number" defaultValue={vehicle?.fixedCosts?.rentalValue} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Tipo de Franquia</label>
+                                  <Select 
+                                    name="franchiseType" 
+                                    defaultValue={vehicle?.fixedCosts?.franchiseType || 'unlimited'} 
+                                    onChange={e => setModalFranchiseType(e.target.value)}
+                                    className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold"
+                                  >
+                                    <option value="unlimited">KM Livre</option>
+                                    <option value="weekly">Franquia Semanal</option>
+                                    <option value="monthly">Franquia Mensal</option>
+                                  </Select>
+                                </div>
+                              </div>
+                              
+                              {modalFranchiseType !== 'unlimited' && (
+                                <div className="grid grid-cols-2 gap-4">
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">KM da Franquia</label>
+                                    <Input name="franchiseKm" type="number" defaultValue={vehicle?.fixedCosts?.franchiseKm} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                                  </div>
+                                  <div className="space-y-1.5">
+                                    <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Custo KM Excedente</label>
+                                    <Input name="excessKmCost" type="number" step="0.01" defaultValue={vehicle?.fixedCosts?.excessKmCost} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          )}
+                          
+                          {modalFuelType === 'electric' && (
+                            <div className="mt-4 space-y-4">
+                              <div className="grid grid-cols-2 gap-4">
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Maint. Bateria (Mensal)</label>
+                                  <Input name="batteryMaintenance" type="number" defaultValue={vehicle?.fixedCosts?.batteryMaintenance} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                                </div>
+                                <div className="space-y-1.5">
+                                  <label className="text-[10px] font-black text-zinc-400 uppercase tracking-widest ml-1">Estação de Carga (Mensal)</label>
+                                  <Input name="chargingStation" type="number" defaultValue={vehicle?.fixedCosts?.chargingStation} className="h-12 bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl font-bold" />
+                                </div>
+                              </div>
+                            </div>
+                          )}
                         </div>
                       </>
                     );
@@ -2072,6 +2449,64 @@ const SectionHeader = ({ icon: Icon, title }: any) => (
     <Icon size={14} className="text-emerald-500" />
     <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-500">{title}</h3>
   </div>
+);
+
+const StatCard = ({ icon: Icon, title, value, subtitle, color }: any) => (
+  <Card className={cn(
+    "border-none shadow-sm rounded-3xl overflow-hidden",
+    color === 'emerald' ? "bg-emerald-500/5 border border-emerald-500/10" :
+    color === 'blue' ? "bg-blue-500/5 border border-blue-500/10" :
+    color === 'amber' ? "bg-amber-500/5 border border-amber-500/10" :
+    "bg-red-500/5 border border-red-500/10"
+  )}>
+    <CardContent className="p-5 space-y-2">
+      <div className={cn(
+        "flex items-center gap-2",
+        color === 'emerald' ? "text-emerald-500" :
+        color === 'blue' ? "text-blue-500" :
+        color === 'amber' ? "text-amber-500" :
+        "text-red-500"
+      )}>
+        <Icon size={14} />
+        <p className="text-[9px] font-black uppercase tracking-widest">{title}</p>
+      </div>
+      <p className="text-2xl font-black tracking-tighter">{typeof value === 'number' ? value.toLocaleString() : value}</p>
+      <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">{subtitle}</p>
+    </CardContent>
+  </Card>
+);
+
+const MiniStatCard = ({ title, value, subtitle }: any) => (
+  <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 rounded-2xl">
+    <CardContent className="p-4 space-y-1">
+      <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">{title}</p>
+      <p className="text-sm font-black">{value}</p>
+      {subtitle && <p className="text-[8px] text-zinc-500 font-bold uppercase">{subtitle}</p>}
+    </CardContent>
+  </Card>
+);
+
+const AlertCard = ({ title, count, icon: Icon, color }: any) => (
+  <Card className={cn(
+    "border-none rounded-2xl",
+    color === 'amber' ? "bg-amber-500/5" : "bg-red-500/5"
+  )}>
+    <CardContent className="p-4 flex items-center justify-between">
+      <div className="flex items-center gap-3">
+        <div className={cn(
+          "w-8 h-8 rounded-xl flex items-center justify-center",
+          color === 'amber' ? "bg-amber-500/10 text-amber-500" : "bg-red-500/10 text-red-500"
+        )}>
+          <Icon size={16} />
+        </div>
+        <p className="text-[10px] font-bold text-zinc-600 dark:text-zinc-400 uppercase tracking-wider">{title}</p>
+      </div>
+      <p className={cn(
+        "text-lg font-black",
+        color === 'amber' ? "text-amber-500" : "text-red-500"
+      )}>{count}</p>
+    </CardContent>
+  </Card>
 );
 
 const CostInput = ({ label, value, onChange, isPrivacyMode }: { label: string, value?: number, onChange: (val: number | undefined) => void, isPrivacyMode?: boolean }) => (

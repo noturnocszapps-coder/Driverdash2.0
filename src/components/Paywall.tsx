@@ -25,11 +25,11 @@ export const Paywall: React.FC<PaywallProps> = ({ onSubscribe, onClose }) => {
   };
 
   const benefits = [
-    { icon: Brain, text: "Detecção automática de corridas" },
-    { icon: BarChart3, text: "Relatórios completos do seu dia" },
-    { icon: Zap, text: "Insights para ganhar mais" },
-    { icon: BarChart3, text: "Comparação semanal e mensal" },
-    { icon: Cloud, text: "Backup seguro dos seus dados" },
+    { icon: Brain, text: "Copiloto com detecção automática de viagens" },
+    { icon: BarChart3, text: "Relatórios avançados de lucro líquido real" },
+    { icon: Zap, text: "Cálculo inteligente de custos por km e hora" },
+    { icon: Cloud, text: "Sincronização em nuvem e backup ilimitado" },
+    { icon: ShieldCheck, text: "Suporte prioritário e novas funções antecipadas" },
   ];
 
   return (
@@ -64,14 +64,19 @@ export const Paywall: React.FC<PaywallProps> = ({ onSubscribe, onClose }) => {
 
               {/* Header */}
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-emerald-500/10 mb-6">
+                <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-emerald-500/10 mb-6 relative">
                   <Rocket className="text-emerald-500" size={32} />
+                  <motion.div 
+                    animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.2, 0.5] }}
+                    transition={{ duration: 3, repeat: Infinity }}
+                    className="absolute inset-0 bg-emerald-500/20 rounded-3xl blur-xl"
+                  />
                 </div>
                 <h2 className="text-2xl font-black text-white tracking-tighter uppercase mb-3 leading-tight">
-                  DESCUBRA QUANTO VOCÊ REALMENTE LUCRA
+                  ASSUMA O CONTROLE TOTAL DO SEU LUCRO
                 </h2>
                 <p className="text-zinc-400 text-sm font-medium leading-relaxed px-4">
-                  Pare de dirigir no escuro. O DriverDash PRO mostra seus ganhos reais, automatiza a análise e ajuda você a tomar decisões melhores.
+                  O DriverDash PRO é seu copiloto inteligente. Automatize seus registros, descubra seus custos reais e pare de perder dinheiro na rua.
                 </p>
               </div>
 

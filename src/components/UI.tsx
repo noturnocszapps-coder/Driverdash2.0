@@ -10,7 +10,7 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
 
 export const Card = ({ children, className, ...props }: CardProps) => (
   <div 
-    className={cn("bg-white/95 dark:bg-zinc-900/90 backdrop-blur-md rounded-2xl border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm overflow-hidden transition-all duration-300", className)} 
+    className={cn("bg-white/95 dark:bg-zinc-900/90 backdrop-blur-xl rounded-[2.5rem] border border-zinc-200/50 dark:border-zinc-800/50 shadow-sm overflow-hidden transition-all duration-500", className)} 
     {...props}
   >
     {children}
@@ -62,7 +62,7 @@ export const Button = ({
   return (
     <Component 
       className={cn(
-        "rounded-xl font-medium transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2",
+        "rounded-2xl font-bold transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2",
         loading && "cursor-not-allowed opacity-70",
         variants[variant],
         sizes[size as keyof typeof sizes],
@@ -82,7 +82,7 @@ export const Button = ({
 export const Input = ({ className, value, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input 
     className={cn(
-      "w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all",
+      "w-full px-5 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all font-medium",
       className
     )}
     value={value === null ? '' : value}
@@ -93,7 +93,7 @@ export const Input = ({ className, value, ...props }: React.InputHTMLAttributes<
 export const Select = ({ className, children, value, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select 
     className={cn(
-      "w-full px-4 py-2 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 transition-all appearance-none",
+      "w-full px-5 py-3 rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 focus:outline-none focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500 transition-all appearance-none font-medium",
       className
     )}
     value={value === null ? '' : value}

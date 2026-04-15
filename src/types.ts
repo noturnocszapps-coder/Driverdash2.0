@@ -166,6 +166,10 @@ export interface FixedCosts {
   // Rented fields
   rentalPeriod?: 'weekly' | 'monthly';
   rentalValue?: number;
+  rentalCompany?: string;
+  franchiseType?: 'unlimited' | 'weekly' | 'monthly';
+  franchiseKm?: number;
+  excessKmCost?: number;
   // Electric specific
   batteryMaintenance?: number;
   chargingStation?: number;
@@ -180,7 +184,7 @@ export interface VehicleProfile {
   plate?: string;
   type: 'owned' | 'rented';
   category: 'car' | 'motorcycle';
-  fuelType: 'gasoline' | 'ethanol' | 'diesel' | 'cng' | 'electric';
+  fuelType: 'gasoline' | 'ethanol' | 'diesel' | 'cng' | 'electric' | 'flex';
   kmPerLiter?: number; // For combustion
   kmPerKwh?: number; // For electric
   fuelPrice?: number; // For combustion
@@ -197,6 +201,17 @@ export interface AdminStats {
   totalVehicles: number;
   systemUptime: string;
   lastUpdate: string;
+  // Novas métricas
+  freeUsers: number;
+  proUsers: number;
+  newUsersThisWeek: number;
+  activeUsersLast7Days: number;
+  incompleteVehicles: number;
+  cyclesWithErrors: number;
+  failedImportReports: number;
+  pendingMarkers: number;
+  globalSyncStatus: 'stable' | 'degraded' | 'critical';
+  pendingSyncItems: number;
 }
 
 export interface SystemLog {
@@ -427,7 +442,19 @@ export interface ZoneAnalytics {
   lastStateChangeTime?: number;
 }
 
-export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced';
+export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced' | 'error' | 'partial_error';
+
+export interface SyncDetails {
+  cycles?: { success: boolean; error?: string; count?: number };
+  vehicles?: { success: boolean; error?: string; count?: number };
+  expenses?: { success: boolean; error?: string; count?: number };
+  fuelings?: { success: boolean; error?: string; count?: number };
+  maintenances?: { success: boolean; error?: string; count?: number };
+  reports?: { success: boolean; error?: string; count?: number };
+  faturamento?: { success: boolean; error?: string; count?: number };
+  financial?: { success: boolean; error?: string; count?: number };
+  settings?: { success: boolean; error?: string };
+}
 
 export type PlanType = 'free' | 'pro';
 
@@ -566,6 +593,7 @@ export interface DriverState {
   syncStatus: SyncStatus;
   lastSyncTime: string | null;
   syncError: string | null;
+  syncDetails?: SyncDetails;
   hasSynced: boolean;
   rides: Ride[];
   workLogs: WorkLog[];

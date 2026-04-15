@@ -36,6 +36,17 @@ export const TripControl = () => {
     return 'not_active';
   }, [tracking.isActive, tracking.mode, tracking.tripDetectionState, tracking.currentSmoothedSpeed, copilotFeedback, isListening]);
 
+  // Dynamic Island Variants
+  const islandVariants = {
+    not_active: { width: 'auto', height: '40px', borderRadius: '20px' },
+    minimized: { width: 'auto', height: '40px', borderRadius: '20px' },
+    searching: { width: '180px', height: '40px', borderRadius: '20px' },
+    listening: { width: '220px', height: '56px', borderRadius: '28px' },
+    feedback: { width: 'auto', height: '48px', borderRadius: '24px', minWidth: '160px' },
+    detected: { width: '100%', height: '140px', borderRadius: '32px' },
+    in_trip: { width: isExpanded ? '100%' : '160px', height: isExpanded ? '80px' : '40px', borderRadius: isExpanded ? '32px' : '20px' }
+  };
+
   // Auto-expand/minimize logic
   useEffect(() => {
     if (visualState === 'detected' || visualState === 'listening' || visualState === 'feedback') {
@@ -83,10 +94,18 @@ export const TripControl = () => {
         <motion.div
           layout
           initial={false}
+          variants={islandVariants}
+          animate={visualState}
+          transition={{ 
+            type: 'spring', 
+            damping: 25, 
+            stiffness: 200,
+            layout: { duration: 0.3 }
+          }}
           className={cn(
-            "relative overflow-hidden transition-all duration-500 ease-[0.22,1,0.36,1]",
-            "bg-zinc-900/90 backdrop-blur-2xl border border-white/10 shadow-2xl rounded-[2rem]",
-            isExpanded ? "w-full p-4" : "w-auto px-4 py-2"
+            "relative overflow-hidden",
+            "bg-zinc-900/90 backdrop-blur-2xl border border-white/10 shadow-2xl",
+            isExpanded && visualState !== 'minimized' ? "p-4" : "px-4 py-2"
           )}
           onClick={() => !isExpanded && setIsExpanded(true)}
         >
@@ -247,12 +266,21 @@ export const TripControl = () => {
                 exit={{ opacity: 0 }}
                 className="flex items-center gap-3"
               >
-                <div className={cn(
-                  "w-2 h-2 rounded-full",
-                  visualState === 'searching' ? "bg-amber-500 animate-pulse" : 
-                  visualState === 'minimized' ? "bg-emerald-500" :
-                  "bg-zinc-700"
-                )} />
+                <div className="relative">
+                  {visualState === 'searching' && (
+                    <motion.div
+                      animate={{ scale: [1, 1.5, 1], opacity: [0.5, 0, 0.5] }}
+                      transition={{ duration: 2, repeat: Infinity }}
+                      className="absolute inset-0 bg-amber-500 rounded-full blur-sm"
+                    />
+                  )}
+                  <div className={cn(
+                    "relative w-2 h-2 rounded-full",
+                    visualState === 'searching' ? "bg-amber-500" : 
+                    visualState === 'minimized' ? "bg-emerald-500" :
+                    "bg-zinc-700"
+                  )} />
+                </div>
                 
                 {isExpanded ? (
                   <div className="flex-1 flex items-center justify-between min-w-[200px]">
