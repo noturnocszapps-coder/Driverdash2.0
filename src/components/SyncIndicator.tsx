@@ -1,52 +1,57 @@
 import React from 'react';
 import { useDriverStore } from '../store';
-import { Cloud, CloudOff, RefreshCw, CheckCircle, AlertCircle } from 'lucide-react';
+import { CheckCircle2, RotateCw, AlertCircle, RefreshCw, Smartphone } from 'lucide-react';
+import { cn } from '../utils';
+import { motion, AnimatePresence } from 'motion/react';
 
-export const SyncIndicator = () => {
-  const { syncStatus, syncError, syncData, user } = useDriverStore();
-
-  if (!user) return null;
-
+export const SyncIndicator: React.FC<{ variant?: 'sidebar' | 'minimal' }> = ({ variant = 'sidebar' }) => {
+  const { syncStatus, pendingDeletionIds } = useDriverStore();
+  
   const statusConfig = {
-    idle: { icon: Cloud, text: 'Conectado', color: 'text-blue-500/70' },
-    online: { icon: Cloud, text: 'Online', color: 'text-blue-500/70' },
-    offline: { icon: CloudOff, text: 'Offline', color: 'text-zinc-500/70' },
-    syncing: { icon: RefreshCw, text: 'Sincronizando...', color: 'text-amber-500/70', animate: 'animate-spin' },
-    synced: { icon: CheckCircle, text: 'Sincronizado', color: 'text-emerald-600/70 dark:text-emerald-500/60', animate: 'animate-pulse-slow' },
-    error: { icon: AlertCircle, text: 'Erro de Sincronia', color: 'text-red-500/70' },
-    partial_error: { icon: AlertCircle, text: 'Sincronia Parcial', color: 'text-amber-600/70' },
+    idle: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
+    online: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
+    synced: { label: 'Dados atualizados', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
+    syncing: { label: 'Sincronizando...', icon: RotateCw, color: 'text-zinc-400', bg: 'bg-zinc-500/10', animate: true },
+    retrying: { label: 'Ajustando dados...', icon: RefreshCw, color: 'text-amber-500', bg: 'bg-amber-500/10', animate: true },
+    offline: { label: 'Offline', icon: AlertCircle, color: 'text-zinc-500', bg: 'bg-zinc-500/10', animate: false },
+    error: { label: 'Erro de conexão', icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10', animate: false },
+    partial_error: { label: 'Sincronização parcial', icon: AlertCircle, color: 'text-amber-500', bg: 'bg-amber-500/10', animate: false },
   };
 
-  const status = syncStatus;
-  const { icon: Icon, text, color, animate } = (statusConfig[status as keyof typeof statusConfig] || statusConfig.idle) as any;
+  const current = statusConfig[syncStatus as keyof typeof statusConfig] || statusConfig.idle;
+  const Icon = current.icon;
+  const activeSyncCount = pendingDeletionIds.length;
 
-  const getTooltip = () => {
-    if (syncError) return syncError;
-    return text;
-  };
+  if (variant === 'minimal') {
+    return (
+      <div className="flex items-center gap-2 py-1 px-3 rounded-full bg-zinc-900/40 backdrop-blur-md border border-white/5 shadow-sm">
+        <Icon className={cn("w-3 h-3", current.color, current.animate && "animate-spin")} />
+        <span className={cn("text-[8px] font-black uppercase tracking-[0.15em] leading-none", current.color)}>
+          {activeSyncCount > 0 ? `${activeSyncCount} syncing` : current.label}
+        </span>
+      </div>
+    );
+  }
 
   return (
-    <div 
-      className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-zinc-50 dark:bg-zinc-800/50 text-[10px] font-black uppercase tracking-[0.15em] border border-zinc-200 dark:border-zinc-700/50 transition-all duration-300 ${color}`}
-      title={getTooltip()}
-    >
-      <Icon size={12} className={animate} />
-      <span className="truncate max-w-[120px] sm:max-w-none">
-        {syncError || text}
-      </span>
-      {(status === 'error' || status === 'partial_error') && (
-        <button 
-          onClick={(e) => {
-            e.preventDefault();
-            e.stopPropagation();
-            syncData();
-          }}
-          className="ml-0.5 p-0.5 hover:bg-red-500/10 rounded-md transition-colors"
-          title="Tentar novamente"
-        >
-          <RefreshCw size={10} />
-        </button>
-      )}
+    <div className="flex flex-col gap-3">
+      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-white/5 transition-all duration-500">
+        <div className={cn("p-2 rounded-xl shrink-0 transition-colors duration-500", current.bg)}>
+          <Icon className={cn("w-4 h-4 transition-colors duration-500", current.color, current.animate && "animate-spin")} />
+        </div>
+        
+        <div className="flex flex-col overflow-hidden">
+          <span className={cn("text-[10px] font-black uppercase tracking-[0.1em] leading-tight transition-colors duration-500", current.color)}>
+            {current.label}
+          </span>
+          <span className="text-[9px] text-zinc-500 font-bold leading-tight mt-0.5 whitespace-nowrap">
+            {activeSyncCount > 0 
+              ? `${activeSyncCount} ${activeSyncCount === 1 ? 'item sendo sincronizado' : 'itens sendo sincronizados'}`
+              : 'Nenhuma ação pendente'
+            }
+          </span>
+        </div>
+      </div>
     </div>
   );
 };

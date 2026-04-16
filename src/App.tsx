@@ -3,6 +3,7 @@ import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'reac
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncManager } from './components/SyncManager';
+import { SyncIndicator } from './components/SyncIndicator';
 import { ReloadPrompt } from './ReloadPrompt';
 import { Footer } from './components/Footer';
 import { supabase, isSupabaseConfigured, clearInvalidSessionData } from './lib/supabase';
@@ -240,6 +241,11 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           !isMobile && "md:px-10 md:pt-10 md:pb-12 max-w-6xl mx-auto",
           isMobile ? "pb-[calc(180px+env(safe-area-inset-bottom))]" : "pb-12"
         )}>
+          {isMobile && (
+            <div className="flex justify-end mb-4 pr-1">
+              <SyncIndicator variant="minimal" />
+            </div>
+          )}
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}
@@ -482,6 +488,7 @@ function AppRoutes() {
 }
 
 import { Toaster } from 'sonner';
+import { DeletionErrorBanner } from './components/DeletionErrorBanner';
 
 export default function App() {
   const { setUser, setSyncStatus, initVehicle, hasSynced, user } = useDriverStore();
@@ -585,6 +592,7 @@ export default function App() {
       />
       <ReloadPrompt />
       <SyncManager />
+      <DeletionErrorBanner />
       <AppRoutes />
     </Router>
   );

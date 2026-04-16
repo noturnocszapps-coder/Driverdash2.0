@@ -139,13 +139,15 @@ export function calculateEfficiencyMetrics(cycle: any, settings: any) {
   
   const totalCost = calculateOperationalCost(cycle, settings);
   
-  const grossPerKm = totalKm > 0 ? grossAmount / totalKm : 0;
+  const efficiencyStatus = getEfficiencyStatus(totalKm, netAmount);
+  
+  const grossPerKm = efficiencyStatus.isValid ? grossAmount / totalKm : 0;
   const netProfit = netAmount - totalCost;
-  const netPerKm = totalKm > 0 ? netProfit / totalKm : 0;
+  const netPerKm = efficiencyStatus.isValid ? netProfit / totalKm : 0;
   
   // Real profit per km should be based on productive (ride) km, only if total km is non-zero
-  const profitPerKm = (rideKm > 0 && totalKm > 0) ? netProfit / rideKm : 0;
-  const efficiencyPercentage = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
+  const profitPerKm = (efficiencyStatus.isValid && rideKm > 0) ? netProfit / rideKm : 0;
+  const efficiencyPercentage = efficiencyStatus.isValid ? (rideKm / totalKm) * 100 : 0;
 
   // Hourly rates
   const startTime = cycle.start_time ? new Date(cycle.start_time).getTime() : 0;
@@ -383,6 +385,28 @@ export function isDataMature(cycles: any[], dailyData: any[]) {
   };
 }
 
+export function getEfficiencyStatus(totalKm: number, totalRevenue: number) {
+  if (totalKm < 1) {
+    return {
+      isValid: false,
+      displayValue: '--',
+      message: 'Aguardando mais dados de percurso'
+    };
+  }
+  if (totalRevenue === 0) {
+    return {
+      isValid: false,
+      displayValue: '--',
+      message: 'Nenhum ganho registrado ainda'
+    };
+  }
+  return {
+    isValid: true,
+    displayValue: null,
+    message: null
+  };
+}
+
 export function formatDuration(ms: number): string {
   const seconds = Math.floor((ms / 1000) % 60);
   const minutes = Math.floor((ms / (1000 * 60)) % 60);
@@ -515,7 +539,10 @@ export function consolidateDailyData(
   // Expenses
   const expenses = dayCycles.reduce((acc, c) => acc + calculateOperationalCost(c, settings), 0);
   const profit = totalRevenue - expenses;
-  const efficiency = totalKm > 0 ? (rideKm / totalKm) * 100 : 0;
+  
+  const efficiencyStatus = getEfficiencyStatus(totalKm, totalRevenue);
+  const efficiency = efficiencyStatus.isValid ? (rideKm / totalKm) * 100 : 0;
+  
   const hasMismatch = manualRevenue > 0 && importedTotal > 0 && Math.abs(manualRevenue - importedTotal) > 5;
 
   return {

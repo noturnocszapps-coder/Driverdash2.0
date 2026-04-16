@@ -15,8 +15,13 @@
   body {
     @apply antialiased selection:bg-emerald-100 selection:text-emerald-900 text-zinc-900 dark:text-zinc-100;
     -webkit-tap-highlight-color: transparent;
+    -webkit-touch-callout: none;
     user-select: none;
     touch-action: manipulation;
+    overflow-x: hidden;
+    width: 100%;
+    min-height: 100dvh;
+    background-color: #09090b; /* Zinc-950 matched with background_color in manifest */
   }
 
   h1, h2, h3, h4, h5, h6 {
@@ -34,7 +39,10 @@
   /* Smooth scrolling for the whole page */
   html {
     scroll-behavior: smooth;
-    overscroll-behavior-y: none;
+    overscroll-behavior: none;
+    height: 100%;
+    width: 100%;
+    background-color: #09090b;
   }
 
   /* Hide scrollbar for Chrome, Safari and Opera */
@@ -46,6 +54,26 @@
   .no-scrollbar {
     -ms-overflow-style: none;  /* IE and Edge */
     scrollbar-width: none;  /* Firefox */
+  }
+}
+
+/* Standalone / PWA Specific Tweaks */
+@media (display-mode: standalone) {
+  body {
+    /* Extra padding for devices with notches in landscape */
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* Prevent any text selection in standalone app for native feel */
+  * {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  /* Allow selection in inputs and textareas */
+  input, textarea {
+    -webkit-user-select: text;
+    user-select: text;
   }
 }
 

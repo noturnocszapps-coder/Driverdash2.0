@@ -95,8 +95,8 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const {
-    cycles = [],
-    hasOpenCycle = false,
+    cycles: rawCycles = [],
+    hasOpenCycle: rawHasOpenCycle = false,
     settings = {
       dailyGoal: 250,
       name: 'Motorista',
@@ -126,8 +126,17 @@ export const Dashboard = () => {
     activeVehicleId,
     plan,
     setPaywallOpen,
-    driverProfile
+    driverProfile,
+    pendingDeletionIds = []
   } = useDriverStore();
+
+  const cycles = useMemo(() => {
+    return rawCycles.filter(c => !pendingDeletionIds.includes(c.id));
+  }, [rawCycles, pendingDeletionIds]);
+
+  const hasOpenCycle = useMemo(() => {
+    return cycles.some(c => c.status === 'open');
+  }, [cycles]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [locationError, setLocationError] = useState<string | null>(null);

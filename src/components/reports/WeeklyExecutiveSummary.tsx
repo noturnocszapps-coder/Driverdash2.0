@@ -1,11 +1,12 @@
 import React from 'react';
-import { formatCurrency, formatKm } from '../../utils';
+import { formatCurrency, formatKm, getEfficiencyStatus } from '../../utils';
 import { Card, CardContent } from '../UI';
 import { TrendingUp, DollarSign, Navigation, Gauge } from 'lucide-react';
 
 interface WeeklyExecutiveSummaryProps {
   total: number;
   totalProfit: number;
+  totalKm: number;
   totalRideKm: number;
   avgEfficiency: number;
   isPrivacyMode: boolean;
@@ -15,11 +16,13 @@ interface WeeklyExecutiveSummaryProps {
 export const WeeklyExecutiveSummary: React.FC<WeeklyExecutiveSummaryProps> = ({
   total,
   totalProfit,
+  totalKm,
   totalRideKm,
   avgEfficiency,
   isPrivacyMode,
   isCollecting
 }) => {
+  const efficiency = getEfficiencyStatus(totalKm, total);
   return (
     <section className="space-y-4 mb-8">
       <div className="flex items-center justify-between px-1">
@@ -52,7 +55,7 @@ export const WeeklyExecutiveSummary: React.FC<WeeklyExecutiveSummaryProps> = ({
         />
         <MetricCard 
           label="Eficiência" 
-          value={isCollecting ? '--' : `${avgEfficiency.toFixed(0)}%`} 
+          value={isCollecting || !efficiency.isValid ? '--' : `${avgEfficiency.toFixed(0)}%`} 
           icon={<Gauge size={14} />}
           color="text-amber-500"
           bg="bg-amber-500/10"

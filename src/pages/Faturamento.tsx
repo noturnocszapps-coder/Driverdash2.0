@@ -2,17 +2,22 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, getEfficiencyStatus } from '../utils';
 import { Card, CardContent, Button } from '../components/UI';
 import { ChevronLeft, Save, Plus, Minus, Info, AlertCircle, Smartphone, Fuel, Utensils, MoreHorizontal, TrendingUp, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
 
 export const Faturamento = () => {
-  const { cycles, updateCycle, startCycle, settings, isSaving: storeIsSaving, tracking, stopTracking, vehicles, activeVehicleId } = useDriverStore();
+  const { cycles: rawCycles, updateCycle, startCycle, settings, isSaving: storeIsSaving, tracking, stopTracking, vehicles, activeVehicleId, pendingDeletionIds } = useDriverStore();
+  
+  const cycles = useMemo(() => {
+    return rawCycles.filter(c => !pendingDeletionIds.includes(c.id));
+  }, [rawCycles, pendingDeletionIds]);
+
   const navigate = useNavigate();
   
-  const openCycle = cycles.find(c => c.status === 'open');
+  const openCycle = useMemo(() => cycles.find(c => c.status === 'open'), [cycles]);
   
   const currentVehicle = useMemo(() => {
     return vehicles.find(v => v.id === activeVehicleId) || vehicles.find(v => v.id === settings.currentVehicleProfileId);
@@ -383,22 +388,42 @@ export const Faturamento = () => {
         <div className="space-y-3">
           <SectionHeader icon={TrendingUp} title="Eficiência Estimada" />
           <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50 rounded-[2rem] overflow-hidden">
-            <CardContent className="p-5 grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Lucro por KM</p>
-                <p className={cn(
-                  "text-xl font-black tabular-nums",
-                  kmTotalFinal > 0 ? (estimatedProfit >= 0 ? "text-emerald-500" : "text-rose-500") : "text-zinc-400"
-                )}>
-                  {kmTotalFinal > 0 ? formatCurrency(estimatedProfit / kmTotalFinal) : 'R$ 0,00'}
-                </p>
+            <CardContent className="p-5">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-1">
+                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Lucro por KM</p>
+                  <p className={cn(
+                    "text-xl font-black tabular-nums",
+                    getEfficiencyStatus(kmTotalFinal, total).isValid 
+                      ? (estimatedProfit >= 0 ? "text-emerald-500" : "text-rose-500") 
+                      : "text-zinc-400"
+                  )}>
+                    {getEfficiencyStatus(kmTotalFinal, total).isValid 
+                      ? formatCurrency(estimatedProfit / kmTotalFinal) 
+                      : getEfficiencyStatus(kmTotalFinal, total).displayValue}
+                  </p>
+                </div>
+                <div className="space-y-1 text-right">
+                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Gasto por KM</p>
+                  <p className={cn(
+                    "text-xl font-black tabular-nums",
+                    getEfficiencyStatus(kmTotalFinal, total).isValid ? "text-zinc-900 dark:text-white" : "text-zinc-400"
+                  )}>
+                    {getEfficiencyStatus(kmTotalFinal, total).isValid 
+                      ? formatCurrency(totalExpenses / kmTotalFinal) 
+                      : getEfficiencyStatus(kmTotalFinal, total).displayValue}
+                  </p>
+                </div>
               </div>
-              <div className="space-y-1 text-right">
-                <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Gasto por KM</p>
-                <p className="text-xl font-black text-zinc-900 dark:text-white tabular-nums">
-                  {kmTotalFinal > 0 ? formatCurrency(totalExpenses / kmTotalFinal) : 'R$ 0,00'}
-                </p>
-              </div>
+
+              {!getEfficiencyStatus(kmTotalFinal, total).isValid && (
+                <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-2 justify-center">
+                  <Info size={10} className="text-zinc-400" />
+                  <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+                    {getEfficiencyStatus(kmTotalFinal, total).message}
+                  </p>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

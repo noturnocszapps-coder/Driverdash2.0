@@ -2,7 +2,7 @@ import React from 'react';
 import { TrendingUp, DollarSign, Navigation, Gauge, AlertCircle } from 'lucide-react';
 import { Card, CardContent } from '../UI';
 import { BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { formatCurrency, formatKm, cn, safeNumber } from '../../utils';
+import { formatCurrency, formatKm, cn, safeNumber, getEfficiencyStatus } from '../../utils';
 import { isSameDay } from 'date-fns';
 
 interface DailyRevenueCardProps {
@@ -56,6 +56,7 @@ export const DailyRevenueCard: React.FC<DailyRevenueCardProps> = ({
                   content={({ active, payload }) => {
                     if (active && payload && payload.length) {
                       const data = payload[0].payload;
+                      const efficiency = getEfficiencyStatus(data.totalKm, data.value);
                       return (
                         <div className="bg-zinc-950 border border-white/5 p-4 rounded-2xl shadow-2xl space-y-3 min-w-[180px]">
                           <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">{data.fullName}</p>
@@ -64,7 +65,13 @@ export const DailyRevenueCard: React.FC<DailyRevenueCardProps> = ({
                             <TooltipMetric label="Lucro" value={formatCurrency(data.profit, settings.isPrivacyMode)} color="text-emerald-400" />
                             <TooltipMetric label="Despesas" value={formatCurrency(data.expenses, settings.isPrivacyMode)} color="text-red-400" />
                             <TooltipMetric label="KM Total" value={formatKm(data.totalKm)} color="text-blue-400" />
-                            <TooltipMetric label="Eficiência" value={`${Math.round(data.efficiencyPercentage)}%`} color="text-amber-400" />
+                            <TooltipMetric label="Eficiência" value={efficiency.isValid ? `${Math.round(data.efficiencyPercentage)}%` : efficiency.displayValue} color="text-amber-400" />
+                            
+                            {!efficiency.isValid && (
+                              <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-wider pt-1">
+                                {efficiency.message}
+                              </p>
+                            )}
                             
                             {data.hasMismatch && (
                               <div className="flex justify-between items-center text-[9px] font-bold text-amber-400 pt-1 border-t border-white/5">

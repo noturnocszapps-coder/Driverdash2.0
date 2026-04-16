@@ -442,7 +442,7 @@ export interface ZoneAnalytics {
   lastStateChangeTime?: number;
 }
 
-export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced' | 'error' | 'partial_error';
+export type SyncStatus = 'idle' | 'online' | 'offline' | 'syncing' | 'synced' | 'error' | 'partial_error' | 'retrying';
 
 export interface SyncDetails {
   cycles?: { success: boolean; error?: string; count?: number };
@@ -619,6 +619,15 @@ export interface DriverState {
   globalConfigs: GlobalConfig[];
   mapMarkers: MapMarker[];
   routes: Route[];
+  pendingDeletionIds: string[];
+  deletionRetries: Record<string, {
+    count: number;
+    status: 'pending' | 'failed';
+    lastAttempt: number;
+    error?: string;
+    type: 'cycle' | 'report' | 'financial';
+  }>;
+  retryDeletion: (id: string) => Promise<{ success: boolean; error?: string }>;
   
   // Plan & Paywall
   plan: PlanType;
@@ -677,7 +686,7 @@ export interface DriverState {
 
   addFinancialEntry: (entry: Omit<FinancialEntry, 'id' | 'user_id' | 'created_at' | 'updated_at'>) => Promise<void>;
   updateFinancialEntry: (id: string, data: Partial<FinancialEntry>) => Promise<void>;
-  deleteFinancialEntry: (id: string) => Promise<void>;
+  deleteFinancialEntry: (id: string) => Promise<{ success: boolean; error?: string }>;
   loadFinancialEntries: () => Promise<void>;
 
   setUser: (user: AuthUser | null) => void;

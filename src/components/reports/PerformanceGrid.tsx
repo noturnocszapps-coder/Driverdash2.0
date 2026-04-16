@@ -1,5 +1,5 @@
 import React from 'react';
-import { formatCurrency, formatKm } from '../../utils';
+import { formatCurrency, formatKm, getEfficiencyStatus } from '../../utils';
 import { Card, CardContent } from '../UI';
 import { Navigation, Map, AlertTriangle, TrendingUp, DollarSign } from 'lucide-react';
 
@@ -9,6 +9,7 @@ interface PerformanceGridProps {
   totalLostRevenue: number;
   grossPerKm: number;
   netPerKm: number;
+  totalRevenue: number;
   isPrivacyMode: boolean;
   isCollecting: boolean;
 }
@@ -19,9 +20,12 @@ export const PerformanceGrid: React.FC<PerformanceGridProps> = ({
   totalLostRevenue,
   grossPerKm,
   netPerKm,
+  totalRevenue,
   isPrivacyMode,
   isCollecting
 }) => {
+  const efficiency = getEfficiencyStatus(totalKm, totalRevenue);
+
   return (
     <section className="space-y-6 mb-8">
       <div className="flex items-center justify-between px-1">
@@ -51,33 +55,42 @@ export const PerformanceGrid: React.FC<PerformanceGridProps> = ({
         />
         <MiniMetricCard 
           label="R$/KM Bruto" 
-          value={isCollecting ? '--' : formatCurrency(grossPerKm, isPrivacyMode)} 
+          value={!efficiency.isValid ? efficiency.displayValue : formatCurrency(grossPerKm, isPrivacyMode)} 
           icon={<TrendingUp size={12} />}
           color="text-zinc-500"
+          message={!efficiency.isValid ? efficiency.message : undefined}
         />
         <MiniMetricCard 
           label="R$/KM Líquido" 
-          value={isCollecting ? '--' : formatCurrency(netPerKm, isPrivacyMode)} 
+          value={!efficiency.isValid ? efficiency.displayValue : formatCurrency(netPerKm, isPrivacyMode)} 
           icon={<DollarSign size={12} />}
           color="text-zinc-500"
+          message={!efficiency.isValid ? efficiency.message : undefined}
         />
       </div>
     </section>
   );
 };
 
-const MiniMetricCard = ({ label, value, icon, color }: { label: string, value: string, icon: React.ReactNode, color: string }) => (
+const MiniMetricCard = ({ label, value, icon, color, message }: { label: string, value: string, icon: React.ReactNode, color: string, message?: string }) => (
   <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-    <CardContent className="p-4 flex items-center gap-3">
-      <div className={`w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ${color}`}>
-        {icon}
+    <CardContent className="p-4 flex flex-col gap-2">
+      <div className="flex items-center gap-3">
+        <div className={`w-8 h-8 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center ${color}`}>
+          {icon}
+        </div>
+        <div className="space-y-0.5">
+          <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{label}</p>
+          <p className={`text-sm font-black tracking-tighter ${color}`}>
+            {value}
+          </p>
+        </div>
       </div>
-      <div className="space-y-0.5">
-        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{label}</p>
-        <p className={`text-sm font-black tracking-tighter ${color}`}>
-          {value}
+      {message && (
+        <p className="text-[8px] font-bold text-zinc-400 uppercase tracking-wider leading-tight">
+          {message}
         </p>
-      </div>
+      )}
     </CardContent>
   </Card>
 );

@@ -5,6 +5,7 @@ import { cn } from '../utils';
 import { useDriverStore } from '../store';
 import { supabase } from '../lib/supabase';
 import { SyncIndicator } from './SyncIndicator';
+import { InstallAppButton } from './InstallAppButton';
 import { motion } from 'motion/react';
 import { UserRole } from '../types';
 
@@ -115,6 +116,10 @@ export const Sidebar = () => {
             </Link>
           );
         })}
+        
+        <div className="pt-4 px-2">
+          <InstallAppButton variant="full" className="bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-900" />
+        </div>
       </nav>
 
       <div className="p-6 border-t border-zinc-200 dark:border-zinc-800">

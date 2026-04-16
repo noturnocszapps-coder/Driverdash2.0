@@ -163,6 +163,8 @@ export const useDriverStore = create<DriverState>()(
       globalConfigs: [],
       mapMarkers: [],
       routes: [],
+      pendingDeletionIds: [],
+      deletionRetries: {},
       activeVehicleId: undefined,
       settings: INITIAL_SETTINGS,
       tracking: INITIAL_TRACKING,
@@ -682,6 +684,7 @@ export const useDriverStore = create<DriverState>()(
           performanceRecords: [],
           driverProfile: INITIAL_DRIVER_PROFILE,
           activeVehicleId: undefined,
+          pendingDeletionIds: [],
           settings: INITIAL_SETTINGS,
           tracking: INITIAL_TRACKING,
           financialEntries: [],
@@ -1252,14 +1255,43 @@ export const useDriverStore = create<DriverState>()(
       },
 
       deleteFinancialEntry: async (id) => {
-        const { user, isSaving, financialEntries, cycles, updateCycle } = get();
-        if (isSaving) return;
+        const { user, isSaving, financialEntries, cycles, updateCycle, pendingDeletionIds } = get();
+        if (isSaving) return { success: false, error: 'Operação em andamento' };
 
         const entry = financialEntries.find(e => e.id === id);
-        if (!entry) return;
+        if (!entry) return { success: false, error: 'Lançamento não encontrado' };
+
+        console.log(`[DELETE_FINANCIAL_SYNC] Starting deletion for entry ID: ${id}`);
+
+        // Backup state for revert
+        const originalFinancial = [...financialEntries];
+        const originalPendingDeletions = [...pendingDeletionIds];
 
         set({ isSaving: true });
         try {
+          // 1. Immediate UI hiding and retry tracking
+          set(state => {
+            const newRetries = { ...state.deletionRetries };
+            if (!newRetries[id]) {
+              newRetries[id] = {
+                count: 0,
+                status: 'pending',
+                lastAttempt: Date.now(),
+                type: 'financial'
+              };
+            } else {
+              newRetries[id] = {
+                ...newRetries[id],
+                count: newRetries[id].count + 1,
+                lastAttempt: Date.now()
+              };
+            }
+            return {
+              pendingDeletionIds: [...new Set([...state.pendingDeletionIds, id])],
+              deletionRetries: newRetries
+            };
+          });
+
           set((state) => ({
             financialEntries: state.financialEntries.filter(e => e.id !== id)
           }));
@@ -1289,15 +1321,85 @@ export const useDriverStore = create<DriverState>()(
               .delete()
               .eq('id', id)
               .eq('user_id', user.id);
-            if (error) console.error('[SYNC] Error (delete financial entry):', error);
-            set({ syncStatus: error ? 'offline' : 'synced' });
+            
+            if (error) {
+              console.error('[DELETE_FINANCIAL_SYNC] Error deleting from DB:', error);
+              throw error;
+            }
+
+            // [DELETE_VALIDATION] Real backend confirmation
+            const { data: verifyData } = await supabase
+              .from('financial_entries')
+              .select('id')
+              .eq('id', id)
+              .maybeSingle();
+            
+            if (verifyData) {
+              throw new Error('Falha na verificação: o lançamento ainda consta no banco de dados.');
+            }
+
+            console.log(`[DELETE_VALIDATION] Financial entry ${id} removal confirmed by DB`);
+            set({ syncStatus: 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
           }
+
+          // 2. Permanent local removal and pending list cleanup
+          set((state) => {
+            const newRetries = { ...state.deletionRetries };
+            const wasRetry = newRetries[id]?.count > 0;
+            delete newRetries[id];
+
+            if (wasRetry) {
+              toast.success('Exclusão concluída com sucesso', {
+                description: 'O lançamento foi sincronizado com o servidor.',
+                duration: 3000
+              });
+            }
+
+            return {
+              pendingDeletionIds: state.pendingDeletionIds.filter(pid => pid !== id),
+              deletionRetries: newRetries
+            };
+          });
+
+          console.log(`[DELETE_VALIDATION] Financial entry ${id} fully removed and pending list cleaned`);
+          return { success: true };
+        } catch (error) {
+          const errorMessage = error instanceof Error ? error.message : 'Erro na exclusão';
+          console.error(`[DELETE_RETRY] Financial entry ${id} failed:`, errorMessage);
+
+          set(state => {
+            const newRetries = { ...state.deletionRetries };
+            if (newRetries[id]) {
+              if (newRetries[id].count >= 2) {
+                newRetries[id].status = 'failed';
+                newRetries[id].error = errorMessage;
+              }
+            }
+            return { deletionRetries: newRetries };
+          });
+
+          set({ syncStatus: 'offline' });
+          return { success: false, error: errorMessage };
         } finally {
           set({ isSaving: false });
         }
+      },
+
+      retryDeletion: async (id) => {
+        const { deletionRetries, deleteCycle, deleteImportedReport, deleteFinancialEntry } = get();
+        const meta = deletionRetries[id];
+        if (!meta) return { success: false, error: 'Metadados de exclusão não encontrados' };
+
+        console.log(`[DELETE_RETRY] Manual retry for ${id} (type: ${meta.type})`);
+
+        if (meta.type === 'cycle') return deleteCycle(id);
+        if (meta.type === 'report') return deleteImportedReport(id);
+        if (meta.type === 'financial') return deleteFinancialEntry(id);
+
+        return { success: false, error: 'Tipo de exclusão desconhecido' };
       },
 
       checkAndCloseCycles: () => {
@@ -1520,16 +1622,57 @@ export const useDriverStore = create<DriverState>()(
       },
 
       deleteCycle: async (id) => {
-        const { user, isSaving, cycles } = get();
+        const { user, isSaving, cycles, pendingDeletionIds, importedReports, financialEntries, expenses } = get();
         if (isSaving) return { success: false, error: 'Operação em andamento' };
 
+        console.log(`[DELETE_CYCLE_SYNC] Starting deletion for cycle ID: ${id}`);
+        
         const cycleToDelete = cycles.find(c => c.id === id);
-        if (!cycleToDelete) return { success: false, error: 'Ciclo não encontrado' };
+        if (!cycleToDelete) {
+          console.warn(`[DELETE_CYCLE_SYNC] Cycle ${id} not found in local state`);
+          return { success: false, error: 'Ciclo não encontrado' };
+        }
         
         const importedReportId = cycleToDelete?.imported_report_id;
 
+        // Backup state for revert if needed
+        const originalCycles = [...cycles];
+        const originalReports = [...importedReports];
+        const originalFinancial = [...financialEntries];
+        const originalExpenses = [...expenses];
+        const originalPendingDeletions = [...pendingDeletionIds];
+
         set({ isSaving: true });
         try {
+          // 1. Immediate UI hiding via pendingDeletionIds and retry tracking
+          const idsToDelete = [id];
+          if (importedReportId) idsToDelete.push(importedReportId);
+
+          set(state => {
+            const newRetries = { ...state.deletionRetries };
+            idsToDelete.forEach(itemId => {
+              if (!newRetries[itemId]) {
+                newRetries[itemId] = {
+                  count: 0,
+                  status: 'pending',
+                  lastAttempt: Date.now(),
+                  type: itemId === id ? 'cycle' : 'report'
+                };
+              } else {
+                newRetries[itemId] = {
+                  ...newRetries[itemId],
+                  count: newRetries[itemId].count + 1,
+                  lastAttempt: Date.now()
+                };
+              }
+            });
+
+            return {
+              pendingDeletionIds: [...new Set([...state.pendingDeletionIds, ...idsToDelete])],
+              deletionRetries: newRetries
+            };
+          });
+
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             
@@ -1537,20 +1680,31 @@ export const useDriverStore = create<DriverState>()(
             const relatedTables = ['financial_entries', 'expenses', 'fuel_logs', 'maintenance_logs', 'faturamento_logs'];
             for (const table of relatedTables) {
               const { error: relError } = await supabase.from(table).delete().eq('cycle_id', id).eq('user_id', user.id);
-              if (relError) console.warn(`[SYNC] Warning (delete related ${table}):`, relError);
+              if (relError) console.warn(`[DELETE_CYCLE_SYNC] Warning (delete related ${table}):`, relError);
             }
 
             // Delete cycle
             const { error: cycleError } = await supabase.from('cycles').delete().eq('id', id).eq('user_id', user.id);
             if (cycleError) {
-              console.error('[SYNC] Error (delete cycle):', cycleError);
+              console.error('[DELETE_CYCLE_SYNC] Error (delete cycle from DB):', cycleError);
               throw cycleError;
             }
+
+            // [DELETE_VALIDATION] Real backend confirmation
+            const { data: verifyData } = await supabase
+              .from('cycles')
+              .select('id')
+              .eq('id', id)
+              .maybeSingle();
             
+            if (verifyData) {
+              throw new Error('Falha na verificação: o item ainda consta no banco.');
+            }
+
             // Delete linked report if exists
             if (importedReportId) {
               const { error: reportError } = await supabase.from('imported_reports').delete().eq('id', importedReportId).eq('user_id', user.id);
-              if (reportError) console.error('[SYNC] Error (delete linked report):', reportError);
+              if (reportError) console.error('[DELETE_CYCLE_SYNC] Error (delete linked report):', reportError);
             }
 
             set({ syncStatus: 'synced' });
@@ -1559,21 +1713,41 @@ export const useDriverStore = create<DriverState>()(
             }, 3000);
           }
 
-          // Local state update AFTER successful deletion
+          // 2. Permanent local removal and pending list cleanup
           set((state) => {
             const updatedCycles = state.cycles.filter(c => c.id !== id);
             const updatedReports = importedReportId 
               ? state.importedReports.filter(r => r.id !== importedReportId)
               : state.importedReports;
+            
+            const updatedFinancialEntries = state.financialEntries.filter(e => e.cycle_id !== id);
+            const updatedExpenses = state.expenses.filter(e => (e as any).cycle_id !== id);
+
+            // Clean up retries for successful deletion
+            const newRetries = { ...state.deletionRetries };
+            const wasRetry = idsToDelete.some(itemId => newRetries[itemId]?.count > 0);
+            idsToDelete.forEach(itemId => delete newRetries[itemId]);
+
+            console.log(`[DELETE_RETRY] Cycle ${id} success!`);
+            if (wasRetry) {
+              toast.success('Exclusão concluída com sucesso', {
+                description: 'Os dados foram sincronizados com o servidor.',
+                duration: 3000
+              });
+            }
 
             return {
               cycles: updatedCycles,
               importedReports: updatedReports,
+              financialEntries: updatedFinancialEntries,
+              expenses: updatedExpenses,
+              pendingDeletionIds: state.pendingDeletionIds.filter(pid => !idsToDelete.includes(pid)),
+              deletionRetries: newRetries,
               hasOpenCycle: updatedCycles.some(c => c.status === 'open')
             };
           });
 
-          // Clear localStorage if deleted cycle was the open one
+          // Clear localStorage cache
           const localCycle = localStorage.getItem('driver_dash_open_cycle');
           if (localCycle) {
             try {
@@ -1583,44 +1757,141 @@ export const useDriverStore = create<DriverState>()(
             } catch (e) {}
           }
 
+          console.log(`[DELETE_CYCLE_SYNC] Final result: Cycle ${id} fully removed from all sources`);
           return { success: true };
         } catch (error) {
-          console.error('[CYCLE] Delete error:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Erro desconhecido na exclusão';
+          console.error(`[DELETE_RETRY] Cycle ${id} failed:`, errorMessage);
+
+          set(state => {
+            const newRetries = { ...state.deletionRetries };
+            const idsToDelete = [id];
+            if (importedReportId) idsToDelete.push(importedReportId);
+
+            idsToDelete.forEach(itemId => {
+              if (newRetries[itemId]) {
+                const newCount = newRetries[itemId].count;
+                if (newCount >= 2) { // 0, 1, 2 = 3 attempts total
+                  newRetries[itemId].status = 'failed';
+                  newRetries[itemId].error = errorMessage;
+                  console.log(`[DELETE_RETRY] Item ${itemId} reached max retries. Status: failed`);
+                }
+              }
+            });
+
+            return { deletionRetries: newRetries };
+          });
+
+          // Revert state to original only if it's NOT a retry (to avoid flickering)
+          // Actually, we should keep it in pendingDeletionIds so it stays hidden
+          // but the user can see the error in a toast or banner.
           set({ syncStatus: 'offline' });
-          return { success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
+          return { success: false, error: errorMessage };
         } finally {
           set({ isSaving: false });
         }
       },
 
       deleteImportedReport: async (id) => {
-        const { user, isSaving } = get();
+        const { user, isSaving, importedReports, pendingDeletionIds } = get();
         if (isSaving) return { success: false, error: 'Operação em andamento' };
+
+        console.log(`[DELETE_REPORT_SYNC] Starting deletion for report ID: ${id}`);
+
+        // Backup state for revert
+        const originalReports = [...importedReports];
+        const originalPendingDeletions = [...pendingDeletionIds];
 
         set({ isSaving: true });
         try {
+          // 1. Immediate UI hiding and retry tracking
+          set(state => {
+            const newRetries = { ...state.deletionRetries };
+            if (!newRetries[id]) {
+              newRetries[id] = {
+                count: 0,
+                status: 'pending',
+                lastAttempt: Date.now(),
+                type: 'report'
+              };
+            } else {
+              newRetries[id] = {
+                ...newRetries[id],
+                count: newRetries[id].count + 1,
+                lastAttempt: Date.now()
+              };
+            }
+            return {
+              pendingDeletionIds: [...new Set([...state.pendingDeletionIds, id])],
+              deletionRetries: newRetries
+            };
+          });
+
           if (user && isSupabaseConfigured) {
             set({ syncStatus: 'syncing' });
             const { error } = await supabase.from('imported_reports').delete().eq('id', id).eq('user_id', user.id);
             if (error) {
-              console.error('[SYNC] Error (delete imported report):', error);
+              console.error('[DELETE_REPORT_SYNC] Error deleting from DB:', error);
               throw error;
             }
+
+            // [DELETE_VALIDATION] Real backend confirmation
+            const { data: verifyData } = await supabase
+              .from('imported_reports')
+              .select('id')
+              .eq('id', id)
+              .maybeSingle();
+            
+            if (verifyData) {
+              throw new Error('Falha na verificação: o relatório ainda consta no banco de dados.');
+            }
+
+            console.log(`[DELETE_VALIDATION] Report ${id} removal confirmed by DB`);
             set({ syncStatus: 'synced' });
             setTimeout(() => {
               if (get().syncStatus === 'synced') set({ syncStatus: 'idle' });
             }, 3000);
           }
 
-          set((state) => ({
-            importedReports: state.importedReports.filter(r => r.id !== id)
-          }));
+          // 2. Permanent local removal
+          set((state) => {
+            const newRetries = { ...state.deletionRetries };
+            const wasRetry = newRetries[id]?.count > 0;
+            delete newRetries[id];
 
+            if (wasRetry) {
+              toast.success('Exclusão concluída com sucesso', {
+                description: 'O relatório foi sincronizado com o servidor.',
+                duration: 3000
+              });
+            }
+
+            return {
+              importedReports: state.importedReports.filter(r => r.id !== id),
+              pendingDeletionIds: state.pendingDeletionIds.filter(pid => pid !== id),
+              deletionRetries: newRetries
+            };
+          });
+
+          console.log(`[DELETE_VALIDATION] Report ${id} fully removed and pending list cleaned`);
           return { success: true };
         } catch (error) {
-          console.error('[REPORT] Delete error:', error);
+          const errorMessage = error instanceof Error ? error.message : 'Erro na exclusão';
+          console.error(`[DELETE_RETRY] Report ${id} failed:`, errorMessage);
+
+          set(state => {
+            const newRetries = { ...state.deletionRetries };
+            if (newRetries[id]) {
+              if (newRetries[id].count >= 2) {
+                newRetries[id].status = 'failed';
+                newRetries[id].error = errorMessage;
+              }
+            }
+            return { deletionRetries: newRetries };
+          });
+
           set({ syncStatus: 'offline' });
-          return { success: false, error: error instanceof Error ? error.message : 'Erro desconhecido' };
+          return { success: false, error: errorMessage };
         } finally {
           set({ isSaving: false });
         }
@@ -2631,9 +2902,17 @@ export const useDriverStore = create<DriverState>()(
 
       importData: (data) => set((state) => {
         const mergeByUpdatedAt = (local: any[], incoming: any[]) => {
-          const map = new Map(local.map(item => [item.id, item]));
+          const pendingDeletions = state.pendingDeletionIds || [];
+          
+          // Filter local items that are marked for deletion
+          const filteredLocal = local.filter(item => !pendingDeletions.includes(item.id));
+          
+          const map = new Map(filteredLocal.map(item => [item.id, item]));
           
           incoming.forEach(item => {
+            // Skip items that are marked for deletion
+            if (pendingDeletions.includes(item.id)) return;
+
             const existing = map.get(item.id);
             if (!existing) {
               map.set(item.id, item);
@@ -2643,16 +2922,33 @@ export const useDriverStore = create<DriverState>()(
               const remoteUpdate = item.updated_at || item.created_at || item.createdAt || '0';
               
               if (new Date(remoteUpdate) > new Date(localUpdate)) {
-                console.log(`[SYNC] Remote newer for ${item.id}, updating local`);
                 map.set(item.id, { ...existing, ...item });
-              } else {
-                console.log(`[SYNC] Local newer for ${item.id}, keeping local`);
               }
             }
           });
           
+          // CRITICAL: If this is a full sync from server, we should also remove items 
+          // that are NOT in incoming AND have been synced before (have an updated_at or similar)
+          // but for now let's trust the pendingDeletions logic.
+          
           return Array.from(map.values());
         };
+
+        const pendingDeletions = state.pendingDeletionIds || [];
+        const incomingCycleIds = data.cycles?.map(c => c.id) || [];
+        const incomingReportIds = data.importedReports?.map(r => r.id) || [];
+        const incomingFinancialIds = data.financialEntries?.map(e => e.id) || [];
+        const allIncomingIds = [...incomingCycleIds, ...incomingReportIds, ...incomingFinancialIds];
+        
+        // Remove from pendingDeletions if they are no longer in the incoming data
+        // (meaning they are confirmed deleted from server)
+        const remainingPendingDeletions = pendingDeletions.filter(id => {
+          const isStillInIncoming = allIncomingIds.includes(id);
+          if (!isStillInIncoming) {
+            console.log(`[DELETE_CYCLE_SYNC] Item ${id} confirmed deleted from server, removing from pending list`);
+          }
+          return isStillInIncoming;
+        });
 
         const newSettings = data.settings ? { ...state.settings, ...data.settings } : state.settings;
         
@@ -2699,6 +2995,7 @@ export const useDriverStore = create<DriverState>()(
                   financialEntries: data.financialEntries ? mergeByUpdatedAt(state.financialEntries, data.financialEntries) : state.financialEntries,
                   settings: (data.settings?.updated_at && state.settings.updated_at && new Date(data.settings.updated_at) < new Date(state.settings.updated_at)) ? state.settings : newSettings,
                   activeVehicleId: newActiveVehicleId,
+                  pendingDeletionIds: remainingPendingDeletions,
                 };
               }
             } catch (e) {
@@ -2719,6 +3016,7 @@ export const useDriverStore = create<DriverState>()(
           financialEntries: data.financialEntries ? mergeByUpdatedAt(state.financialEntries, data.financialEntries) : state.financialEntries,
           settings: (data.settings?.updated_at && state.settings.updated_at && new Date(data.settings.updated_at) < new Date(state.settings.updated_at)) ? state.settings : newSettings,
           activeVehicleId: newActiveVehicleId,
+          pendingDeletionIds: remainingPendingDeletions,
         };
       }),
 
@@ -2923,7 +3221,54 @@ export const useDriverStore = create<DriverState>()(
           importData(remoteData);
           console.log('[SYNC] Merge applied');
 
-          // 3. PUSH local state back to Supabase (ensures all devices are in sync)
+          // 3. Intelligent Sync: Retry deletions if items still exist in DB
+          const currentPendingDeletions = get().pendingDeletionIds;
+          const currentRetries = get().deletionRetries;
+          
+          if (currentPendingDeletions.length > 0) {
+            console.log(`[SYNC] Checking for items in pendingDeletionIds that still exist in DB...`);
+            
+            const now = Date.now();
+            const RETRY_DELAY = 5000; // 5 seconds
+
+            // Helper to check if we should retry
+            const shouldRetry = (id: string) => {
+              const meta = currentRetries[id];
+              if (!meta) return true; 
+              return meta.status === 'pending' && meta.count < 3 && (now - meta.lastAttempt > RETRY_DELAY);
+            };
+            
+            // Collect all items to retry
+            const cyclesToRetry = dbCycles?.filter(c => currentPendingDeletions.includes(c.id) && shouldRetry(c.id)) || [];
+            const reportsToRetry = dbImported?.filter(r => currentPendingDeletions.includes(r.id) && shouldRetry(r.id)) || [];
+            const financialToRetry = dbFin?.filter(e => currentPendingDeletions.includes(e.id) && shouldRetry(e.id)) || [];
+
+            const totalRetries = cyclesToRetry.length + reportsToRetry.length + financialToRetry.length;
+
+            if (totalRetries > 0) {
+              set({ syncStatus: 'retrying' });
+              
+              for (const c of cyclesToRetry) {
+                const attempt = (currentRetries[c.id]?.count || 0) + 1;
+                console.log(`[DELETE_RETRY] Retrying cycle ${c.id} (attempt ${attempt})...`);
+                get().deleteCycle(c.id);
+              }
+
+              for (const r of reportsToRetry) {
+                const attempt = (currentRetries[r.id]?.count || 0) + 1;
+                console.log(`[DELETE_RETRY] Retrying report ${r.id} (attempt ${attempt})...`);
+                get().deleteImportedReport(r.id);
+              }
+
+              for (const e of financialToRetry) {
+                const attempt = (currentRetries[e.id]?.count || 0) + 1;
+                console.log(`[DELETE_RETRY] Retrying financial entry ${e.id} (attempt ${attempt})...`);
+                get().deleteFinancialEntry(e.id);
+              }
+            }
+          }
+
+          // 4. PUSH local state back to Supabase (ensures all devices are in sync)
           const currentStore = get();
           console.log('[SYNC] Pushing local state to cloud...');
           
@@ -3440,7 +3785,9 @@ export const useDriverStore = create<DriverState>()(
         faturamentoLogs: state.faturamentoLogs,
         financialEntries: state.financialEntries,
         performanceRecords: state.performanceRecords,
-        driverProfile: state.driverProfile
+        driverProfile: state.driverProfile,
+        pendingDeletionIds: state.pendingDeletionIds,
+        deletionRetries: state.deletionRetries
       }),
     }
   )

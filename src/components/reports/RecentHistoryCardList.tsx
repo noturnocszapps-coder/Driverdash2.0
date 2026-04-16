@@ -3,7 +3,7 @@ import { Calendar, ChevronRight, AlertCircle, TrendingUp, Navigation, Gauge, Dol
 import { Card, CardContent } from '../UI';
 import { format, parseISO } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
-import { formatCurrency, formatKm, cn } from '../../utils';
+import { formatCurrency, formatKm, cn, getEfficiencyStatus } from '../../utils';
 
 interface RecentHistoryCardListProps {
   recentDays: any[];
@@ -57,7 +57,10 @@ export const RecentHistoryCardList: React.FC<RecentHistoryCardListProps> = ({
                   
                   <div className="flex items-center gap-3">
                     <HistoryMetric icon={<Navigation size={10} />} label={formatKm(day.totalKm)} />
-                    <HistoryMetric icon={<Gauge size={10} />} label={day.rideKm > 0 ? `${Math.round(day.efficiency)}%` : '--'} />
+                    <HistoryMetric 
+                      icon={<Gauge size={10} />} 
+                      label={getEfficiencyStatus(day.totalKm, day.totalRevenue).isValid ? `${Math.round(day.efficiency)}%` : '--'} 
+                    />
                     <HistoryMetric icon={<DollarSign size={10} />} label={formatCurrency(day.profit, isPrivacyMode)} color="text-emerald-500" />
                   </div>
                 </div>

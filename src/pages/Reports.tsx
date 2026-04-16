@@ -1,7 +1,7 @@
 import React, { useMemo, useEffect, useState } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { useDriverStore } from '../store';
-import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics, consolidateDailyData, calculateDriverScore, safeNumber } from '../utils';
+import { formatCurrency, cn, calculateDailyFixedCost, formatKm, calculateOperationalCost, calculateEfficiencyMetrics, consolidateDailyData, calculateDriverScore, safeNumber, getEfficiencyStatus } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
 import { Card, CardContent, Button } from '../components/UI';
 import { 
@@ -28,7 +28,16 @@ import { PlatformMixCard } from '../components/reports/PlatformMixCard';
 import { RecentHistoryCardList } from '../components/reports/RecentHistoryCardList';
 
 export const Reports = () => {
-  const { cycles, settings, importedReports, isSaving, vehicles, activeVehicleId, deleteImportedReport } = useDriverStore();
+  const { cycles: rawCycles, settings, importedReports: rawReports, isSaving, vehicles, activeVehicleId, deleteImportedReport, pendingDeletionIds } = useDriverStore();
+  
+  const cycles = useMemo(() => {
+    return rawCycles.filter(c => !pendingDeletionIds.includes(c.id));
+  }, [rawCycles, pendingDeletionIds]);
+
+  const importedReports = useMemo(() => {
+    return rawReports.filter(r => !pendingDeletionIds.includes(r.id));
+  }, [rawReports, pendingDeletionIds]);
+
   const navigate = useNavigate();
   const location = useLocation();
   const [showSuccess, setShowSuccess] = useState(false);
@@ -301,6 +310,7 @@ export const Reports = () => {
       <WeeklyExecutiveSummary 
         total={stats.total}
         totalProfit={stats.totalProfit}
+        totalKm={stats.totalKm}
         totalRideKm={stats.totalRideKm}
         avgEfficiency={stats.avgEfficiency}
         isPrivacyMode={settings.isPrivacyMode}
@@ -343,7 +353,9 @@ export const Reports = () => {
             ...smartInsights,
             bestDayLabel: smartInsights.bestDayOfWeek !== null ? format(addDays(start, smartInsights.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...',
             weakestDayLabel: smartInsights.weakestDayOfWeek !== null ? format(addDays(start, smartInsights.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'Analisando...',
-            avgProfitPerKmLabel: formatCurrency(smartInsights.avgProfitPerKm, settings.isPrivacyMode)
+            avgProfitPerKmLabel: getEfficiencyStatus(stats.totalKm, stats.total).isValid 
+              ? formatCurrency(smartInsights.avgProfitPerKm, settings.isPrivacyMode)
+              : '--'
           }}
           driverScore={driverScore}
           isCollecting={stats.maturity.status === 'coletando'}
@@ -374,6 +386,7 @@ export const Reports = () => {
         totalLostRevenue={stats.totalLostRevenue}
         grossPerKm={stats.grossPerKm}
         netPerKm={stats.netPerKm}
+        totalRevenue={stats.total}
         isPrivacyMode={settings.isPrivacyMode}
         isCollecting={stats.maturity.status === 'coletando'}
       />

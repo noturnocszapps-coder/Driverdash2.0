@@ -16,6 +16,7 @@ import { useNavigate } from 'react-router-dom';
 import { cn } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
+import { InstallAppButton } from '../components/InstallAppButton';
 import { VehicleProfile, UserRole, UserStatus } from '../types';
 
 import { toast } from 'sonner';
@@ -1436,6 +1437,11 @@ export const Settings = () => {
             exit={{ opacity: 0, x: 10 }}
             className="space-y-6"
           >
+            <section className="space-y-4">
+              <SectionHeader icon={Smartphone} title="Aplicativo" />
+              <InstallAppButton variant="premium" />
+            </section>
+
             <section className="space-y-4">
               <SectionHeader icon={Database} title="Dados e Backup" />
               <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm rounded-[2rem] overflow-hidden">
