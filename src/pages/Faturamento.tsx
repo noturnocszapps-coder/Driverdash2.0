@@ -217,6 +217,23 @@ export const Faturamento = () => {
             </motion.div>
           )}
 
+          {openCycle?.has_error && (
+            <motion.div
+              initial={{ opacity: 0, height: 0 }}
+              animate={{ opacity: 1, height: 'auto' }}
+            >
+              <Card className="bg-amber-500/10 border-amber-500/20 p-3 flex items-start gap-2.5 mb-2">
+                <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={14} />
+                <div className="flex-1">
+                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Dados Incompletos no Ciclo</p>
+                  <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 leading-tight">
+                    {openCycle.error_message || "Este ciclo contém erros de processamento. Verifique os valores antes de salvar."}
+                  </p>
+                </div>
+              </Card>
+            </motion.div>
+          )}
+
           {!openCycle && (
             <motion.div
               initial={{ opacity: 0, height: 0 }}

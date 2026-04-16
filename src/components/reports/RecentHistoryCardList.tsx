@@ -53,6 +53,12 @@ export const RecentHistoryCardList: React.FC<RecentHistoryCardListProps> = ({
                         Divergência
                       </span>
                     )}
+                    {day.hasError && (
+                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-[8px] font-black uppercase text-amber-500 border border-amber-500/20">
+                        <AlertCircle size={8} />
+                        Dados incompletos
+                      </span>
+                    )}
                   </div>
                   
                   <div className="flex items-center gap-3">

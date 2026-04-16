@@ -71,6 +71,8 @@ export interface Cycle {
   };
   imported_report_id?: string;
   source?: 'manual' | 'screenshot';
+  has_error?: boolean;
+  error_message?: string;
   updated_at?: string;
   // Tracking summary
   tracked_km?: number;

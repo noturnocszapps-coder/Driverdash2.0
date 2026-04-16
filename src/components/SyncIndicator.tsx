@@ -10,12 +10,12 @@ export const SyncIndicator: React.FC<{ variant?: 'sidebar' | 'minimal' }> = ({ v
   const statusConfig = {
     idle: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
     online: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
-    synced: { label: 'Dados atualizados', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
+    synced: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
     syncing: { label: 'Sincronizando...', icon: RotateCw, color: 'text-zinc-400', bg: 'bg-zinc-500/10', animate: true },
     retrying: { label: 'Ajustando dados...', icon: RefreshCw, color: 'text-amber-500', bg: 'bg-amber-500/10', animate: true },
-    offline: { label: 'Offline', icon: AlertCircle, color: 'text-zinc-500', bg: 'bg-zinc-500/10', animate: false },
-    error: { label: 'Erro de conexão', icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10', animate: false },
-    partial_error: { label: 'Sincronização parcial', icon: AlertCircle, color: 'text-amber-500', bg: 'bg-amber-500/10', animate: false },
+    offline: { label: 'Modo Offline', icon: Smartphone, color: 'text-zinc-500', bg: 'bg-zinc-500/10', animate: false },
+    error: { label: 'Aguardando conexão', icon: AlertCircle, color: 'text-zinc-400', bg: 'bg-zinc-500/10', animate: false },
+    partial_error: { label: 'Ajustando dados...', icon: RotateCw, color: 'text-zinc-400', bg: 'bg-zinc-500/10', animate: true },
   };
 
   const current = statusConfig[syncStatus as keyof typeof statusConfig] || statusConfig.idle;

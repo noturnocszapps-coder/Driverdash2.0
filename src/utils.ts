@@ -445,6 +445,7 @@ export interface ConsolidatedDayData {
   isTrackingActive: boolean;
   manualRevenue: number;
   importedTotal: number;
+  hasError: boolean;
 }
 
 export function consolidateDailyData(
@@ -456,6 +457,7 @@ export function consolidateDailyData(
   filter: 'all' | 'manual' | 'imported' = 'all'
 ): ConsolidatedDayData {
   const dayCycles = cycles.filter(c => isSameDay(parseISO(c.start_time), date));
+  const hasError = dayCycles.some(c => c.has_error);
   const dayImportedReports = importedReports.filter(r => 
     r.report_type === 'daily' && isSameDay(parseISO(r.period_start), date)
   );
@@ -561,7 +563,8 @@ export function consolidateDailyData(
     hasMismatch,
     isTrackingActive,
     manualRevenue,
-    importedTotal
+    importedTotal,
+    hasError
   };
 }
 

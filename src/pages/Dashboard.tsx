@@ -790,6 +790,12 @@ export const Dashboard = () => {
                     <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
                       {cycle.total_km?.toFixed(1)} km • {formatCurrency(cycle.total_amount)}
                     </p>
+                    {cycle.has_error && (
+                      <div className="flex items-center gap-1 mt-1">
+                        <AlertTriangle size={10} className="text-amber-500" />
+                        <span className="text-[8px] font-black text-amber-500 uppercase tracking-widest">Dados incompletos</span>
+                      </div>
+                    )}
                   </div>
                 </div>
                 <ChevronRight size={16} className="text-zinc-300 group-hover:text-emerald-500 transition-colors" />

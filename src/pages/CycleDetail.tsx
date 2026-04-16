@@ -155,6 +155,18 @@ export const CycleDetail = () => {
         variant="danger"
       />
 
+      {cycle.has_error && (
+        <div className="p-6 rounded-[2rem] bg-amber-500/10 border border-amber-500/20 flex flex-col items-center text-center gap-3">
+          <AlertCircle size={32} className="text-amber-500 opacity-80" />
+          <div className="space-y-1">
+            <p className="text-sm font-black uppercase tracking-tight text-amber-600 dark:text-amber-400">Dados Incompletos</p>
+            <p className="text-xs font-bold leading-relaxed text-amber-600/70 dark:text-amber-400/70 uppercase tracking-widest">
+              {cycle.error_message || "Alguns dados deste ciclo não puderam ser processados completamente"}
+            </p>
+          </div>
+        </div>
+      )}
+
       {hasOtherData && (
         <Card className="border-none bg-blue-500/5 border border-blue-500/10 shadow-sm">
           <CardContent className="p-6 space-y-4">

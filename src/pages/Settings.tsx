@@ -1713,7 +1713,7 @@ export const Settings = () => {
                         {[
                           { user: 'João Silva', status: 'success', time: '2 min atrás', items: 12 },
                           { user: 'Maria Santos', status: 'success', time: '5 min atrás', items: 8 },
-                          { user: 'Pedro Oliveira', status: 'error', time: '12 min atrás', items: 0, error: 'Timeout' },
+                          { user: 'Pedro Oliveira', status: 'error', time: '12 min atrás', items: 0, error: 'Sem resposta' },
                           { user: 'Ana Costa', status: 'success', time: '15 min atrás', items: 24 },
                         ].map((log, i) => (
                           <div key={i} className="p-4 flex items-center justify-between hover:bg-zinc-50 dark:hover:bg-zinc-800/50 transition-colors">
