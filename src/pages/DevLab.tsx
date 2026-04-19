@@ -47,7 +47,7 @@ const DevLab = () => {
 
   return (
     <div className="space-y-6">
-      <header className="flex items-center gap-3 px-1 pt-2 pb-4 border-b border-zinc-100 dark:border-zinc-800 sticky top-0 z-[1001] bg-zinc-50 dark:bg-zinc-950">
+      <header className="flex items-center gap-3 px-1 pt-2 pb-4 border-b border-zinc-100 dark:border-zinc-800 sticky top-6 z-[1001] bg-zinc-50 dark:bg-zinc-950">
         <button 
           onClick={() => navigate(-1)}
           className="w-11 h-11 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-600 dark:text-zinc-400 border border-zinc-200 dark:border-zinc-700/50 hover:bg-zinc-200 dark:hover:bg-zinc-700 transition-all active:scale-95"

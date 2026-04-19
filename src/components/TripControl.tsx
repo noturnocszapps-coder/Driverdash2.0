@@ -14,7 +14,8 @@ export const TripControl = () => {
   const { 
     tracking, startTrip, endTrip, ignoreDetection, 
     cycles, postTripActionSheet, voiceState,
-    setCopilotFeedback
+    setCopilotFeedback,
+    syncStatus
   } = useDriverStore();
   
   const location = useLocation();
@@ -38,13 +39,13 @@ export const TripControl = () => {
 
   // Dynamic Island Variants
   const islandVariants = {
-    not_active: { width: 'auto', height: '40px', borderRadius: '20px' },
-    minimized: { width: 'auto', height: '40px', borderRadius: '20px' },
-    searching: { width: '180px', height: '40px', borderRadius: '20px' },
-    listening: { width: '220px', height: '56px', borderRadius: '28px' },
-    feedback: { width: 'auto', height: '48px', borderRadius: '24px', minWidth: '160px' },
-    detected: { width: '100%', height: '140px', borderRadius: '32px' },
-    in_trip: { width: isExpanded ? '100%' : '160px', height: isExpanded ? '80px' : '40px', borderRadius: isExpanded ? '32px' : '20px' }
+    not_active: { width: 'auto', height: '56px', borderRadius: '28px' },
+    minimized: { width: 'auto', height: '56px', borderRadius: '28px' },
+    searching: { width: '200px', height: '56px', borderRadius: '28px' },
+    listening: { width: '240px', height: '64px', borderRadius: '32px' },
+    feedback: { width: 'auto', height: '56px', borderRadius: '28px', minWidth: '180px' },
+    detected: { width: '100%', height: '150px', borderRadius: '32px' },
+    in_trip: { width: isExpanded ? '100%' : '180px', height: isExpanded ? '92px' : '56px', borderRadius: isExpanded ? '32px' : '28px' }
   };
 
   // Auto-expand/minimize logic
@@ -87,7 +88,7 @@ export const TripControl = () => {
     <div 
       className={cn(
         "fixed left-1/2 -translate-x-1/2 z-[100] pointer-events-none transition-all duration-500 w-full max-w-md px-4",
-        isMobile ? "bottom-24" : "bottom-8"
+        isMobile ? "top-[calc(env(safe-area-inset-top)+32px)]" : "bottom-8"
       )}
     >
       <div className="pointer-events-auto flex flex-col items-center">
@@ -103,9 +104,9 @@ export const TripControl = () => {
             layout: { duration: 0.3 }
           }}
           className={cn(
-            "relative overflow-hidden",
+            "relative overflow-hidden flex items-center justify-center",
             "bg-zinc-900/90 backdrop-blur-2xl border border-white/10 shadow-2xl",
-            isExpanded && visualState !== 'minimized' ? "p-4" : "px-4 py-2"
+            isExpanded && visualState !== 'minimized' ? "p-4" : "px-4"
           )}
           onClick={() => !isExpanded && setIsExpanded(true)}
         >
@@ -287,7 +288,8 @@ export const TripControl = () => {
                     <div className="flex flex-col">
                       <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">
                         {visualState === 'searching' ? 'Buscando' : 
-                         visualState === 'minimized' ? 'Ativo' : 'Offline'}
+                         visualState === 'minimized' ? 'Ativo' : 
+                         (syncStatus === 'synced' || syncStatus === 'online' || syncStatus === 'idle') ? 'Pronto' : 'Offline'}
                       </span>
                       <span className="text-sm font-black text-white tracking-tight">
                         {visualState === 'not_active' ? 'Iniciar Rastreamento' : 
@@ -314,7 +316,8 @@ export const TripControl = () => {
                   </div>
                 ) : (
                   <span className="text-xs font-black text-white tracking-tight whitespace-nowrap">
-                    {visualState === 'not_active' ? 'Offline' : 
+                    {visualState === 'not_active' ? 
+                     ((syncStatus === 'synced' || syncStatus === 'online' || syncStatus === 'idle') ? 'Pronto' : 'Offline') : 
                      speed > 5 ? `🚗 ${speed.toFixed(0)} km/h` : `• ${speed.toFixed(0)} km/h`}
                   </span>
                 )}

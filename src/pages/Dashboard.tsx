@@ -42,6 +42,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { QuickActionsMenu } from '../components/QuickActionsMenu';
 import { PostTripActionSheet } from '../components/PostTripActionSheet';
 import { LiveTrackingMap } from '../components/LiveTrackingMap';
+import { SyncIndicator } from '../components/SyncIndicator';
 
 function MetricItem({ 
   label, 
@@ -62,7 +63,7 @@ function MetricItem({
     <motion.div 
       whileTap={{ scale: 0.98 }}
       className={cn(
-        "p-2.5 md:p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50 flex flex-col gap-0.5 md:gap-1 transition-all duration-300",
+        "p-1.5 md:p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50 flex flex-col gap-0.5 transition-all duration-300",
         isLarge && "col-span-1 bg-zinc-100 dark:bg-zinc-800 border-zinc-200 dark:border-zinc-700"
       )}
     >
@@ -378,15 +379,19 @@ export const Dashboard = () => {
     <div className="space-y-6 md:space-y-10 max-w-lg mx-auto overflow-x-hidden w-full min-w-0">
       {/* HEADER / HERO SECTION */}
       <header className="flex justify-between items-start px-1 pt-4 mb-4">
-        <div className="space-y-2 relative">
+        <div className="space-y-1 relative min-w-0">
           <div className="absolute -left-8 -top-8 w-32 h-32 bg-emerald-500/10 blur-[60px] rounded-full pointer-events-none" />
-          <h1 className="text-4xl md:text-5xl font-black tracking-tight text-zinc-900 dark:text-white leading-none relative">
-            {greeting}, <span className="text-emerald-500">{settings.name?.split(' ')[0] || 'Motorista'}</span>
-          </h1>
-          <p className="text-[10px] md:text-xs font-black text-zinc-400 uppercase tracking-[0.3em] flex items-center gap-2">
-            <span className="w-4 h-[1px] bg-zinc-200 dark:bg-zinc-800" />
-            {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
-          </p>
+          <div className="flex flex-col">
+            <h1 className="text-3xl md:text-5xl font-black tracking-tight text-zinc-900 dark:text-white leading-none relative truncate">
+              {greeting}, <span className="text-emerald-500">{settings.name?.split(' ')[0] || 'Motorista'}</span>
+            </h1>
+            <div className="mt-1.5 flex items-center gap-3">
+              <p className="text-[9px] md:text-xs font-black text-zinc-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                {format(now, "EEEE, d 'de' MMMM", { locale: ptBR })}
+              </p>
+              {isMobile && <SyncIndicator variant="minimal" />}
+            </div>
+          </div>
         </div>
         <motion.button 
           whileTap={{ scale: 0.9 }}
@@ -405,8 +410,8 @@ export const Dashboard = () => {
       >
         <div className="absolute -inset-4 bg-gradient-to-br from-emerald-500/5 via-transparent to-blue-500/5 rounded-[3rem] blur-3xl opacity-50 pointer-events-none" />
         <div className="absolute -inset-[1px] bg-gradient-to-br from-emerald-500/10 via-transparent to-zinc-500/10 rounded-[2.6rem] blur-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-2xl shadow-zinc-200/50 dark:shadow-none rounded-[2.5rem] overflow-hidden relative border border-zinc-100 dark:border-zinc-800/50">
-          <CardContent className="p-8 md:p-10 space-y-8 md:space-y-10">
+        <Card className="border-none bg-white dark:bg-zinc-900 shadow-2xl shadow-zinc-200/50 dark:shadow-none rounded-[2rem] overflow-hidden relative border border-zinc-100 dark:border-zinc-800/50">
+          <CardContent className="p-5 md:p-10 space-y-6 md:space-y-10">
             <div className="flex justify-between items-start gap-4">
               <div className="space-y-2 md:space-y-3 min-w-0">
                 <div className="flex items-center gap-2.5">
@@ -428,14 +433,14 @@ export const Dashboard = () => {
             {profitStats && (
               <div className="grid grid-cols-2 gap-6 pt-6 border-t border-zinc-100 dark:border-zinc-800/50">
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.15em]">Despesas</p>
-                  <p className="text-xl font-black text-rose-500 tabular-nums">
+                  <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.15em]">Despesas</p>
+                  <p className="text-lg font-black text-rose-500 tabular-nums">
                     {formatCurrency(profitStats.expenses + profitStats.dailyFixed)}
                   </p>
                 </div>
                 <div className="space-y-1">
-                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-[0.15em]">Lucro Real</p>
-                  <p className="text-xl font-black text-emerald-500 tabular-nums">
+                  <p className="text-[8px] font-black text-zinc-400 uppercase tracking-[0.15em]">Lucro Real</p>
+                  <p className="text-lg font-black text-emerald-500 tabular-nums">
                     {formatCurrency(profitStats.profit)}
                   </p>
                 </div>
@@ -462,9 +467,7 @@ export const Dashboard = () => {
               disabled={isProcessing}
               className={cn(
                 "w-full h-14 font-black text-lg rounded-2xl shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all uppercase tracking-widest text-[10px]",
-                hasOpenCycle 
-                  ? "bg-zinc-950 dark:bg-white text-white dark:text-zinc-950 hover:opacity-90" 
-                  : "bg-emerald-500 text-zinc-950 hover:bg-emerald-400 shadow-emerald-500/20"
+                "bg-[#00C853] text-zinc-950 hover:bg-emerald-400 shadow-emerald-500/20"
               )}
             >
               {isProcessing ? (
@@ -482,10 +485,10 @@ export const Dashboard = () => {
       {/* STATUS OPERACIONAL / TRACKING */}
       <div className="pt-4 md:pt-6">
         <Card className={cn(
-          "border-none shadow-xl transition-all duration-500 overflow-hidden relative tracking-card w-full max-w-full rounded-[2.5rem]",
+          "border-none shadow-xl transition-all duration-500 overflow-hidden relative tracking-card w-full max-w-full rounded-[2rem]",
           locationError ? "bg-rose-500 text-white" : "bg-zinc-50 dark:bg-zinc-900 border border-zinc-100 dark:border-zinc-800/50"
         )}>
-        <CardContent className="p-4 md:p-8 relative z-10 space-y-5 md:space-y-8 card-content">
+        <CardContent className="p-2 md:p-6 relative z-10 space-y-3 md:space-y-6 card-content">
           <div className="flex items-center justify-between gap-2 md:gap-3">
             <div className="flex items-center gap-2 md:gap-5 min-w-0">
               <div className="relative shrink-0">
@@ -580,7 +583,8 @@ export const Dashboard = () => {
               <Button 
                 onClick={handleStartCycle}
                 disabled={isProcessing}
-                className="col-span-2 w-full bg-blue-600 text-white hover:bg-blue-700 font-black uppercase tracking-widest text-[10px] h-16 rounded-2xl border-none shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
+                style={{ backgroundColor: '#00C853' }}
+                className="col-span-2 w-full text-zinc-950 hover:bg-emerald-600 font-black uppercase tracking-widest text-[10px] h-12 md:h-14 rounded-2xl border-none shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
               >
                 {isProcessing ? (
                   <>
@@ -598,7 +602,8 @@ export const Dashboard = () => {
               <Button 
                 onClick={handleToggleTracking}
                 disabled={isProcessing}
-                className="col-span-2 w-full bg-emerald-500 text-zinc-950 hover:bg-emerald-600 font-black uppercase tracking-widest text-[10px] h-16 rounded-2xl border-none shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
+                style={{ backgroundColor: '#00C853' }}
+                className="col-span-2 w-full text-zinc-950 hover:bg-emerald-600 font-black uppercase tracking-widest text-[10px] h-12 md:h-14 rounded-2xl border-none shadow-xl flex items-center justify-center gap-3 active:scale-95 transition-all"
               >
                 {isProcessing ? (
                   <>
@@ -625,7 +630,7 @@ export const Dashboard = () => {
                   onClick={handleToggleTracking}
                   disabled={isProcessing}
                   variant="danger"
-                  className="bg-rose-500/10 hover:bg-rose-500/20 text-rose-500 border-none font-black uppercase tracking-widest text-[10px] h-16 rounded-2xl shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-all"
+                  className="bg-rose-600 text-white hover:bg-rose-700 border-none font-black uppercase tracking-widest text-[10px] h-12 md:h-14 rounded-2xl shadow-xl flex items-center justify-center gap-2 active:scale-95 transition-all"
                 >
                   {isProcessing ? <Loader2 className="animate-spin" size={16} /> : <><Square size={16} fill="currentColor" /> Encerrar</>}
                 </Button>
@@ -806,20 +811,20 @@ export const Dashboard = () => {
         </section>
       )}
 
-      {/* INSIGHT SECTION */}
+      {/* INSIGHT SECTION - DRIVERDASH PRO */}
       <motion.div
         whileTap={{ scale: 0.98 }}
         onClick={() => plan === 'free' && setPaywallOpen(true)}
         className="relative group cursor-pointer"
       >
         <div className={cn(
-          "absolute -inset-0.5 rounded-[2.5rem] blur opacity-20 transition duration-1000",
+          "absolute -inset-[2px] rounded-[2.5rem] blur opacity-20 group-hover:opacity-40 transition duration-500",
           plan === 'pro' ? "bg-indigo-500" : "bg-emerald-500"
         )} />
         <Card 
           className={cn(
-            "border-none shadow-2xl overflow-hidden relative rounded-[2.5rem]",
-            plan === 'pro' ? "bg-indigo-600 text-white" : "bg-zinc-900 border border-white/5 text-zinc-400"
+            "border border-white/5 shadow-2xl overflow-hidden relative rounded-[2.5rem] transition-all duration-300",
+            plan === 'pro' ? "bg-indigo-600 text-white" : "bg-zinc-900 text-zinc-400 group-hover:border-emerald-500/30"
           )}
         >
           <div className="absolute top-0 right-0 p-6 opacity-10">

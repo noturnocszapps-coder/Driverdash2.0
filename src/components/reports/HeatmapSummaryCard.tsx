@@ -30,14 +30,12 @@ export const HeatmapSummaryCard: React.FC<HeatmapSummaryCardProps> = ({
       </div>
 
       <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-        <CardContent className="p-6">
+        <CardContent className="p-4">
           {isCollecting ? (
-            <div className="flex flex-col items-center text-center space-y-3 py-4">
-              <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                <Navigation className="text-zinc-400" size={20} />
-              </div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                Aguardando dados de rastreamento
+            <div className="flex flex-col items-center text-center space-y-1.5 py-2">
+              <Navigation className="text-zinc-700/50" size={14} />
+              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">
+                Aguardando dados...
               </p>
             </div>
           ) : waitingZones.length > 0 ? (
@@ -65,12 +63,10 @@ export const HeatmapSummaryCard: React.FC<HeatmapSummaryCardProps> = ({
               ))}
             </div>
           ) : (
-            <div className="flex flex-col items-center text-center space-y-3 py-4">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-50/50 dark:bg-emerald-500/10 flex items-center justify-center">
-                <Navigation className="text-emerald-500" size={20} />
-              </div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                Nenhuma zona de espera crítica identificada
+            <div className="flex flex-col items-center text-center space-y-1.5 py-2">
+              <Navigation className="text-zinc-700/50" size={14} />
+              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">
+                Sem zonas críticas
               </p>
             </div>
           )}

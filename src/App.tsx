@@ -245,7 +245,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative w-full max-w-full pt-6">
+    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative w-full max-w-full pt-20 md:pt-24">
       <div className="flex flex-1 w-full max-w-full relative">
         <Sidebar />
         <main className={cn(
@@ -253,11 +253,6 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
           !isMobile && "md:px-10 md:pt-10 md:pb-12 max-w-6xl mx-auto",
           isMobile ? "pb-[calc(180px+env(safe-area-inset-bottom))]" : "pb-12"
         )}>
-          {isMobile && (
-            <div className="flex justify-end mb-4 pr-1">
-              <SyncIndicator variant="minimal" />
-            </div>
-          )}
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}

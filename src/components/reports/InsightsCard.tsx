@@ -24,19 +24,14 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
 }) => {
   if (isCollecting) {
     return (
-      <Card className="border-none bg-zinc-900 text-white shadow-xl mb-8">
-        <CardContent className="p-8 flex flex-col items-center text-center space-y-4">
-          <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center border border-emerald-500/20">
-            <Activity className="text-emerald-400 animate-pulse" size={24} />
-          </div>
-          <div className="space-y-1">
-            <h3 className="text-lg font-black tracking-tight">Análise em Formação</h3>
-            <p className="text-xs font-bold text-zinc-500 max-w-[240px]">
-              Ainda coletando dados suficientes para gerar insights de performance.
+      <Card className="border-none bg-transparent mb-8">
+        <CardContent className="p-4 flex flex-col items-center text-center space-y-2 border border-dashed border-zinc-800 rounded-[2rem]">
+          <Activity className="text-zinc-600 animate-pulse" size={16} />
+          <div className="space-y-0.5">
+            <h3 className="text-xs font-black tracking-tight text-zinc-500 uppercase">Análise em Formação</h3>
+            <p className="text-[9px] font-bold text-zinc-600 max-w-[200px]">
+              Aguardando mais dados para gerar insights.
             </p>
-          </div>
-          <div className="px-3 py-1 rounded-full bg-zinc-800 border border-zinc-700 text-[9px] font-black uppercase tracking-widest text-zinc-500">
-            Score: Em formação
           </div>
         </CardContent>
       </Card>
@@ -44,82 +39,58 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
   }
 
   return (
-    <Card className="border-none bg-zinc-900 text-white shadow-xl mb-8 overflow-hidden">
+    <Card className="border-none bg-zinc-950/20 backdrop-blur-sm shadow-xl mb-8 overflow-hidden rounded-[2rem] border border-zinc-800/50">
       <CardContent className="p-0">
-        <div className="p-6 space-y-6">
+        <div className="p-5 space-y-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-                <Award size={16} className="text-emerald-400" />
-              </div>
-              <h3 className="text-xs font-black uppercase tracking-widest">Insights de Performance</h3>
+              <Award size={14} className="text-[#00C853]" />
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-[#00C853]">Destaque de Performance</h3>
             </div>
             <div className={cn(
-              "px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider border",
-              driverScore.color
+              "px-2 py-0.5 rounded-full text-[8px] font-black uppercase tracking-wider border",
+              driverScore.score >= 80 ? "border-[#00C853] text-[#00C853]" : "border-zinc-700 text-zinc-500"
             )}>
-              Score: {driverScore.score} - {driverScore.label}
+              Score: {driverScore.score}
             </div>
           </div>
 
-          {/* Score Explanation and Suggestions */}
-          <div className="space-y-3 bg-white/5 p-4 rounded-2xl border border-white/5">
-            <div className="space-y-1">
-              <p className="text-[10px] font-black text-zinc-400 uppercase tracking-widest">Score do Motorista</p>
-              <p className="text-xs font-bold text-zinc-200 leading-relaxed">
-                {driverScore.explanation}
-              </p>
-            </div>
+          <div className="space-y-2 border-l-2 border-[#00C853]/20 pl-4">
+            <p className="text-[10px] font-bold text-zinc-400 leading-relaxed italic">
+              "{driverScore.explanation}"
+            </p>
             
             {driverScore.suggestions.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-white/5">
-                <p className="text-[9px] font-black text-emerald-400 uppercase tracking-widest">Como melhorar:</p>
-                <ul className="space-y-1.5">
-                  {driverScore.suggestions.map((suggestion, i) => (
-                    <li key={i} className="flex items-center gap-2 text-[10px] font-bold text-zinc-400">
-                      <div className="w-1 h-1 rounded-full bg-emerald-500/50" />
-                      {suggestion}
-                    </li>
-                  ))}
-                </ul>
+              <div className="flex flex-wrap gap-2 pt-1">
+                {driverScore.suggestions.slice(0, 2).map((suggestion, i) => (
+                  <span key={i} className="text-[8px] font-black text-zinc-500 uppercase tracking-widest bg-zinc-800/50 px-2 py-0.5 rounded">
+                    {suggestion}
+                  </span>
+                ))}
               </div>
             )}
           </div>
 
-          <div className="grid grid-cols-2 gap-x-8 gap-y-6">
+          <div className="grid grid-cols-2 gap-4">
             <InsightItem 
               label="Melhor Dia" 
               value={performanceData.bestDayLabel} 
-              icon={<TrendingUp size={12} />}
-              color="text-emerald-400"
-            />
-            <InsightItem 
-              label="Pior Dia" 
-              value={performanceData.weakestDayLabel} 
-              icon={<TrendingDown size={12} />}
-              color="text-red-400"
+              icon={<TrendingUp size={10} />}
+              color="text-[#00C853]"
             />
             <InsightItem 
               label="Média Lucro/KM" 
               value={`${performanceData.avgProfitPerKmLabel}/km`} 
-              icon={<DollarSign size={12} />}
-              color="text-blue-400"
-            />
-            <InsightItem 
-              label="KM Produtivo Médio" 
-              value={`${performanceData.avgProductiveKm.toFixed(1)} km/dia`} 
-              icon={<Navigation size={12} />}
-              color="text-zinc-300"
+              icon={<DollarSign size={10} />}
+              color="text-emerald-500"
             />
           </div>
         </div>
 
-        <div className="bg-emerald-500/10 border-t border-white/5 p-5">
-          <div className="flex gap-3 items-start">
-            <div className="w-6 h-6 rounded-lg bg-emerald-500/20 flex items-center justify-center shrink-0 mt-0.5">
-              <Zap size={12} className="text-emerald-400" />
-            </div>
-            <p className="text-[11px] font-bold text-emerald-100 leading-relaxed">
+        <div className="bg-[#00C853]/5 border-t border-[#00C853]/10 p-4">
+          <div className="flex gap-2 items-center">
+            <Zap size={10} className="text-[#00C853]" />
+            <p className="text-[10px] font-bold text-zinc-400 leading-tight">
               {smartTip}
             </p>
           </div>
@@ -130,13 +101,13 @@ export const InsightsCard: React.FC<InsightsCardProps> = ({
 };
 
 const InsightItem = ({ label, value, icon, color }: { label: string, value: string, icon: React.ReactNode, color: string }) => (
-  <div className="space-y-1.5">
-    <p className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">{label}</p>
-    <div className="flex items-center gap-2">
-      <span className={cn("p-1 rounded-md bg-white/5", color)}>
+  <div className="space-y-0.5">
+    <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">{label}</p>
+    <div className="flex items-center gap-1.5">
+      <span className={cn(color)}>
         {icon}
       </span>
-      <p className="text-sm font-black text-white">{value}</p>
+      <p className="text-xs font-black text-white">{value}</p>
     </div>
   </div>
 );

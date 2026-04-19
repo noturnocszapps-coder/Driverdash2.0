@@ -356,50 +356,51 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
           icon={carIcon}
         />
       </MapContainer>
-      
       {/* Overlay for UI Consistency */}
-      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-zinc-950/60 via-transparent to-zinc-950/40" />
+      <div className="absolute inset-0 pointer-events-none bg-gradient-to-t from-zinc-950/40 via-transparent to-zinc-950/20" />
       
       {/* Map Badge & Controls */}
-      <div className="absolute top-4 left-4 right-4 z-[1000] flex items-center justify-between pointer-events-none">
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/80 backdrop-blur-md rounded-full border border-white/10 shadow-lg pointer-events-auto">
+      <div className="absolute top-3 left-1/2 -translate-x-1/2 z-[1000] pointer-events-none">
+        <div className="flex items-center gap-2 px-3 py-1.5 bg-zinc-900/90 backdrop-blur-md rounded-full border border-white/10 shadow-lg pointer-events-auto">
           <div className={cn(
-            "w-2 h-2 rounded-full",
+            "w-1.5 h-1.5 rounded-full",
             isPaused ? "bg-amber-500" : "bg-emerald-500 animate-pulse"
           )} />
-          <span className="text-[10px] font-black text-white uppercase tracking-widest">
-            {isPaused ? 'Pausado' : 'Ao Vivo'}
+          <span className="text-[9px] font-black text-white uppercase tracking-widest whitespace-nowrap">
+            {isPaused ? 'Turno Pausado' : 'Monitoramento Ativo'}
           </span>
         </div>
+      </div>
 
-        <div className="flex items-center gap-2 pointer-events-auto">
+      <div className="absolute right-3 top-3 bottom-3 z-[1000] flex flex-col items-center justify-center gap-2 pointer-events-none">
+        <div className="flex flex-col gap-2 pointer-events-auto">
           <button 
-            onClick={() => setIsAddingMarker(!isAddingMarker)}
-            className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg border",
-              isAddingMarker 
-                ? "bg-blue-500 text-white border-blue-400" 
-                : "bg-zinc-900/80 text-white border-white/10 backdrop-blur-md"
-            )}
+            onClick={() => setIsFullscreen(!isFullscreen)}
+            className="w-10 h-10 rounded-2xl bg-zinc-900/90 text-white border border-white/10 backdrop-blur-md flex items-center justify-center transition-all shadow-lg active:scale-90"
           >
-            <Plus size={18} />
+            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
           </button>
           <button 
             onClick={() => setAutoCenter(!autoCenter)}
             className={cn(
-              "w-10 h-10 rounded-full flex items-center justify-center transition-all shadow-lg border",
+              "w-10 h-10 rounded-2xl flex items-center justify-center transition-all shadow-lg border backdrop-blur-md active:scale-90",
               autoCenter 
                 ? "bg-emerald-500 text-zinc-950 border-emerald-400" 
-                : "bg-zinc-900/80 text-white border-white/10 backdrop-blur-md"
+                : "bg-zinc-900/90 text-white border-white/10"
             )}
           >
             <Crosshair size={18} />
           </button>
           <button 
-            onClick={() => setIsFullscreen(!isFullscreen)}
-            className="w-10 h-10 rounded-full bg-zinc-900/80 text-white border border-white/10 backdrop-blur-md flex items-center justify-center transition-all shadow-lg"
+            onClick={() => setIsAddingMarker(!isAddingMarker)}
+            className={cn(
+              "w-10 h-10 rounded-2xl flex items-center justify-center transition-all shadow-lg border backdrop-blur-md active:scale-90",
+              isAddingMarker 
+                ? "bg-emerald-500 text-zinc-950 border-emerald-400" 
+                : "bg-zinc-900/90 text-white border-white/10"
+            )}
           >
-            {isFullscreen ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
+            <Plus size={18} />
           </button>
         </div>
       </div>
@@ -488,44 +489,31 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
         )}
       </AnimatePresence>
 
-      {/* Real-time Stats Overlay */}
-      <div className="absolute bottom-4 left-4 right-4 z-[1000] grid grid-cols-3 gap-2 pointer-events-none">
-        <div className="bg-zinc-900/90 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
-          <div className="flex items-center gap-1.5 mb-1">
-            <TrendingUp size={14} className="text-emerald-500" />
-            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Velocidade</span>
-          </div>
-          <div className="flex items-baseline gap-1">
+      {/* Real-time Stats Overlay - Minimalist at Bottom */}
+      <div className="absolute bottom-3 left-3 right-3 z-[1000] flex gap-2 pointer-events-none overflow-x-auto no-scrollbar">
+        <div className="bg-zinc-950/80 backdrop-blur-xl rounded-xl p-2.5 px-4 border border-white/10 shadow-2xl pointer-events-auto flex items-center gap-3">
+          <div className="flex items-center gap-1.5 shrink-0">
+            <TrendingUp size={12} className="text-emerald-500" />
             <span className={cn(
-              "text-3xl font-black tracking-tighter transition-colors duration-300",
-              currentSpeed > 110 ? "text-red-500 animate-pulse" : "text-white"
+              "text-lg font-black tracking-tighter tabular-nums",
+              currentSpeed > 110 ? "text-red-500" : "text-white"
             )}>
               {Math.round(currentSpeed)}
             </span>
-            <span className="text-[10px] font-black text-zinc-500 uppercase">km/h</span>
+            <span className="text-[8px] font-black text-zinc-500">KM/H</span>
           </div>
-        </div>
-
-        <div className="bg-zinc-900/90 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
-          <div className="flex items-center gap-1.5 mb-1">
-            <MapPin size={14} className="text-blue-500" />
-            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Distância</span>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-black text-white tracking-tighter">
+          <div className="w-px h-4 bg-white/10" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Navigation size={12} className="text-blue-500" />
+            <span className="text-lg font-black tracking-tighter text-white tabular-nums">
               {totalDistance.toFixed(1)}
             </span>
-            <span className="text-[10px] font-black text-zinc-500 uppercase">km</span>
+            <span className="text-[8px] font-black text-zinc-500">KM</span>
           </div>
-        </div>
-
-        <div className="bg-zinc-900/90 backdrop-blur-md rounded-2xl p-3 border border-white/10 shadow-xl pointer-events-auto">
-          <div className="flex items-center gap-1.5 mb-1">
-            <Clock size={14} className="text-amber-500" />
-            <span className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">Tempo</span>
-          </div>
-          <div className="flex items-baseline gap-1">
-            <span className="text-2xl font-black text-white tracking-tighter">
+          <div className="w-px h-4 bg-white/10" />
+          <div className="flex items-center gap-1.5 shrink-0">
+            <Clock size={12} className="text-amber-500" />
+            <span className="text-lg font-black tracking-tighter text-white tabular-nums">
               {formatDuration(duration)}
             </span>
           </div>

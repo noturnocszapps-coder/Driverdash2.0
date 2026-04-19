@@ -116,7 +116,7 @@ const CycleMap = () => {
   return (
     <div className="flex-1 flex flex-col bg-[#0B0B0B] text-white">
       {/* Header */}
-      <header className="p-4 flex items-center justify-between border-b border-zinc-800 bg-[#0B0B0B] sticky top-0 z-[1001]">
+      <header className="p-4 flex items-center justify-between border-b border-zinc-800 bg-[#0B0B0B] sticky top-6 z-[1001]">
         <div className="flex items-center gap-3">
           <button 
             onClick={() => navigate(-1)}

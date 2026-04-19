@@ -28,55 +28,48 @@ export const RecentHistoryCardList: React.FC<RecentHistoryCardListProps> = ({
         {recentDays.map((day) => (
           <Card 
             key={day.id} 
-            className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group active:scale-[0.98] transition-all cursor-pointer border border-zinc-100 dark:border-zinc-800/50 hover:shadow-md"
+            className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden group active:scale-[0.98] transition-all cursor-pointer border border-zinc-100 dark:border-zinc-800/50"
             onClick={() => onDayClick(day)}
           >
-            <CardContent className="p-5 flex items-center justify-between">
-              <div className="flex items-center gap-5">
-                <div className="text-center min-w-[44px] p-2 rounded-2xl bg-zinc-100 dark:bg-zinc-800 border border-zinc-200 dark:border-zinc-700/50">
-                  <p className="text-[9px] font-black text-zinc-400 uppercase tracking-widest">
+            <CardContent className="p-3.5 flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="text-center w-11 h-11 flex flex-col items-center justify-center rounded-lg bg-zinc-100 dark:bg-zinc-800/80 border border-zinc-200 dark:border-zinc-700/30 shrink-0">
+                  <p className="text-[7px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-0.5">
                     {format(day.date, 'MMM', { locale: ptBR })}
                   </p>
-                  <p className="text-xl font-black tracking-tighter text-zinc-900 dark:text-white">
+                  <p className="text-base font-black tracking-tighter text-zinc-900 dark:text-zinc-100 leading-none">
                     {format(day.date, 'dd')}
                   </p>
                 </div>
                 
-                <div className="space-y-1.5">
+                <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <p className="text-lg font-black tracking-tight text-zinc-900 dark:text-white">
+                    <p className="text-base font-black tracking-tight text-zinc-900 dark:text-white">
                       {formatCurrency(day.totalRevenue, isPrivacyMode)}
                     </p>
                     {day.hasMismatch && (
-                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-[8px] font-black uppercase text-amber-500 border border-amber-500/20">
-                        <AlertCircle size={8} />
+                      <span className="flex items-center gap-1 px-1 py-0.5 rounded-full bg-amber-500/10 text-[7px] font-black uppercase text-amber-500 border border-amber-500/20">
                         Divergência
-                      </span>
-                    )}
-                    {day.hasError && (
-                      <span className="flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-500/10 text-[8px] font-black uppercase text-amber-500 border border-amber-500/20">
-                        <AlertCircle size={8} />
-                        Dados incompletos
                       </span>
                     )}
                   </div>
                   
-                  <div className="flex items-center gap-3">
-                    <HistoryMetric icon={<Navigation size={10} />} label={formatKm(day.totalKm)} />
+                  <div className="flex items-center gap-4">
+                    <HistoryMetric icon={<Navigation size={8} />} label={formatKm(day.totalKm)} />
                     <HistoryMetric 
-                      icon={<Gauge size={10} />} 
+                      icon={<Gauge size={8} />} 
                       label={getEfficiencyStatus(day.totalKm, day.totalRevenue).isValid ? `${Math.round(day.efficiency)}%` : '--'} 
                     />
-                    <HistoryMetric icon={<DollarSign size={10} />} label={formatCurrency(day.profit, isPrivacyMode)} color="text-emerald-500" />
+                    <HistoryMetric 
+                      icon={<TrendingUp size={8} />} 
+                      label={formatCurrency(day.profit, isPrivacyMode)} 
+                      color={day.profit >= 0 ? "text-[#00C853]" : "text-red-400"} 
+                    />
                   </div>
                 </div>
               </div>
               
-              <div className="flex items-center gap-3">
-                <div className="w-8 h-8 rounded-full flex items-center justify-center text-zinc-300 group-hover:text-emerald-500 group-hover:bg-emerald-500/10 transition-all">
-                  <ChevronRight size={20} />
-                </div>
-              </div>
+              <ChevronRight size={16} className="text-zinc-300 group-hover:text-[#00C853] transition-colors" />
             </CardContent>
           </Card>
         ))}
@@ -86,8 +79,8 @@ export const RecentHistoryCardList: React.FC<RecentHistoryCardListProps> = ({
 };
 
 const HistoryMetric = ({ icon, label, color }: { icon: React.ReactNode, label: string, color?: string }) => (
-  <div className={cn("flex items-center gap-1 text-[10px] font-bold uppercase tracking-wider", color || "text-zinc-500")}>
-    <span className="opacity-60">{icon}</span>
+  <div className={cn("flex items-center gap-1 text-[9px] font-bold uppercase tracking-wider", color || "text-zinc-500")}>
+    <span className="opacity-40">{icon}</span>
     <span>{label}</span>
   </div>
 );

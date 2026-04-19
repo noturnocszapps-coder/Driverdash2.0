@@ -67,14 +67,14 @@ export const WeeklyExecutiveSummary: React.FC<WeeklyExecutiveSummaryProps> = ({
 
 const MetricCard = ({ label, value, icon, color, bg }: { label: string, value: string, icon: React.ReactNode, color: string, bg: string }) => (
   <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-    <CardContent className="p-5 flex flex-col justify-between h-full">
-      <div className="flex items-center justify-between mb-3">
-        <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
-        <div className={`w-6 h-6 rounded-lg ${bg} flex items-center justify-center ${color}`}>
-          {icon}
+    <CardContent className="p-3 md:p-3.5 flex flex-col justify-between h-full">
+      <div className="flex items-center justify-between mb-1.5">
+        <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500">{label}</span>
+        <div className={`w-5 h-5 rounded-md ${bg} flex items-center justify-center ${color}`}>
+          {React.cloneElement(icon as React.ReactElement<any>, { size: 10 })}
         </div>
       </div>
-      <p className={`text-2xl font-black tracking-tighter ${color}`}>
+      <p className={`text-xl font-black tracking-tighter ${label === 'Lucro Total' ? 'text-[#00C853]' : color}`}>
         {value}
       </p>
     </CardContent>

@@ -25,14 +25,12 @@ export const BestHoursCard: React.FC<BestHoursCardProps> = ({
       </div>
 
       <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden">
-        <CardContent className="p-6">
+        <CardContent className="p-4">
           {isCollecting ? (
-            <div className="flex flex-col items-center text-center space-y-3 py-4">
-              <div className="w-10 h-10 rounded-2xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center">
-                <Clock className="text-zinc-400" size={20} />
-              </div>
-              <p className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                Aguardando dados de faturamento
+            <div className="flex flex-col items-center text-center space-y-1.5 py-2">
+              <Clock className="text-zinc-700/50" size={14} />
+              <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-widest">
+                Analisando horários...
               </p>
             </div>
           ) : (

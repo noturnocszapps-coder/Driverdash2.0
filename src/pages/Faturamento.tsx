@@ -170,23 +170,17 @@ export const Faturamento = () => {
     >
       {/* HEADER PREMIUM & COMPACTO */}
       <header className="flex items-center justify-between px-1 pt-2">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => navigate(-1)}
-            className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-500 transition-colors"
+            className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-500 transition-colors shrink-0"
           >
             <ChevronLeft size={18} />
           </motion.button>
-          <div>
-            <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white leading-none">Fechamento do Ciclo</h1>
-            <div className="flex items-center gap-2 mt-1">
-              <span className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-emerald-500/10 text-[9px] font-bold text-emerald-500 uppercase tracking-wider">
-                <div className="w-1 h-1 rounded-full bg-emerald-500 animate-pulse" />
-                Online
-              </span>
-              <span className="text-[9px] px-1.5 py-0.5 rounded-md bg-zinc-100 dark:bg-zinc-800 text-zinc-500 font-bold uppercase tracking-widest">v2.2</span>
-            </div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">Fechamento do Ciclo</h1>
+            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] opacity-60">v2.2</span>
           </div>
         </div>
         <SyncIndicator />
@@ -404,13 +398,13 @@ export const Faturamento = () => {
         {/* RESUMO DE EFICIÊNCIA - NOVO PARA PREENCHER ESPAÇO */}
         <div className="space-y-3">
           <SectionHeader icon={TrendingUp} title="Eficiência Estimada" />
-          <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50 rounded-[2rem] overflow-hidden">
-            <CardContent className="p-5">
+          <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50 rounded-2xl overflow-hidden">
+            <CardContent className="p-3 md:p-4">
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-1">
-                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Lucro por KM</p>
+                <div className="space-y-0.5">
+                  <p className="text-[7px] md:text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none">Lucro por KM</p>
                   <p className={cn(
-                    "text-xl font-black tabular-nums",
+                    "text-lg md:text-xl font-black tabular-nums tracking-tighter",
                     getEfficiencyStatus(kmTotalFinal, total).isValid 
                       ? (estimatedProfit >= 0 ? "text-emerald-500" : "text-rose-500") 
                       : "text-zinc-400"
@@ -420,10 +414,10 @@ export const Faturamento = () => {
                       : getEfficiencyStatus(kmTotalFinal, total).displayValue}
                   </p>
                 </div>
-                <div className="space-y-1 text-right">
-                  <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest">Gasto por KM</p>
+                <div className="space-y-0.5 text-right">
+                  <p className="text-[7px] md:text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none">Gasto por KM</p>
                   <p className={cn(
-                    "text-xl font-black tabular-nums",
+                    "text-lg md:text-xl font-black tabular-nums tracking-tighter",
                     getEfficiencyStatus(kmTotalFinal, total).isValid ? "text-zinc-900 dark:text-white" : "text-zinc-400"
                   )}>
                     {getEfficiencyStatus(kmTotalFinal, total).isValid 
@@ -446,18 +440,18 @@ export const Faturamento = () => {
         </div>
 
         {/* MENSAGENS E INSTRUÇÕES */}
-        <div className="space-y-2 md:space-y-3">
+        <div className="space-y-1.5 md:space-y-2">
           {(total === 0 || kmRideFinal === 0) && (
-            <div className="p-3 md:p-4 rounded-2xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/50 flex items-center gap-3">
+            <div className="p-2 md:p-3 rounded-xl bg-zinc-100 dark:bg-zinc-900/50 border border-zinc-200 dark:border-zinc-800/50 flex items-center gap-2.5">
               <Info size={12} className="text-zinc-400 shrink-0" />
-              <p className="text-[8px] md:text-[9px] text-zinc-500 font-medium leading-tight uppercase tracking-wider">
+              <p className="text-[8px] md:text-[9px] text-zinc-500 font-bold leading-tight uppercase tracking-wide">
                 Sem ganhos registrados. O custo fixo diário ({formatCurrency(dailyFixed, settings.isPrivacyMode)}) está sendo aplicado.
               </p>
             </div>
           )}
-          <div className="p-3 md:p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/20 flex items-center gap-3">
+          <div className="p-2 md:p-3 rounded-xl bg-zinc-50 dark:bg-zinc-900/20 flex items-center gap-2.5">
             <AlertCircle size={12} className="text-zinc-400 shrink-0" />
-            <p className="text-[8px] md:text-[9px] text-zinc-500 font-medium leading-tight uppercase tracking-wider">
+            <p className="text-[8px] md:text-[9px] text-zinc-500 font-bold leading-tight uppercase tracking-wide">
               Insira o valor bruto de cada plataforma no momento do fechamento.
             </p>
           </div>
@@ -477,7 +471,7 @@ export const Faturamento = () => {
                 <div className="text-right space-y-0.5">
                   <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-zinc-500">Lucro Líquido</p>
                   <p className={cn(
-                    "text-xl md:text-2xl font-bold tracking-tight",
+                    "text-2xl md:text-3xl font-black tracking-tighter",
                     estimatedProfit >= 0 ? "text-emerald-400" : "text-red-400"
                   )}>
                     {formatCurrency(estimatedProfit, settings.isPrivacyMode)}
@@ -493,17 +487,13 @@ export const Faturamento = () => {
                   disabled={isProcessing || !activeVehicleId}
                   loading={isProcessing}
                   className={cn(
-                    "w-full h-14 font-bold text-lg rounded-2xl shadow-lg gap-2 transition-all",
+                    "w-full h-14 font-black text-lg rounded-2xl shadow-lg gap-2 transition-all flex items-center justify-center uppercase tracking-widest",
                     !activeVehicleId
                       ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
                       : saveStatus === 'success' 
                         ? "bg-emerald-600" 
-                        : "bg-emerald-500 hover:bg-emerald-400 text-zinc-950 shadow-emerald-500/20"
+                        : "bg-[#00C853] hover:bg-emerald-400 text-zinc-950"
                   )}
-                  style={activeVehicleId && saveStatus !== 'success' ? { 
-                    boxShadow: '0 0 25px rgba(16, 185, 129, 0.3)',
-                    filter: 'drop-shadow(0 0 10px rgba(16, 185, 129, 0.2))'
-                  } : {}}
                 >
                   {isProcessing ? 'Processando...' : (
                     <>
@@ -578,10 +568,10 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 shadow-sm flex flex-col gap-3">
-      <div className="flex items-center gap-3">
-        <div className={cn("w-2 h-2 rounded-full shadow-sm", accent)} />
-        <span className="font-bold text-[10px] uppercase tracking-widest text-zinc-500">{label}</span>
+    <div className="bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 shadow-sm flex flex-col gap-2">
+      <div className="flex items-center gap-2">
+        <div className={cn("w-1.5 h-1.5 rounded-full shadow-sm", accent)} />
+        <span className="font-bold text-[9px] uppercase tracking-widest text-zinc-500">{label}</span>
       </div>
       
       <div className="flex items-center gap-2">
@@ -590,9 +580,9 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
           onPointerDown={() => startAdjust(-5)}
           onPointerUp={stopAdjust}
           onPointerLeave={stopAdjust}
-          className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 transition-colors"
+          className="w-8 h-8 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"
         >
-          <Minus size={16} />
+          <Minus size={14} />
         </motion.button>
         
         <div className="relative flex-1">
@@ -606,7 +596,7 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
               if (!isEditing) setIsEditing(true);
             }}
             onBlur={handleBlur}
-            className="w-full bg-zinc-50 dark:bg-zinc-800/30 border-none rounded-xl py-2 pl-8 pr-3 text-right font-bold text-sm tracking-tight focus:ring-1 focus:ring-emerald-500 transition-all"
+            className="w-full bg-zinc-50 dark:bg-zinc-800/30 border-none rounded-xl py-2 pl-8 pr-3 text-right font-black text-lg md:text-xl tracking-tight focus:ring-1 focus:ring-emerald-500 transition-all text-zinc-900 dark:text-white"
           />
         </div>
 
@@ -615,9 +605,9 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
           onPointerDown={() => startAdjust(5)}
           onPointerUp={stopAdjust}
           onPointerLeave={stopAdjust}
-          className="w-9 h-9 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500 transition-colors"
+          className="w-8 h-8 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"
         >
-          <Plus size={16} />
+          <Plus size={14} />
         </motion.button>
       </div>
     </div>
@@ -666,9 +656,9 @@ const KmCard = ({ label, value, onChange, isTracked }: any) => {
     : 0;
 
   return (
-    <div className="bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 relative overflow-hidden group shadow-sm">
-      <div className="flex flex-col gap-1 relative z-10">
-        <span className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{label}</span>
+    <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 relative overflow-hidden group shadow-sm">
+      <div className="flex flex-col gap-0.5 relative z-10">
+        <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">{label}</span>
         <div className="flex items-baseline gap-1">
           <input 
             type="number"
@@ -679,9 +669,9 @@ const KmCard = ({ label, value, onChange, isTracked }: any) => {
               onChange(val === '' ? 0 : Number(val));
             }}
             placeholder="0"
-            className="w-full bg-transparent border-none p-0 text-xl font-bold tracking-tight text-zinc-900 dark:text-white focus:ring-0"
+            className="w-full bg-transparent border-none p-0 text-lg font-black tracking-tight text-zinc-900 dark:text-white focus:ring-0"
           />
-          <span className="text-[10px] font-bold text-zinc-400">KM</span>
+          <span className="text-[9px] font-black text-zinc-400">KM</span>
         </div>
       </div>
       

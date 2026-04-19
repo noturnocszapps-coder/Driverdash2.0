@@ -400,16 +400,18 @@ export const Reports = () => {
               initial={{ opacity: 0, x: -10 }}
               animate={{ opacity: 1, x: 0 }}
               className={cn(
-                "p-4 rounded-2xl border flex gap-3 items-start",
-                alert.type === 'warning' 
-                  ? "bg-amber-500/5 border-amber-500/20 text-amber-600 dark:text-amber-400" 
-                  : "bg-blue-500/5 border-blue-500/20 text-blue-600 dark:text-blue-400"
+                "p-3 rounded-xl border flex gap-3 items-center",
+                alert.id === 'low-yield' 
+                  ? "bg-amber-500/0 border-amber-500/30 text-amber-600 dark:text-amber-400/80" 
+                  : alert.type === 'warning'
+                    ? "bg-amber-500/5 border-amber-500/20 text-amber-600 dark:text-amber-400"
+                    : "bg-blue-500/5 border-blue-500/20 text-blue-600 dark:text-blue-400"
               )}
             >
-              <Zap size={18} className="shrink-0 mt-0.5" />
-              <div>
-                <p className="text-xs font-black uppercase tracking-wider mb-0.5">{alert.title}</p>
-                <p className="text-[11px] font-bold opacity-80 leading-relaxed">{alert.message}</p>
+              <Zap size={14} className="shrink-0" />
+              <div className="flex flex-col">
+                <p className="text-[10px] font-black uppercase tracking-widest">{alert.title}</p>
+                <p className="text-[9px] font-bold opacity-70 leading-none">{alert.message}</p>
               </div>
             </motion.div>
           ))}

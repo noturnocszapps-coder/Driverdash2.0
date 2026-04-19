@@ -68,6 +68,7 @@ export const Settings = () => {
     }
   }, [activeTab, adminView, fetchAdminStats, loadMapMarkers, fetchAllUsers, fetchSystemLogs, loadGlobalConfigs]);
 
+  const [showApiKey, setShowApiKey] = useState(false);
   const [vehicleErrors, setVehicleErrors] = useState<{
     name?: string;
     year?: string;
@@ -369,7 +370,7 @@ export const Settings = () => {
       </header>
 
       {/* Tab Navigation */}
-      <div className="sticky top-0 z-50 bg-zinc-50/80 dark:bg-zinc-950/80 backdrop-blur-md py-4 -mx-4 px-4 border-b border-zinc-100 dark:border-zinc-800">
+      <div className="sticky top-6 z-50 bg-zinc-50/80 dark:bg-zinc-950/80 backdrop-blur-md py-4 -mx-4 px-4 border-b border-zinc-100 dark:border-zinc-800">
         <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
           {[
             { id: 'profile', label: 'Perfil', icon: User },
@@ -382,13 +383,13 @@ export const Settings = () => {
               key={tab.id}
               onClick={() => setActiveTab(tab.id as any)}
               className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-black uppercase tracking-widest transition-all shrink-0",
+                "flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0",
                 activeTab === tab.id
-                  ? "bg-emerald-500 text-zinc-950 shadow-lg shadow-emerald-500/20"
-                  : "bg-white dark:bg-zinc-900 text-zinc-500 hover:text-zinc-900 dark:hover:text-white border border-zinc-100 dark:border-zinc-800"
+                  ? "bg-[#00C853] text-black shadow-lg shadow-emerald-500/20"
+                  : "bg-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800"
               )}
             >
-              <tab.icon size={14} />
+              <tab.icon size={12} />
               {tab.label}
             </button>
           ))}
@@ -521,7 +522,7 @@ export const Settings = () => {
                       updateSettings({ name: e.target.value });
                     }}
                     className={cn(
-                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300",
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white dark:placeholder:text-zinc-600 transition-all duration-300",
                       settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
                     )}
                     placeholder="Seu nome"
@@ -542,7 +543,7 @@ export const Settings = () => {
                       updateSettings({ phone: e.target.value });
                     }}
                     className={cn(
-                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300",
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white dark:placeholder:text-zinc-600 transition-all duration-300",
                       settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
                     )}
                     placeholder="(00) 00000-0000"
@@ -563,7 +564,7 @@ export const Settings = () => {
                       updateSettings({ city: e.target.value });
                     }}
                     className={cn(
-                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300",
+                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white dark:placeholder:text-zinc-600 transition-all duration-300",
                       settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
                     )}
                     placeholder="Sua cidade"
@@ -588,12 +589,12 @@ export const Settings = () => {
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2.5 md:col-span-2">
+            <div className="md:col-span-2 space-y-2.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Bio / Descrição</label>
                 <textarea 
                   value={settings.bio || ''}
                   onChange={e => updateSettings({ bio: e.target.value })}
-                  className="w-full p-4 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300 min-h-[100px] resize-none"
+                  className="w-full p-4 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white dark:placeholder:text-zinc-600 transition-all duration-300 min-h-[80px] resize-none"
                   placeholder="Conte um pouco sobre você..."
                 />
               </div>
@@ -774,9 +775,9 @@ export const Settings = () => {
                     key={action.id}
                     onClick={() => toggleQuickAction(action.id)}
                     className={cn(
-                      "flex flex-col items-center justify-center p-4 rounded-3xl border-2 transition-all relative group",
+                      "flex flex-col items-center justify-center p-4 rounded-3xl border transition-all relative group",
                       isSelected 
-                        ? "bg-emerald-500/5 border-emerald-500/30 shadow-lg shadow-emerald-500/5" 
+                        ? "bg-emerald-500/5 border-emerald-500/50 shadow-lg shadow-emerald-500/5" 
                         : "bg-zinc-50 dark:bg-zinc-800/50 border-transparent hover:border-zinc-200 dark:hover:border-zinc-700"
                     )}
                   >
@@ -1413,14 +1414,16 @@ export const Settings = () => {
         </div>
         <div className="grid grid-cols-1 gap-3">
           {[
-            { title: "Metas Realistas", desc: "Defina metas diárias que cubram seus custos e garantam lucro." },
-            { title: "Custos Fixos", desc: "Não esqueça de incluir seguro e manutenção nos custos do veículo." },
-            { title: "Privacidade", desc: "Use o modo oculto se costuma mostrar a tela para passageiros." }
+            { title: "Metas Realistas", desc: "Defina metas que cubram seus custos e garantam lucro." },
+            { title: "Custos Fixos", desc: "Inclua seguro e manutenção nos custos do veículo." }
           ].map((tip, i) => (
-            <Card key={i} className="border-none bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50">
-              <CardContent className="p-4 space-y-1">
-                <p className="text-[10px] font-black uppercase text-zinc-900 dark:text-white tracking-tight">{tip.title}</p>
-                <p className="text-[10px] font-bold text-zinc-500 leading-relaxed">{tip.desc}</p>
+            <Card key={i} className="border-none bg-zinc-50/50 dark:bg-zinc-900/30 border border-zinc-100/50 dark:border-zinc-800/30 rounded-2xl">
+              <CardContent className="p-3 flex items-start gap-3">
+                <Lightbulb size={12} className="text-amber-500 shrink-0 mt-0.5" />
+                <div className="space-y-0.5">
+                  <p className="text-[10px] font-black uppercase text-zinc-900 dark:text-white tracking-tight">{tip.title}</p>
+                  <p className="text-[9px] font-bold text-zinc-500 leading-tight">{tip.desc}</p>
+                </div>
               </CardContent>
             </Card>
           ))}
@@ -1484,19 +1487,26 @@ export const Settings = () => {
                         href="https://aistudio.google.com/app/apikey" 
                         target="_blank" 
                         rel="noopener noreferrer"
-                        className="text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:text-emerald-600 transition-colors"
+                        className="text-[10px] font-black uppercase tracking-[0.2em] text-[#00C853] hover:opacity-80 transition-all"
                       >
                         Obter Chave
                       </a>
                     </div>
-                    <div className="relative">
+                    <div className="relative group/key">
                       <Input
-                        type="password"
+                        type={showApiKey ? "text" : "password"}
                         placeholder="Cole sua API Key aqui..."
                         value={settings.geminiApiKey || ''}
                         onChange={(e) => updateSettings({ geminiApiKey: e.target.value })}
-                        className="bg-zinc-50 dark:bg-zinc-800/50 border-none rounded-2xl h-12 px-5 text-xs font-medium"
+                        className="bg-zinc-50 dark:bg-zinc-900/50 border-none rounded-2xl h-12 pl-5 pr-12 text-xs font-medium text-white placeholder:text-zinc-600"
                       />
+                      <button
+                        type="button"
+                        onClick={() => setShowApiKey(!showApiKey)}
+                        className="absolute right-4 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-emerald-500 transition-colors"
+                      >
+                        {showApiKey ? <EyeOff size={16} /> : <Eye size={16} />}
+                      </button>
                     </div>
                     <div className="flex items-start gap-3 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
                       <Info size={16} className="text-emerald-500 shrink-0 mt-0.5" />
@@ -1514,39 +1524,39 @@ export const Settings = () => {
             <section className="space-y-3 md:space-y-4">
         <SectionHeader icon={Shield} title="Zona de Perigo" />
         <Card className="border-none bg-red-50 dark:bg-red-500/5 border-red-100 dark:border-red-500/10">
-          <CardContent className="p-4 md:p-6 space-y-3 md:space-y-4">
-            <button 
-              onClick={() => setShowDeleteConfirm(true)}
-              className="flex items-center justify-between w-full group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-red-500/10 flex items-center justify-center text-red-500">
-                  <Trash2 size={20} />
+            <div className="grid grid-cols-1 gap-1">
+              <button 
+                onClick={() => setShowDeleteConfirm(true)}
+                className="flex items-center justify-between w-full h-14 px-2 hover:bg-red-500/5 rounded-2xl transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 flex items-center justify-center text-red-500">
+                    <Trash2 size={18} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-black text-red-500 uppercase tracking-tight">Limpar Todos os Dados</p>
+                    <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider opacity-60">Apagar histórico local e nuvem</p>
+                  </div>
                 </div>
-                <div className="text-left">
-                  <p className="text-sm font-black text-red-500">Limpar Todos os Dados</p>
-                  <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Apagar histórico local e nuvem</p>
+                <ChevronRight size={14} className="text-red-300/50 group-hover:text-red-500 transition-colors" />
+              </button>
+
+              <button 
+                onClick={handleLogout}
+                className="flex items-center justify-between w-full h-14 px-2 hover:bg-zinc-100 dark:hover:bg-zinc-800/30 rounded-2xl transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-9 h-9 flex items-center justify-center text-zinc-500">
+                    <LogOut size={18} />
+                  </div>
+                  <div className="text-left">
+                    <p className="text-xs font-black text-zinc-900 dark:text-white uppercase tracking-tight">Sair da Conta</p>
+                    <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider opacity-60">Desconectar deste dispositivo</p>
+                  </div>
                 </div>
-              </div>
-              <ChevronRight size={18} className="text-red-300 group-hover:text-red-500 transition-colors" />
-            </button>
-            <div className="h-px bg-red-100 dark:bg-red-500/10" />
-            <button 
-              onClick={handleLogout}
-              className="flex items-center justify-between w-full group"
-            >
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-zinc-100 dark:bg-zinc-800 flex items-center justify-center text-zinc-500">
-                  <LogOut size={20} />
-                </div>
-                <div className="text-left">
-                  <p className="text-sm font-black text-zinc-900 dark:text-white">Sair da Conta</p>
-                  <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Desconectar deste dispositivo</p>
-                </div>
-              </div>
-              <ChevronRight size={18} className="text-zinc-300 group-hover:text-zinc-950 dark:group-hover:text-white transition-colors" />
-            </button>
-          </CardContent>
+                <ChevronRight size={14} className="text-zinc-300 group-hover:text-zinc-950 dark:group-hover:text-white transition-colors" />
+              </button>
+            </div>
         </Card>
       </section>
           </motion.div>
