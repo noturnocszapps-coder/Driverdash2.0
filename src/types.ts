@@ -212,7 +212,7 @@ export interface AdminStats {
   cyclesWithErrors: number;
   failedImportReports: number;
   pendingMarkers: number;
-  globalSyncStatus: 'stable' | 'degraded' | 'critical';
+  globalSyncStatus: 'healthy' | 'pending' | 'attention';
   pendingSyncItems: number;
 }
 

@@ -6,6 +6,7 @@ import { UserRole, UserStatus } from '../types';
 import { Card, CardContent, Button, Input } from '../components/UI';
 import { UserPlus, Mail, Lock, User, AlertCircle, Loader2, ArrowLeft } from 'lucide-react';
 import { toast } from 'sonner';
+import { getFriendlyErrorMessage } from '../utils';
 
 export const Register = () => {
   const navigate = useNavigate();
@@ -52,7 +53,7 @@ export const Register = () => {
         navigate('/dashboard');
       }
     } catch (err: any) {
-      setError(err.message || 'Erro ao criar conta');
+      setError(getFriendlyErrorMessage(err));
     } finally {
       setLoading(false);
     }

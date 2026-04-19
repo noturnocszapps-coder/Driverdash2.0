@@ -367,6 +367,31 @@ export function getHumanLocation(lat: number, lng: number): string {
   return `Setor ${sectors[regionId - 1]} — Área ${regionId}`;
 }
 
+export function getFriendlyErrorMessage(error: any): string {
+  if (!error) return 'Erro desconhecido';
+  
+  const message = typeof error === 'string' ? error : (error.message || 'Erro desconhecido');
+  const lowerMsg = message.toLowerCase();
+  
+  if (lowerMsg.includes('failed to fetch') || lowerMsg.includes('network error') || lowerMsg.includes('load failed')) {
+    return 'Sem conexão com a internet ou servidor inacessível';
+  }
+  
+  if (lowerMsg.includes('refresh token not found') || lowerMsg.includes('invalid refresh token')) {
+    return 'Sessão expirada. Por favor, entre novamente.';
+  }
+
+  if (lowerMsg.includes('insufficient permissions') || lowerMsg.includes('permission denied')) {
+    return 'Você não tem permissão para realizar esta ação.';
+  }
+
+  if (lowerMsg.includes('quota exceeded')) {
+    return 'Limite de uso atingido. Tente novamente mais tarde.';
+  }
+  
+  return message;
+}
+
 export function isDataMature(cycles: any[], dailyData: any[]) {
   const activeDays = dailyData.filter(d => d.totalRevenue > 0 || d.totalKm > 0).length;
   const totalKm = dailyData.reduce((acc, d) => acc + d.totalKm, 0);

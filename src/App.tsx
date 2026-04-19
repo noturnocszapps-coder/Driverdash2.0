@@ -58,6 +58,18 @@ const DevLab = lazyWithRetry(
   () => import('./pages/DevLab'),
   'DevLab'
 );
+const Terms = lazyWithRetry(
+  () => import('./pages/Terms').then((m) => ({ default: m.Terms })),
+  'Terms'
+);
+const Privacy = lazyWithRetry(
+  () => import('./pages/Privacy').then((m) => ({ default: m.Privacy })),
+  'Privacy'
+);
+const Contact = lazyWithRetry(
+  () => import('./pages/Contact').then((m) => ({ default: m.Contact })),
+  'Contact'
+);
 const Onboarding = lazyWithRetry(
   () => import('./pages/Onboarding'),
   'Onboarding'
@@ -214,7 +226,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   if (isLanding || isAuth || isOnboarding) {
     return (
-      <div className="min-h-[100dvh] flex flex-col overflow-x-hidden">
+      <div className="min-h-[100dvh] flex flex-col overflow-x-hidden pt-6">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
@@ -233,7 +245,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative w-full max-w-full">
+    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative w-full max-w-full pt-6">
       <div className="flex flex-1 w-full max-w-full relative">
         <Sidebar />
         <main className={cn(
@@ -480,6 +492,31 @@ function AppRoutes() {
             }
           />
 
+          <Route
+            path="/terms"
+            element={
+              <SafeRoute routeName="Terms">
+                <Terms />
+              </SafeRoute>
+            }
+          />
+          <Route
+            path="/privacy"
+            element={
+              <SafeRoute routeName="Privacy">
+                <Privacy />
+              </SafeRoute>
+            }
+          />
+          <Route
+            path="/contact"
+            element={
+              <SafeRoute routeName="Contact">
+                <Contact />
+              </SafeRoute>
+            }
+          />
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </Suspense>
@@ -581,12 +618,20 @@ export default function App() {
 
   return (
     <Router>
+      <div className="fixed top-0 left-0 right-0 h-6 bg-black flex items-center justify-center z-[9999] border-b border-white/5 pointer-events-none">
+        <div className="flex items-center gap-2">
+          <div className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]" />
+          <p className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#9CA3AF]">
+            Ambiente Beta: Estamos em constante evolução para você.
+          </p>
+        </div>
+      </div>
       <Toaster 
         position="top-center" 
         richColors 
         toastOptions={{
           style: {
-            marginTop: 'env(safe-area-inset-top, 20px)',
+            marginTop: 'env(safe-area-inset-top, 24px)',
           }
         }}
       />

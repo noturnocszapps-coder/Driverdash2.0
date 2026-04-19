@@ -10,7 +10,7 @@ import {
   Phone, MapPin, Briefcase, Calendar, Settings as SettingsIcon, Users, Activity, Sparkles, Info,
   Cloud, Loader2
 } from 'lucide-react';
-import { downloadFile, formatCurrency, calculateDailyFixedCost, calculateMonthlyFixedCost } from '../utils';
+import { downloadFile, formatCurrency, calculateDailyFixedCost, calculateMonthlyFixedCost, getFriendlyErrorMessage } from '../utils';
 import { supabase } from '../lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { cn } from '../utils';
@@ -109,7 +109,7 @@ export const Settings = () => {
       setShowVehicleSelector(false);
       toast.success('Veículo alterado com sucesso');
     } catch (error: any) {
-      toast.error(`Erro ao trocar veículo: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao trocar veículo: ${getFriendlyErrorMessage(error)}`);
     }
   };
 
@@ -142,7 +142,7 @@ export const Settings = () => {
       setTimeout(() => setSaveSuccess(false), 3000);
     } catch (error: any) {
       console.error('[Settings] Error saving vehicle:', error);
-      toast.error(`Erro ao salvar veículo: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao salvar veículo: ${getFriendlyErrorMessage(error)}`);
     }
   };
 
@@ -162,7 +162,7 @@ export const Settings = () => {
       await deleteVehicle(deletingVehicleId);
       toast.success('Veículo excluído com sucesso');
     } catch (error: any) {
-      toast.error(`Erro ao excluir veículo: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao excluir veículo: ${getFriendlyErrorMessage(error)}`);
     } finally {
       setDeletingVehicleId(null);
     }
@@ -223,7 +223,7 @@ export const Settings = () => {
       setIsAddingVehicle(false);
       setEditingVehicleId(null);
     } catch (error: any) {
-      toast.error(`Erro ao salvar veículo: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao salvar veículo: ${getFriendlyErrorMessage(error)}`);
     }
   };
 
@@ -244,7 +244,7 @@ export const Settings = () => {
       });
       toast.success('Custos atualizados');
     } catch (error: any) {
-      toast.error(`Erro ao atualizar custos: ${error.message || 'Verifique sua conexão'}`);
+      toast.error(`Erro ao atualizar custos: ${getFriendlyErrorMessage(error)}`);
     }
   };
 
@@ -1588,9 +1588,17 @@ export const Settings = () => {
                   <StatCard 
                     icon={RefreshCw} 
                     title="Sync Global" 
-                    value={adminStats.globalSyncStatus.toUpperCase()} 
+                    value={
+                      adminStats.globalSyncStatus === 'healthy' ? 'Tudo Sincronizado' :
+                      adminStats.globalSyncStatus === 'pending' ? 'Ajustando Dados...' :
+                      'Atenção Necessária'
+                    } 
                     subtitle={`${adminStats.pendingSyncItems} pendentes`}
-                    color={adminStats.globalSyncStatus === 'stable' ? 'emerald' : 'red'}
+                    color={
+                      adminStats.globalSyncStatus === 'healthy' ? 'emerald' :
+                      adminStats.globalSyncStatus === 'pending' ? 'amber' :
+                      'red'
+                    }
                   />
                 </div>
 

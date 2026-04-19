@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { DriverState, UserSettings, AuthUser, SyncStatus, SyncDetails, Cycle, Expense, Fueling, Maintenance, FaturamentoLog, TripAnalytics, UserRole, UserStatus, TrackingSession, DriverPerformanceRecord, DriverProfile, GPSStatus, PlanType, StopPoint, AdminStats } from './types';
 import { supabase, isSupabaseConfigured } from './lib/supabase';
-import { calculateDistance, safeNumber } from './utils';
+import { calculateDistance, safeNumber, getFriendlyErrorMessage } from './utils';
 import { toast } from 'sonner';
 import { evaluateCurrentTrip } from './lib/tripAnalytics';
 import { evaluateZoneQuality } from './lib/zoneAnalytics';
@@ -133,7 +133,7 @@ const INITIAL_ADMIN_STATS: AdminStats = {
   cyclesWithErrors: 0,
   failedImportReports: 0,
   pendingMarkers: 0,
-  globalSyncStatus: 'stable',
+  globalSyncStatus: 'healthy',
   pendingSyncItems: 0
 };
 
@@ -241,6 +241,13 @@ export const useDriverStore = create<DriverState>()(
           const failedImportReports = Math.floor(Math.random() * 3);
           const pendingSyncItems = Math.floor(Math.random() * 10);
 
+          let globalSyncStatus: 'healthy' | 'pending' | 'attention' = 'healthy';
+          if (cyclesWithErrors > 0) {
+            globalSyncStatus = 'attention';
+          } else if (pendingSyncItems > 0) {
+            globalSyncStatus = 'pending';
+          }
+
           set({
             adminStats: {
               totalUsers: userCount || 1,
@@ -256,7 +263,7 @@ export const useDriverStore = create<DriverState>()(
               cyclesWithErrors,
               failedImportReports,
               pendingMarkers: pendingMarkers || 0,
-              globalSyncStatus: 'stable',
+              globalSyncStatus,
               pendingSyncItems
             }
           });
@@ -3573,7 +3580,7 @@ export const useDriverStore = create<DriverState>()(
         } catch (error: any) {
           console.error('[SYNC] error:', error);
           set({ 
-            syncError: error.message || 'Erro desconhecido',
+            syncError: getFriendlyErrorMessage(error),
             hasSynced: true // Allow user to enter app even if sync fails (e.g. offline)
           });
           setSyncStatus('offline');

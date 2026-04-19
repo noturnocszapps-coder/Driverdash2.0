@@ -8,6 +8,7 @@ import {
   cn,
   calculateDailyFixedCost,
   safeNumber,
+  getFriendlyErrorMessage,
 } from '../utils';
 import { Card, CardContent, Button, Skeleton } from '../components/UI';
 import {
@@ -233,7 +234,7 @@ export const Dashboard = () => {
       toast.success("Turno aberto com sucesso!");
     } catch (error: any) {
       console.error('[CYCLE] Error starting cycle:', error);
-      toast.error(error.message || "Erro ao abrir turno");
+      toast.error(getFriendlyErrorMessage(error));
     } finally {
       setIsProcessing(false);
     }
@@ -319,7 +320,7 @@ export const Dashboard = () => {
       }
     } catch (error: any) {
       console.error('[DASHBOARD] Error toggling tracking:', error);
-      toast.error(error.message || "Erro ao alterar rastreamento");
+      toast.error(getFriendlyErrorMessage(error));
     } finally {
       setIsProcessing(false);
     }

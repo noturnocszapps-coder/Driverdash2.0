@@ -5,20 +5,21 @@ import { cn } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 
 export const SyncIndicator: React.FC<{ variant?: 'sidebar' | 'minimal' }> = ({ variant = 'sidebar' }) => {
-  const { syncStatus, pendingDeletionIds } = useDriverStore();
+  const { syncStatus, pendingDeletionIds, cycles } = useDriverStore();
   
+  const hasErrors = cycles.some(c => c.has_error);
+  const isPending = pendingDeletionIds.length > 0 || syncStatus === 'syncing' || syncStatus === 'retrying';
+
+  // Compute actual health status for UI display
+  const effectiveStatus = hasErrors ? 'attention' : isPending ? 'pending' : 'healthy';
+
   const statusConfig = {
-    idle: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
-    online: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
-    synced: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
-    syncing: { label: 'Sincronizando...', icon: RotateCw, color: 'text-zinc-400', bg: 'bg-zinc-500/10', animate: true },
-    retrying: { label: 'Ajustando dados...', icon: RefreshCw, color: 'text-amber-500', bg: 'bg-amber-500/10', animate: true },
-    offline: { label: 'Modo Offline', icon: Smartphone, color: 'text-zinc-500', bg: 'bg-zinc-500/10', animate: false },
-    error: { label: 'Aguardando conexão', icon: AlertCircle, color: 'text-zinc-400', bg: 'bg-zinc-500/10', animate: false },
-    partial_error: { label: 'Ajustando dados...', icon: RotateCw, color: 'text-zinc-400', bg: 'bg-zinc-500/10', animate: true },
+    healthy: { label: 'Tudo sincronizado', icon: CheckCircle2, color: 'text-emerald-500', bg: 'bg-emerald-500/10', animate: false },
+    pending: { label: 'Ajustando dados...', icon: RefreshCw, color: 'text-amber-500', bg: 'bg-amber-500/10', animate: true },
+    attention: { label: 'Atenção necessária', icon: AlertCircle, color: 'text-red-500', bg: 'bg-red-500/10', animate: false },
   };
 
-  const current = statusConfig[syncStatus as keyof typeof statusConfig] || statusConfig.idle;
+  const current = statusConfig[effectiveStatus] || statusConfig.healthy;
   const Icon = current.icon;
   const activeSyncCount = pendingDeletionIds.length;
 
@@ -35,7 +36,10 @@ export const SyncIndicator: React.FC<{ variant?: 'sidebar' | 'minimal' }> = ({ v
 
   return (
     <div className="flex flex-col gap-3">
-      <div className="flex items-center gap-3 p-3.5 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-white/5 transition-all duration-500">
+      <div className={cn(
+        "flex items-center gap-3 p-3.5 rounded-2xl border transition-all duration-500",
+        effectiveStatus === 'attention' ? "bg-red-500/5 border-red-500/20 shadow-[0_0_20px_rgba(239,68,68,0.05)]" : "bg-zinc-50 dark:bg-zinc-900/50 border-zinc-100 dark:border-white/5"
+      )}>
         <div className={cn("p-2 rounded-xl shrink-0 transition-colors duration-500", current.bg)}>
           <Icon className={cn("w-4 h-4 transition-colors duration-500", current.color, current.animate && "animate-spin")} />
         </div>
@@ -45,9 +49,11 @@ export const SyncIndicator: React.FC<{ variant?: 'sidebar' | 'minimal' }> = ({ v
             {current.label}
           </span>
           <span className="text-[9px] text-zinc-500 font-bold leading-tight mt-0.5 whitespace-nowrap">
-            {activeSyncCount > 0 
-              ? `${activeSyncCount} ${activeSyncCount === 1 ? 'item sendo sincronizado' : 'itens sendo sincronizados'}`
-              : 'Nenhuma ação pendente'
+            {hasErrors 
+              ? 'Existem ciclos com inconsistências'
+              : activeSyncCount > 0 
+                ? `${activeSyncCount} ${activeSyncCount === 1 ? 'item sendo sincronizado' : 'itens sendo sincronizados'}`
+                : 'Nenhuma ação pendente'
             }
           </span>
         </div>
