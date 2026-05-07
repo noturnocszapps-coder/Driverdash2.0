@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Plus, Minus, X, Clock, CheckCircle2, Edit3, Zap } from 'lucide-react';
+import { Plus, Minus, X, Clock, CheckCircle2, Edit3, Gauge } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { cn, formatCurrency } from '../utils';
 import { toast } from 'sonner';
@@ -114,7 +114,7 @@ export const PostTripActionSheet: React.FC = () => {
             <div className="flex justify-between items-start mb-6">
               <div>
                 <h3 className="text-white font-bold text-xl mb-1 flex items-center gap-2">
-                  <Zap size={20} className="text-emerald-500 fill-emerald-500" />
+                  <Gauge size={20} className="text-emerald-500 fill-emerald-500" />
                   Corrida Detectada
                 </h3>
                 <p className="text-zinc-400 text-sm">IA estimou o valor baseado no trajeto.</p>

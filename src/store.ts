@@ -712,7 +712,12 @@ export const useDriverStore = create<DriverState>()(
       setSyncStatus: (syncStatus) => set({ syncStatus }),
       
       startCycle: async () => {
-        const { user, cycles, settings, isSaving, activeVehicleId } = get();
+        const { user, settings, loadVehicles } = get();
+        
+        // Ensure vehicles are current
+        await loadVehicles();
+        
+        const { cycles, isSaving, activeVehicleId, vehicles } = get();
         
         console.log('[CYCLE] Starting cycle check...', { 
           hasOpenCycle: cycles.some(c => c.status === 'open'),
@@ -722,29 +727,68 @@ export const useDriverStore = create<DriverState>()(
 
         if (isSaving) {
           const existing = cycles.find(c => c.status === 'open');
-          console.log('[CYCLE] Already saving, returning existing open cycle:', existing?.id);
           return existing?.id || '';
         }
         
         const openCycle = cycles.find(c => c.status === 'open');
         if (openCycle) {
-          console.log('[CYCLE] Found existing open cycle:', openCycle.id);
           set({ hasOpenCycle: true });
           return openCycle.id;
         }
 
-        if (!activeVehicleId) {
+        let currentVehicleId = activeVehicleId;
+
+        // Safe auto-restore/auto-select if id is missing but we have vehicles
+        if (!currentVehicleId && vehicles.length > 0) {
+          const activeV = vehicles.find(v => v.is_active) || vehicles[0];
+          if (activeV) {
+            currentVehicleId = activeV.id;
+            set({ activeVehicleId: activeV.id });
+            localStorage.setItem(ACTIVE_VEHICLE_KEY, activeV.id);
+          }
+        }
+
+        // Create a default vehicle if the user has absolutely none
+        if (!currentVehicleId && vehicles.length === 0 && user && isSupabaseConfigured) {
+          console.log('[CYCLE] No vehicles found, creating default for user...');
+          try {
+            const defaultV = {
+              name: 'Meu Carro',
+              brand: 'Padrão',
+              model: 'Modelo Padrão',
+              year: new Date().getFullYear().toString(),
+              plate: 'OFF-0000',
+              type: 'owned' as const,
+              category: 'car' as const,
+              fuelType: 'gasoline' as const,
+              kmPerLiter: settings.kmPerLiter || 10,
+              kmPerKwh: 0,
+              fuelPrice: settings.fuelPrice || 5.80,
+              kwhPrice: 0,
+              fixedCosts: settings.fixedCosts || { vehicleType: 'owned' }
+            };
+            
+            const newId = await get().addVehicle(defaultV);
+            if (newId) {
+              currentVehicleId = newId;
+              console.log('[CYCLE] Default vehicle created and selected:', newId);
+            }
+          } catch (e) {
+            console.error('[CYCLE] Failed to create default vehicle:', e);
+          }
+        }
+
+        if (!currentVehicleId) {
           console.error('[CYCLE] No active vehicle selected');
-          throw new Error('Selecione um veículo ativo antes de iniciar um ciclo.');
+          throw new Error('Selecione um veículo ativo nas configurações do perfil antes de iniciar um ciclo.');
         }
 
         set({ isSaving: true });
         try {
-          const { vehicles } = get();
-          const currentVehicle = vehicles.find(v => v.id === activeVehicleId);
+          const currentVehicle = vehicles.find(v => v.id === currentVehicleId);
           
           const vehicleSnapshot = {
-            id: activeVehicleId,
+            id: currentVehicleId,
             name: currentVehicle?.name || settings.vehicle,
             fixedCosts: currentVehicle?.fixedCosts || settings.fixedCosts || { vehicleType: 'owned' },
             kmPerLiter: settings.kmPerLiter,
@@ -770,7 +814,7 @@ export const useDriverStore = create<DriverState>()(
             noventanove_km: 0,
             indriver_km: 0,
             status: 'open' as const,
-            vehicle_id: activeVehicleId,
+            vehicle_id: currentVehicleId,
             vehicle_name: currentVehicle?.name || settings.vehicle,
             vehicle_snapshot: vehicleSnapshot
           };
@@ -1957,7 +2001,7 @@ export const useDriverStore = create<DriverState>()(
 
       addVehicle: async (vehicle) => {
         const { user } = get();
-        if (!user || !isSupabaseConfigured) return;
+        if (!user || !isSupabaseConfigured) return undefined;
         
         set({ isSaving: true });
         try {
@@ -2001,6 +2045,8 @@ export const useDriverStore = create<DriverState>()(
           if (get().vehicles.length === 1) {
             await get().setActiveVehicle(id);
           }
+          
+          return id;
         } catch (error: any) {
           console.error('[VEHICLE] addVehicle error:', error);
           throw error;
@@ -2207,6 +2253,13 @@ export const useDriverStore = create<DriverState>()(
         // 3. Fallback to settings if still nothing
         if (!restoredId && get().settings.currentVehicleProfileId) {
           restoredId = get().settings.currentVehicleProfileId;
+        }
+
+        // 4. Final fallback: if we have vehicles but no restored ID, pick the one marked is_active or the first one
+        if (!restoredId && vehicles.length > 0) {
+          const activeV = vehicles.find(v => v.is_active) || vehicles[0];
+          restoredId = activeV.id;
+          console.log('[VEHICLE] Fallback restoration to:', restoredId);
         }
 
         if (restoredId) {

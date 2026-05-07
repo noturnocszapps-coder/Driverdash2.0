@@ -7,6 +7,8 @@ import { Card, CardContent, Button } from '../components/UI';
 import { ChevronLeft, Save, Plus, Minus, Info, AlertCircle, Smartphone, Fuel, Utensils, MoreHorizontal, TrendingUp, Navigation } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { SyncIndicator } from '../components/SyncIndicator';
+import { CountUp } from '../components/CountUp';
+import { useSound } from '../hooks/useSound';
 
 export const Faturamento = () => {
   const { cycles: rawCycles, updateCycle, startCycle, settings, isSaving: storeIsSaving, tracking, stopTracking, vehicles, activeVehicleId, pendingDeletionIds } = useDriverStore();
@@ -16,6 +18,7 @@ export const Faturamento = () => {
   }, [rawCycles, pendingDeletionIds]);
 
   const navigate = useNavigate();
+  const { playSound } = useSound();
   
   const openCycle = useMemo(() => cycles.find(c => c.status === 'open'), [cycles]);
   
@@ -102,6 +105,7 @@ export const Faturamento = () => {
     setSaveStatus('idle');
 
     try {
+      playSound('start');
       if (tracking.isActive) {
         await stopTracking();
       }
@@ -168,112 +172,58 @@ export const Faturamento = () => {
       animate={{ opacity: 1 }}
       className="space-y-4 md:space-y-6 max-w-2xl mx-auto"
     >
-      {/* HEADER PREMIUM & COMPACTO */}
-      <header className="flex items-center justify-between px-1 pt-2">
-        <div className="flex items-center gap-4">
+      {/* HEADER PAINEL */}
+      <header className="flex items-center justify-between px-2 pt-6">
+        <div className="flex items-center gap-6">
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => navigate(-1)}
-            className="w-9 h-9 rounded-full bg-zinc-100 dark:bg-zinc-900 flex items-center justify-center text-zinc-500 transition-colors shrink-0"
+            className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 transition-all hover:bg-white/10 hover:text-[#00FFBB]"
           >
-            <ChevronLeft size={18} />
+            <ChevronLeft size={20} />
           </motion.button>
-          <div className="flex items-center gap-3">
-            <h1 className="text-lg font-bold tracking-tight text-zinc-900 dark:text-white">Fechamento do Ciclo</h1>
-            <span className="text-[10px] font-bold text-zinc-400 uppercase tracking-[0.2em] opacity-60">v2.2</span>
+          <div className="flex flex-col">
+            <div className="flex items-center gap-3">
+              <h1 className="text-2xl font-black tracking-tighter text-white italic font-display">Fechamento do Ciclo</h1>
+              <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">v2.2</span>
+            </div>
           </div>
         </div>
-        <SyncIndicator />
+        <SyncIndicator variant="minimal" />
       </header>
 
-      <div className="px-2 space-y-4 md:space-y-6">
-        {/* AVISOS E ALERTAS */}
-        <AnimatePresence>
-          {!activeVehicleId && (
-            <motion.div 
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-              exit={{ opacity: 0, height: 0 }}
-            >
-              <Card className="border-none bg-amber-500/10 border border-amber-500/20 p-3 flex items-center gap-3">
-                <AlertCircle className="text-amber-500 shrink-0" size={18} />
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-wider">Veículo não selecionado</p>
-                  <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 leading-tight">Selecione um veículo para salvar faturamentos.</p>
-                </div>
-                <Button 
-                  onClick={() => navigate('/settings')}
-                  className="bg-amber-500 text-zinc-950 h-7 px-3 text-[9px] font-bold uppercase tracking-widest rounded-lg"
-                >
-                  Configurar
-                </Button>
-              </Card>
-            </motion.div>
-          )}
-
-          {openCycle?.has_error && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-            >
-              <Card className="bg-amber-500/10 border-amber-500/20 p-3 flex items-start gap-2.5 mb-2">
-                <AlertCircle className="text-amber-500 shrink-0 mt-0.5" size={14} />
-                <div className="flex-1">
-                  <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 uppercase tracking-widest">Dados Incompletos no Ciclo</p>
-                  <p className="text-[9px] text-amber-600/80 dark:text-amber-400/80 leading-tight">
-                    {openCycle.error_message || "Este ciclo contém erros de processamento. Verifique os valores antes de salvar."}
-                  </p>
-                </div>
-              </Card>
-            </motion.div>
-          )}
-
-          {!openCycle && (
-            <motion.div
-              initial={{ opacity: 0, height: 0 }}
-              animate={{ opacity: 1, height: 'auto' }}
-            >
-              <Card className="bg-blue-500/5 border-blue-500/10 p-3 flex items-start gap-2.5">
-                <Info className="text-blue-500 shrink-0 mt-0.5" size={14} />
-                <p className="text-[10px] text-blue-400 font-medium leading-tight">
-                  Sem ciclo ativo. Um novo ciclo será iniciado com estes valores.
-                </p>
-              </Card>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* FATURAMENTO - MODO ULTRA RÁPIDO */}
-        <div className="space-y-2 md:space-y-3">
-          <SectionHeader icon={Smartphone} title="Faturamento" />
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div className="px-3 space-y-8">
+        {/* FATURAMENTO - INSTRUMENTAÇÃO FINANCEIRA */}
+        <div className="space-y-4">
+          <SectionHeader icon={Smartphone} title="DADOS DE ENTRADA" />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <PlatformCard 
-              label="Uber" 
+              label="Uber Driver" 
               value={amounts.uber} 
               onChange={(val: number) => updateAmount('uber', val)}
               onAdjust={(delta: number) => handleAdjustAmount('uber', delta)}
-              accent="bg-zinc-900 dark:bg-white"
+              accent="bg-[#00FFBB]"
             />
             <PlatformCard 
-              label="99" 
+              label="99 Pop" 
               value={amounts.noventanove} 
               onChange={(val: number) => updateAmount('noventanove', val)}
               onAdjust={(delta: number) => handleAdjustAmount('noventanove', delta)}
               accent="bg-yellow-500"
             />
             <PlatformCard 
-              label="inDrive" 
+              label="InDrive" 
               value={amounts.indriver} 
               onChange={(val: number) => updateAmount('indriver', val)}
               onAdjust={(delta: number) => handleAdjustAmount('indriver', delta)}
               accent="bg-emerald-500"
             />
             <PlatformCard 
-              label="Extra" 
+              label="Operações Extra" 
               value={amounts.extra} 
               onChange={(val: number) => updateAmount('extra', val)}
               onAdjust={(delta: number) => handleAdjustAmount('extra', delta)}
-              accent="bg-blue-500"
+              accent="bg-indigo-500"
             />
           </div>
         </div>
@@ -461,12 +411,15 @@ export const Faturamento = () => {
       {/* CARD FINAL - FLUXO NORMAL */}
       <div className="w-full px-2 pt-4 pb-10 h-auto">
         <div className="max-w-2xl mx-auto">
-          <Card className="bg-zinc-900 text-white border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden">
+          <Card className="bg-zinc-900 text-white border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden border-beam-container">
+            <div className="border-beam" />
             <CardContent className="p-4 md:p-5 space-y-3 md:space-y-4">
               <div className="flex justify-between items-end">
                 <div className="space-y-0.5">
                   <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-zinc-500">Total Bruto</p>
-                  <p className="text-xl md:text-2xl font-bold tracking-tight">{formatCurrency(total, settings.isPrivacyMode)}</p>
+                  <p className="text-xl md:text-2xl font-bold tracking-tight">
+                    <CountUp value={total} />
+                  </p>
                 </div>
                 <div className="text-right space-y-0.5">
                   <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-zinc-500">Lucro Líquido</p>
@@ -474,7 +427,7 @@ export const Faturamento = () => {
                     "text-2xl md:text-3xl font-black tracking-tighter",
                     estimatedProfit >= 0 ? "text-emerald-400" : "text-red-400"
                   )}>
-                    {formatCurrency(estimatedProfit, settings.isPrivacyMode)}
+                    <CountUp value={estimatedProfit} />
                   </p>
                 </div>
               </div>
@@ -532,10 +485,8 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
   const [isEditing, setIsEditing] = useState(false);
   const [tempValue, setTempValue] = useState((value || 0).toString());
   const timerRef = useRef<any>(null);
-  const valueRef = useRef(value || 0);
 
   useEffect(() => {
-    valueRef.current = value || 0;
     if (!isEditing) setTempValue((value || 0).toString());
   }, [value, isEditing]);
 
@@ -546,13 +497,10 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
   };
 
   const startAdjust = (delta: number) => {
-    // Initial click
     onAdjust(delta);
-    
     let count = 0;
     timerRef.current = setInterval(() => {
       count++;
-      // Accelerate after 8 ticks
       const speed = count > 15 ? 10 : count > 8 ? 5 : 1;
       for (let i = 0; i < speed; i++) {
         onAdjust(delta);
@@ -568,25 +516,25 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
   };
 
   return (
-    <div className="bg-white dark:bg-zinc-900 p-3 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 shadow-sm flex flex-col gap-2">
-      <div className="flex items-center gap-2">
-        <div className={cn("w-1.5 h-1.5 rounded-full shadow-sm", accent)} />
-        <span className="font-bold text-[9px] uppercase tracking-widest text-zinc-500">{label}</span>
+    <div className="bg-white/5 p-5 rounded-[2rem] border border-white/5 flex flex-col gap-4 backdrop-blur-xl transition-all hover:bg-white/10 group">
+      <div className="flex items-center gap-3">
+        <div className={cn("w-2 h-2 rounded-full", accent)} />
+        <span className="font-black text-[10px] uppercase tracking-[0.3em] text-zinc-500">{label}</span>
       </div>
       
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-4">
         <motion.button 
           whileTap={{ scale: 0.9 }}
           onPointerDown={() => startAdjust(-5)}
           onPointerUp={stopAdjust}
           onPointerLeave={stopAdjust}
-          className="w-8 h-8 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"
+          className="w-12 h-12 rounded-2xl border border-white/10 bg-transparent flex items-center justify-center text-zinc-500 hover:text-white transition-colors"
         >
-          <Minus size={14} />
+          <Minus size={18} />
         </motion.button>
         
         <div className="relative flex-1">
-          <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400">R$</span>
+          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-zinc-500">R$</span>
           <input 
             type="text"
             inputMode="decimal"
@@ -596,7 +544,7 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
               if (!isEditing) setIsEditing(true);
             }}
             onBlur={handleBlur}
-            className="w-full bg-zinc-50 dark:bg-zinc-800/30 border-none rounded-xl py-2 pl-8 pr-3 text-right font-black text-lg md:text-xl tracking-tight focus:ring-1 focus:ring-emerald-500 transition-all text-zinc-900 dark:text-white"
+            className="w-full bg-white/5 border-none rounded-2xl py-4 pl-12 pr-4 text-right font-black text-3xl tracking-tighter focus:ring-1 focus:ring-[#00FFBB] transition-all text-white italic font-display"
           />
         </div>
 
@@ -605,9 +553,9 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
           onPointerDown={() => startAdjust(5)}
           onPointerUp={stopAdjust}
           onPointerLeave={stopAdjust}
-          className="w-8 h-8 rounded-xl border border-zinc-200 dark:border-zinc-800 bg-transparent flex items-center justify-center text-zinc-400 hover:text-zinc-600 transition-colors"
+          className="w-12 h-12 rounded-2xl border border-white/10 bg-transparent flex items-center justify-center text-zinc-500 hover:text-[#00FFBB] transition-colors"
         >
-          <Plus size={14} />
+          <Plus size={18} />
         </motion.button>
       </div>
     </div>

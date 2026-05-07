@@ -29,12 +29,12 @@ export const BottomNav = () => {
   const items = [...navItems];
   
   if (isAdmin) {
-    items.push({ icon: FlaskConical, label: 'Laboratório', path: '/dev-lab' });
+    items.push({ icon: FlaskConical, label: 'Lab', path: '/dev-lab' });
   }
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 bg-white/90 dark:bg-zinc-950/90 backdrop-blur-xl border-t border-zinc-200/50 dark:border-zinc-800/50 px-2 pb-safe pt-2 z-50">
-      <div className="flex justify-between items-center max-w-lg mx-auto w-full">
+    <nav className="fixed bottom-6 left-6 right-6 h-22 bg-[#0B0C10]/80 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] px-8 pb-safe pt-2 z-50 shadow-2xl">
+      <div className="flex justify-between items-center h-full max-w-lg mx-auto w-full gap-4">
         {items.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -42,18 +42,21 @@ export const BottomNav = () => {
               key={item.path} 
               to={item.path}
               className={cn(
-                "relative flex flex-col items-center gap-0.5 flex-1 py-1 transition-all active:scale-95 min-w-0",
-                isActive ? "text-emerald-500" : "text-zinc-500 dark:text-zinc-400"
+                "relative flex flex-col items-center justify-center gap-2 flex-1 h-full transition-all active:scale-90 min-w-0 py-2",
+                isActive ? "text-[#00FFBB]" : "text-zinc-500"
               )}
             >
               {isActive && (
                 <motion.div 
                   layoutId="bottomNavActive"
-                  className="absolute -top-2 left-0 right-0 h-0.5 bg-emerald-500 rounded-full mx-auto w-4"
+                  className="absolute -top-1 w-8 h-1.5 bg-[#00FFBB] rounded-full shadow-[0_0_20px_rgba(0,255,187,0.6)]"
                 />
               )}
-              <item.icon size={18} strokeWidth={isActive ? 2.5 : 2} className="shrink-0" />
-              <span className="text-[7px] font-black uppercase tracking-tight leading-none truncate w-full text-center px-0.5">
+              <item.icon size={24} strokeWidth={isActive ? 2.5 : 1.5} className="shrink-0" />
+              <span className={cn(
+                "text-[7px] font-black uppercase tracking-[0.2em] leading-none no-wrap w-full text-center px-0.5 transition-colors",
+                isActive ? "text-[#00FFBB]" : "text-zinc-600"
+              )}>
                 {item.label}
               </span>
             </Link>
@@ -86,18 +89,18 @@ export const Sidebar = () => {
   };
 
   return (
-    <aside className="flex flex-col w-72 bg-white dark:bg-zinc-950 border-r border-zinc-200 dark:border-zinc-800 h-[calc(100dvh-24px)] sticky top-6">
-      <div className="p-6 flex flex-col gap-6">
-        <h1 className="text-2xl font-black text-zinc-900 dark:text-white flex items-center gap-3 tracking-tighter">
-          <div className="w-10 h-10 bg-emerald-500 rounded-xl flex items-center justify-center text-zinc-950 shadow-lg shadow-emerald-500/20 font-black text-xl">
+    <aside className="flex flex-col w-[320px] bg-[#0B0C10]/60 backdrop-blur-3xl border-r border-white/5 h-[calc(100dvh-48px)] sticky top-6 ml-6 mr-10 rounded-[2.5rem] shadow-2xl shrink-0">
+      <div className="p-8 flex flex-col gap-6">
+        <h1 className="text-2xl font-black text-white flex items-center gap-4 tracking-tighter italic">
+          <div className="w-12 h-12 bg-[#00FFBB] rounded-2xl flex items-center justify-center text-zinc-950 shadow-[0_0_30px_rgba(0,255,187,0.3)] font-black text-2xl">
             D
           </div>
-          DriverDash Beta
+          DriverDash Pro
         </h1>
         <SyncIndicator />
       </div>
 
-      <nav className="flex-1 px-4 space-y-2 overflow-y-auto">
+      <nav className="flex-1 px-4 space-y-3 overflow-y-auto">
         {items.map((item) => {
           const isActive = location.pathname === item.path;
           return (
@@ -105,57 +108,60 @@ export const Sidebar = () => {
               key={item.path} 
               to={item.path}
               className={cn(
-                "flex items-center gap-4 px-5 py-4 rounded-2xl transition-all group",
+                "flex items-center gap-5 px-6 py-5 rounded-[1.5rem] transition-all group relative overflow-hidden",
                 isActive 
-                  ? "bg-emerald-500 text-zinc-950 font-black shadow-lg shadow-emerald-500/10" 
-                  : "text-zinc-500 hover:bg-zinc-50 dark:hover:bg-zinc-900 hover:text-zinc-900 dark:hover:text-zinc-100"
+                  ? "bg-[#00FFBB]/5 text-[#00FFBB] font-black border border-[#00FFBB]/20" 
+                  : "text-zinc-500 hover:bg-white/5 hover:text-white"
               )}
             >
-              <item.icon size={20} strokeWidth={isActive ? 2.5 : 2} />
-              <span className="text-sm font-bold tracking-tight">{item.label}</span>
+              {isActive && (
+                <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-[#00FFBB] rounded-r-full shadow-[0_0_15px_rgba(0,255,187,0.5)]" />
+              )}
+              <item.icon size={22} strokeWidth={isActive ? 2.5 : 1.5} />
+              <span className="text-sm font-black uppercase tracking-widest">{item.label}</span>
             </Link>
           );
         })}
         
-        <div className="pt-4 px-2">
-          <InstallAppButton variant="full" className="bg-zinc-50 dark:bg-zinc-900/50 hover:bg-zinc-100 dark:hover:bg-zinc-900" />
+        <div className="pt-6 px-2">
+          <InstallAppButton variant="full" className="bg-white/5 hover:bg-white/10 border border-white/5" />
         </div>
       </nav>
 
-      <div className="p-6 border-t border-zinc-200 dark:border-zinc-800">
+      <div className="p-8 border-t border-white/5">
         {user ? (
-          <div className="space-y-4">
-            <div className="px-4 py-3 bg-zinc-50 dark:bg-zinc-900 rounded-2xl flex items-center gap-3 border border-zinc-100 dark:border-zinc-800">
-              <div className="w-10 h-10 rounded-xl bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 font-black">
+          <div className="space-y-6">
+            <div className="px-5 py-4 bg-white/5 rounded-[1.5rem] flex items-center gap-4 border border-white/5">
+              <div className="w-12 h-12 rounded-xl bg-[#00FFBB]/10 flex items-center justify-center text-[#00FFBB] font-black text-xl shadow-inner">
                 {settings.name?.charAt(0) || '?'}
               </div>
               <div className="flex flex-col overflow-hidden">
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-black tracking-tight truncate">{settings.name || 'Motorista'}</span>
+                  <span className="text-sm font-black tracking-tight truncate text-white italic">{settings.name || 'Operador Elite'}</span>
                   {isAdmin && (
-                    <span className="text-[8px] font-black bg-emerald-500/10 text-emerald-500 px-1.5 py-0.5 rounded-md uppercase tracking-widest border border-emerald-500/20">
-                      Admin
+                    <span className="text-[7px] font-black bg-[#00FFBB]/10 text-[#00FFBB] px-2 py-0.5 rounded-md uppercase tracking-[0.2em] border border-[#00FFBB]/20">
+                      ADMIN
                     </span>
                   )}
                 </div>
-                <span className="text-[10px] font-bold text-zinc-400 truncate uppercase tracking-wider">{user.email}</span>
+                <span className="text-[10px] font-bold text-zinc-500 truncate uppercase tracking-widest">{user.email}</span>
               </div>
             </div>
             <button 
               onClick={handleLogout}
-              className="w-full flex items-center gap-4 px-5 py-4 rounded-2xl text-red-500 hover:bg-red-50 dark:hover:bg-red-500/5 font-bold transition-all"
+              className="w-full flex items-center gap-4 px-6 py-5 rounded-[1.5rem] text-red-500/80 hover:bg-red-500/10 hover:text-red-500 font-black uppercase tracking-widest text-xs transition-all border border-transparent hover:border-red-500/20"
             >
               <LogOut size={20} />
-              <span className="text-sm">Sair da Conta</span>
+              <span>Desligar Sistema</span>
             </button>
           </div>
         ) : (
           <Link 
             to="/login"
-            className="flex items-center justify-center gap-3 px-6 py-4 rounded-2xl bg-emerald-500 text-zinc-950 font-black hover:bg-emerald-400 transition-all shadow-lg shadow-emerald-500/10"
+            className="flex items-center justify-center gap-3 px-6 py-5 rounded-[1.5rem] bg-[#00FFBB] text-zinc-950 font-black uppercase tracking-widest hover:bg-[#00e6a9] transition-all shadow-[0_0_30px_rgba(0,255,187,0.3)]"
           >
             <LogIn size={20} />
-            <span className="text-sm">Entrar Agora</span>
+            <span className="text-xs">Acessar Suite</span>
           </Link>
         )}
       </div>

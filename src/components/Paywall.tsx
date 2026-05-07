@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
-import { X, Check, Rocket, Zap, BarChart3, Brain, Cloud, ShieldCheck } from 'lucide-react';
+import { X, Check, Gauge, Target, BarChart3, Brain, Cloud, ShieldCheck } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { Button } from './UI';
 import { cn } from '../utils';
@@ -25,9 +25,9 @@ export const Paywall: React.FC<PaywallProps> = ({ onSubscribe, onClose }) => {
   };
 
   const benefits = [
-    { icon: Brain, text: "Copiloto com detecção automática de viagens" },
+    { icon: Brain, text: "Assistente com detecção automática de viagens" },
     { icon: BarChart3, text: "Relatórios avançados de lucro líquido real" },
-    { icon: Zap, text: "Cálculo inteligente de custos por km e hora" },
+    { icon: Gauge, text: "Cálculo inteligente de custos por km e hora" },
     { icon: Cloud, text: "Sincronização em nuvem e backup ilimitado" },
     { icon: ShieldCheck, text: "Suporte prioritário e novas funções antecipadas" },
   ];
@@ -65,7 +65,7 @@ export const Paywall: React.FC<PaywallProps> = ({ onSubscribe, onClose }) => {
               {/* Header */}
               <div className="text-center mb-8">
                 <div className="inline-flex items-center justify-center w-16 h-16 rounded-3xl bg-emerald-500/10 mb-6 relative">
-                  <Rocket className="text-emerald-500" size={32} />
+                  <Gauge className="text-emerald-500" size={32} />
                   <motion.div 
                     animate={{ scale: [1, 1.2, 1], opacity: [0.5, 0.2, 0.5] }}
                     transition={{ duration: 3, repeat: Infinity }}
@@ -76,7 +76,7 @@ export const Paywall: React.FC<PaywallProps> = ({ onSubscribe, onClose }) => {
                   ASSUMA O CONTROLE TOTAL DO SEU LUCRO
                 </h2>
                 <p className="text-zinc-400 text-sm font-medium leading-relaxed px-4">
-                  O DriverDash PRO é seu copiloto inteligente. Automatize seus registros, descubra seus custos reais e pare de perder dinheiro na rua.
+                  O DriverDash PRO é seu assistente inteligente. Automatize seus registros, descubra seus custos reais e pare de perder dinheiro na rua.
                 </p>
               </div>
 

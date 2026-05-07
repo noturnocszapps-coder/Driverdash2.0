@@ -6,7 +6,7 @@ import MarkerClusterGroup from 'react-leaflet-cluster';
 import { TrackingPoint, StopPoint, MapMarker, MarkerType } from '../types';
 import { 
   MapPin, Navigation, Crosshair, Clock, TrendingUp, Maximize2, Minimize2, 
-  AlertTriangle, Droplets, User, Zap, Plus, Info, X, CheckCircle2, Shield, Users, Activity
+  AlertTriangle, Droplets, User, Gauge, Plus, Info, X, CheckCircle2, Shield, Users, Activity
 } from 'lucide-react';
 import { formatDistanceToNow } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -442,7 +442,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
                           : "bg-zinc-800/50 border-transparent text-zinc-500"
                       )}
                     >
-                      {type === 'radar' && <Zap size={14} />}
+                      {type === 'radar' && <Gauge size={14} />}
                       {type === 'pothole' && <AlertTriangle size={14} />}
                       {type === 'bathroom' && <User size={14} />}
                       {type === 'water' && <Droplets size={14} />}

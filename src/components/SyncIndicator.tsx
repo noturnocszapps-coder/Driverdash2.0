@@ -27,9 +27,9 @@ export const SyncIndicator: React.FC<{ variant?: 'sidebar' | 'minimal' }> = ({ v
 
   if (variant === 'minimal') {
     return (
-      <div className="flex items-center gap-1.5 py-0.5 relative bg-transparent border-none shadow-none">
+      <div className="flex items-center gap-1.5 py-0.5 relative bg-transparent border-none shadow-none no-wrap">
         <Icon className={cn("w-2.5 h-2.5", current.color, current.animate && "animate-spin")} />
-        <span className={cn("text-[8px] font-black uppercase tracking-[0.15em] leading-none", current.color)}>
+        <span className={cn("text-[8px] font-black uppercase tracking-[0.15em] leading-none no-wrap", current.color)}>
           {activeSyncCount > 0 ? `${activeSyncCount} PENDENTE(S)` : current.label}
         </span>
       </div>

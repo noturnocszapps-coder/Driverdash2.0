@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDriverStore } from '../store';
 import { Button } from './UI';
-import { X, MessageSquare, Zap, Calendar } from 'lucide-react';
+import { X, MessageSquare, Gauge, Calendar } from 'lucide-react';
 import { cn } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -183,7 +183,7 @@ export const QuickEntryModal = ({ isOpen, onClose, editEntry, suggestedValue }: 
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 rounded-full bg-emerald-100 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600">
-                    <Zap size={20} />
+                    <Gauge size={20} />
                   </div>
                   <h3 className="text-xl font-black tracking-tight">{editEntry ? 'Editar Lançamento' : 'Lançamento Rápido'}</h3>
                 </div>

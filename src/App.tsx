@@ -249,17 +249,21 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
       <div className="flex flex-1 w-full max-w-full relative">
         <Sidebar />
         <main className={cn(
-          "flex-1 flex flex-col px-4 pt-4 pb-6 w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth min-w-0 relative",
+          "flex-1 flex flex-col px-6 pt-4 pb-6 w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth min-w-0 relative",
           !isMobile && "md:px-10 md:pt-10 md:pb-12 max-w-6xl mx-auto",
           isMobile ? "pb-[calc(180px+env(safe-area-inset-bottom))]" : "pb-12"
         )}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
               key={location.pathname}
-              initial={{ opacity: 0, y: 8, scale: 0.99 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: -8, scale: 1.01 }}
-              transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
+              initial={{ opacity: 0, x: 20, filter: 'blur(10px)' }}
+              animate={{ opacity: 1, x: 0, filter: 'blur(0px)' }}
+              exit={{ opacity: 0, x: -20, filter: 'blur(10px)' }}
+              transition={{ 
+                duration: 0.4, 
+                ease: [0.33, 1, 0.68, 1], // Cubic-Bezier for smooth deceleration
+                opacity: { duration: 0.3 }
+              }}
               className="flex-1 flex flex-col w-full"
             >
               {children}
@@ -613,14 +617,6 @@ export default function App() {
 
   return (
     <Router>
-      <div className="fixed top-0 left-0 right-0 h-6 bg-black flex items-center justify-center z-[9999] border-b border-white/5 pointer-events-none">
-        <div className="flex items-center gap-2">
-          <div className="w-1 h-1 rounded-full bg-emerald-500 shadow-[0_0_6px_rgba(16,185,129,0.4)]" />
-          <p className="text-[9px] font-medium uppercase tracking-[0.15em] text-[#9CA3AF]">
-            Ambiente Beta: Estamos em constante evolução para você.
-          </p>
-        </div>
-      </div>
       <Toaster 
         position="top-center" 
         richColors 

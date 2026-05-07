@@ -712,7 +712,7 @@ export interface DriverState {
   
   // Vehicle methods
   loadVehicles: () => Promise<void>;
-  addVehicle: (vehicle: Omit<VehicleProfile, 'id' | 'createdAt'>) => Promise<void>;
+  addVehicle: (vehicle: Omit<VehicleProfile, 'id' | 'createdAt'>) => Promise<string | undefined>;
   updateVehicle: (id: string, updates: Partial<VehicleProfile>) => Promise<void>;
   deleteVehicle: (id: string) => Promise<void>;
   setActiveVehicle: (id: string) => Promise<void>;

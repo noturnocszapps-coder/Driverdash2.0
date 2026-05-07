@@ -3,7 +3,7 @@ import { useDriverStore } from '../store';
 import { FinancialEntry } from '../types';
 import { formatCurrency, safeNumber } from '../utils';
 import { formatTimeBR } from '../lib/date-utils';
-import { Edit2, Trash2, Zap, Navigation, Circle, Plus, MoreVertical } from 'lucide-react';
+import { Edit2, Trash2, Gauge, Navigation, Circle, Plus, MoreVertical } from 'lucide-react';
 import { cn } from '../utils';
 import { motion, AnimatePresence } from 'motion/react';
 import { QuickEntryModal } from './QuickEntryModal';
@@ -35,7 +35,7 @@ export const FinancialEntryList = () => {
     switch (platform) {
       case 'uber': return <Navigation size={14} className="rotate-45" />;
       case 'noventanove': return <Circle size={14} fill="currentColor" />;
-      case 'indriver': return <Zap size={14} />;
+      case 'indriver': return <Gauge size={14} />;
       default: return <Plus size={14} />;
     }
   };

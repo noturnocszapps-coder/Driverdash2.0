@@ -4,7 +4,7 @@ import { Card, CardContent, Button, Input, Select } from '../components/UI';
 import { 
   User, Car, Target, Trash2, LogOut, Download, Database, 
   Upload, RefreshCw, AlertCircle, FlaskConical, Edit2, FileWarning, Copy,
-  Zap, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
+  Gauge, ChevronRight, Shield, History, Smartphone, Layout, Globe, ChevronDown,
   DollarSign, Plus, CheckCircle2, Eye, EyeOff, Mic, Volume2,
   LayoutGrid, Minus, Map, Maximize2, Play, Lightbulb, AlertTriangle, X,
   Phone, MapPin, Briefcase, Calendar, Settings as SettingsIcon, Users, Activity, Sparkles, Info,
@@ -359,42 +359,58 @@ export const Settings = () => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="space-y-6"
-    >
-      <header className="px-1 pt-2">
-        <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 mb-1">Configurações</p>
-        <h1 className="text-3xl font-black tracking-tighter">Ajustes</h1>
-      </header>
+    <div className="space-y-6 md:space-y-10 max-w-[1200px] mx-auto overflow-x-hidden w-full min-w-0 pb-32 px-6 md:px-10">
+      <motion.div 
+        initial={{ opacity: 0, y: 10 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="space-y-10 pt-6 md:pt-10"
+      >
+        <header className="flex justify-between items-end px-1">
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <div className="w-2 h-2 rounded-full bg-[#00FFBB] shadow-[0_0_10px_#00FFBB]" />
+              <p className="text-[10px] md:text-[11px] font-black uppercase tracking-widest text-zinc-500 italic">CENTRAL DE CONFIGURAÇÃO</p>
+            </div>
+            <h1 className="text-[clamp(1.5rem,5vw,2.5rem)] font-black tracking-tighter text-white leading-[1.2] italic font-display uppercase">
+              AJUSTES <span className="text-[#00FFBB]">AVANÇADOS</span>
+            </h1>
+          </div>
+          <SyncIndicator variant="minimal" />
+        </header>
 
-      {/* Tab Navigation */}
-      <div className="sticky top-6 z-50 bg-zinc-50/80 dark:bg-zinc-950/80 backdrop-blur-md py-4 -mx-4 px-4 border-b border-zinc-100 dark:border-zinc-800">
-        <div className="flex items-center gap-2 overflow-x-auto no-scrollbar pb-1">
-          {[
-            { id: 'profile', label: 'Perfil', icon: User },
-            { id: 'vehicle', label: 'Veículo', icon: Car },
-            { id: 'preferences', label: 'Preferências', icon: LayoutGrid },
-            { id: 'system', label: 'Sistema', icon: Database },
-            ...(settings.role === 'admin' ? [{ id: 'admin', label: 'Admin', icon: Shield }] : []),
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id as any)}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shrink-0",
-                activeTab === tab.id
-                  ? "bg-[#00C853] text-black shadow-lg shadow-emerald-500/20"
-                  : "bg-transparent text-zinc-500 hover:text-zinc-900 dark:hover:text-white border border-zinc-200 dark:border-zinc-800"
-              )}
-            >
-              <tab.icon size={12} />
-              {tab.label}
-            </button>
-          ))}
+        {/* Tab Navigation Redesign */}
+        <div className="sticky top-6 z-50">
+          <div className="absolute -inset-4 bg-[#00FFBB]/5 blur-2xl rounded-full opacity-50 pointer-events-none" />
+          <div className="bg-[#0B0C10]/60 backdrop-blur-3xl border border-white/5 p-2 rounded-[2rem] flex items-center gap-2 overflow-x-auto no-scrollbar relative z-10 shadow-2xl">
+            {[
+              { id: 'profile', label: 'PERFIL', icon: User },
+              { id: 'vehicle', label: 'VEÍCULO', icon: Car },
+              { id: 'preferences', label: 'PREFERÊNCIAS', icon: LayoutGrid },
+              { id: 'system', label: 'SISTEMA', icon: Database },
+              ...(settings.role === 'admin' ? [{ id: 'admin', label: 'ADMIN', icon: Shield }] : []),
+            ].map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id as any)}
+                className={cn(
+                  "flex items-center gap-3 px-6 py-4 rounded-[1.5rem] text-[10px] font-black uppercase tracking-widest transition-all shrink-0 relative overflow-hidden group",
+                  activeTab === tab.id
+                    ? "bg-[#00FFBB] text-zinc-950 shadow-[0_0_20px_rgba(0,255,187,0.3)]"
+                    : "text-zinc-500 hover:text-white hover:bg-white/5"
+                )}
+              >
+                <tab.icon size={14} strokeWidth={2.5} />
+                {tab.label}
+                {activeTab === tab.id && (
+                  <motion.div 
+                    layoutId="activeTabGlow"
+                    className="absolute inset-0 bg-white/20 blur-xl opacity-50"
+                  />
+                )}
+              </button>
+            ))}
+          </div>
         </div>
-      </div>
 
       <AnimatePresence mode="wait">
         {activeTab === 'profile' && (
@@ -409,12 +425,12 @@ export const Settings = () => {
             <section className="space-y-4">
         <SectionHeader icon={User} title="Conta e Perfil" />
         <Card className={cn(
-          "border-none bg-white dark:bg-zinc-900 shadow-xl shadow-zinc-200/50 dark:shadow-none rounded-[2.5rem] overflow-hidden border transition-all duration-500",
+          "border-none bg-[#0B0C10]/60 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-2xl",
           settings.isPrivacyMode 
-            ? "border-emerald-500/20 shadow-[0_0_20px_rgba(16,185,129,0.03)]" 
-            : "border-zinc-100 dark:border-zinc-800/50"
+            ? "border-[#00FFBB]/30 shadow-[0_0_30px_rgba(0,255,187,0.1)]" 
+            : "border-white/5"
         )}>
-          <CardContent className="p-6 md:p-8 space-y-8 relative">
+          <CardContent className="p-8 md:p-10 space-y-10 relative">
             <AnimatePresence>
               {settings.isPrivacyMode && (
                 <motion.div 
@@ -490,15 +506,15 @@ export const Settings = () => {
                     <Shield size={10} className="text-emerald-600/60 dark:text-emerald-500/40" />
                     {settings.role}
                   </div>
-                  <div className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase rounded-lg tracking-[0.15em] border transition-colors duration-500",
-                    settings.status === 'active' 
-                      ? "bg-emerald-500/5 text-emerald-600/80 dark:text-emerald-500/70 border-emerald-500/10" 
-                      : "bg-red-500/5 text-red-600/80 dark:text-red-500/70 border-red-500/10"
-                  )}>
-                    <div className={cn("w-1.5 h-1.5 rounded-full", settings.status === 'active' ? "bg-emerald-500/60 animate-pulse-slow" : "bg-red-500/60")} />
-                    {settings.status}
-                  </div>
+                    <div className={cn(
+                      "flex items-center gap-1.5 px-2.5 py-1 text-[10px] font-black uppercase rounded-lg tracking-[0.15em] border transition-colors duration-500",
+                      settings.status === 'active' 
+                        ? "bg-[#00FFBB]/5 text-[#00FFBB]/80 border-[#00FFBB]/10" 
+                        : "bg-red-500/5 text-red-600/80 border-red-500/10"
+                    )}>
+                      <div className={cn("w-1.5 h-1.5 rounded-full", settings.status === 'active' ? "bg-[#00FFBB]/60 animate-pulse-slow" : "bg-red-500/60")} />
+                      {settings.status}
+                    </div>
                 </div>
 
                 <div className="pt-1">
@@ -511,7 +527,7 @@ export const Settings = () => {
               <div className="space-y-2.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Nome de Exibição</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#00FFBB]/70 transition-colors duration-300">
                     <User size={18} />
                   </div>
                   <Input 
@@ -522,8 +538,8 @@ export const Settings = () => {
                       updateSettings({ name: e.target.value });
                     }}
                     className={cn(
-                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white dark:placeholder:text-zinc-600 transition-all duration-300",
-                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                      "h-14 pl-12 bg-white/5 border border-white/10 focus:border-[#00FFBB]/50 focus:ring-4 focus:ring-[#00FFBB]/5 rounded-xl font-bold text-white transition-all duration-300",
+                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 blur-[0.5px]"
                     )}
                     placeholder="Seu nome"
                   />
@@ -532,7 +548,7 @@ export const Settings = () => {
               <div className="space-y-2.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Telefone / WhatsApp</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#00FFBB]/70 transition-colors duration-300">
                     <Phone size={18} />
                   </div>
                   <Input 
@@ -543,8 +559,8 @@ export const Settings = () => {
                       updateSettings({ phone: e.target.value });
                     }}
                     className={cn(
-                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white dark:placeholder:text-zinc-600 transition-all duration-300",
-                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                      "h-14 pl-12 bg-white/5 border border-white/10 focus:border-[#00FFBB]/50 focus:ring-4 focus:ring-[#00FFBB]/5 rounded-xl font-bold text-white transition-all duration-300",
+                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 blur-[0.5px]"
                     )}
                     placeholder="(00) 00000-0000"
                   />
@@ -580,7 +596,7 @@ export const Settings = () => {
                   <Select
                     value={settings.mainPlatform || 'Uber'}
                     onChange={e => updateSettings({ mainPlatform: e.target.value })}
-                    className="h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white transition-all duration-300"
+                    className="h-14 pl-12 bg-white/5 border border-white/10 focus:border-[#00FFBB]/50 focus:ring-4 focus:ring-[#00FFBB]/5 rounded-xl font-bold text-white transition-all duration-300"
                   >
                     <option value="Uber">Uber</option>
                     <option value="99">99</option>
@@ -594,14 +610,14 @@ export const Settings = () => {
                 <textarea 
                   value={settings.bio || ''}
                   onChange={e => updateSettings({ bio: e.target.value })}
-                  className="w-full p-4 bg-zinc-50 dark:bg-zinc-900/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-zinc-900 dark:text-white dark:placeholder:text-zinc-600 transition-all duration-300 min-h-[80px] resize-none"
+                  className="w-full p-4 bg-white/5 border border-white/10 focus:border-[#00FFBB]/50 focus:ring-4 focus:ring-[#00FFBB]/5 rounded-xl font-bold text-white placeholder:text-zinc-600 transition-all duration-300 min-h-[80px] resize-none"
                   placeholder="Conte um pouco sobre você..."
                 />
               </div>
               <div className="space-y-2.5">
                 <label className="text-[10px] font-black text-zinc-400 uppercase tracking-[0.2em] ml-1">Meta Diária Sugerida</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-emerald-500/70 transition-colors duration-300">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-zinc-400 group-focus-within:text-[#00FFBB]/70 transition-colors duration-300">
                     <Target size={18} />
                   </div>
                   <Input 
@@ -615,8 +631,8 @@ export const Settings = () => {
                       updateSettings({ dailyGoal: val === '' ? 0 : Number(val) });
                     }}
                     className={cn(
-                      "h-14 pl-12 bg-zinc-50 dark:bg-zinc-800/50 border-2 border-transparent focus:border-emerald-500/30 focus:ring-4 focus:ring-emerald-500/5 rounded-xl font-bold text-xl text-emerald-500 transition-all duration-300",
-                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 dark:text-zinc-500 blur-[0.5px]"
+                      "h-14 pl-12 bg-white/5 border border-white/10 focus:border-[#00FFBB]/50 focus:ring-4 focus:ring-[#00FFBB]/5 rounded-xl font-bold text-xl text-[#00FFBB] transition-all duration-300",
+                      settings.isPrivacyMode && "tracking-[0.3em] text-zinc-400 blur-[0.5px]"
                     )}
                     placeholder="0"
                   />
@@ -693,7 +709,7 @@ export const Settings = () => {
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
-                <p className={cn("text-sm font-bold", plan === 'pro' ? "text-emerald-500" : "text-orange-500")}>
+                <p className={cn("text-sm font-bold", plan === 'pro' ? "text-[#00FFBB]" : "text-orange-500")}>
                   DriverDash {plan === 'pro' ? 'PRO' : 'FREE'}
                 </p>
                 <p className="text-[10px] text-zinc-500 font-medium uppercase tracking-wider">
@@ -705,14 +721,14 @@ export const Settings = () => {
                 variant={plan === 'pro' ? 'ghost' : 'primary'}
                 className={cn(
                   "h-9 px-4 text-[10px] font-black uppercase tracking-widest rounded-xl",
-                  plan === 'pro' ? "bg-emerald-500/10 text-emerald-500" : "bg-orange-500 text-white"
+                  plan === 'pro' ? "bg-[#00FFBB]/10 text-[#00FFBB]" : "bg-orange-500 text-white"
                 )}
               >
                 {plan === 'pro' ? 'Gerenciar' : 'Upgrade'}
               </Button>
             </div>
 
-            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+            <div className="h-px bg-white/5" />
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -723,7 +739,7 @@ export const Settings = () => {
                 onClick={() => updateSettings({ isPrivacyMode: !settings.isPrivacyMode })}
                 className={cn(
                   "w-12 h-6 rounded-full transition-colors relative",
-                  settings.isPrivacyMode ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                  settings.isPrivacyMode ? "bg-[#00FFBB]" : "bg-zinc-800"
                 )}
               >
                 <div className={cn(
@@ -733,7 +749,7 @@ export const Settings = () => {
               </button>
             </div>
 
-            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+            <div className="h-px bg-white/5" />
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -744,7 +760,7 @@ export const Settings = () => {
                 onClick={() => updateSettings({ keepScreenOn: !settings.keepScreenOn })}
                 className={cn(
                   "w-12 h-6 rounded-full transition-colors relative",
-                  settings.keepScreenOn ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                  settings.keepScreenOn ? "bg-[#00FFBB]" : "bg-zinc-800"
                 )}
               >
                 <div className={cn(
@@ -804,11 +820,11 @@ export const Settings = () => {
             </div>
             
             <div className="flex items-center justify-center gap-2 pt-2">
-              <div className="h-1 flex-1 bg-zinc-100 dark:bg-zinc-800 rounded-full overflow-hidden max-w-[100px]">
+              <div className="h-1 flex-1 bg-zinc-800 rounded-full overflow-hidden max-w-[100px]">
                 <motion.div 
                   initial={false}
                   animate={{ width: `${((settings.quickActions || ['gain', 'expense', 'reports', 'map']).length / 6) * 100}%` }}
-                  className="h-full bg-emerald-500"
+                  className="h-full bg-[#00FFBB] shadow-[0_0_10px_#00FFBB]"
                 />
               </div>
               <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-widest">
@@ -822,7 +838,7 @@ export const Settings = () => {
       {/* Voice Mode Section */}
       <section className="space-y-4">
         <SectionHeader icon={Volume2} title="Modo Voz (Copiloto)" />
-        <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm">
+        <Card className="border-none bg-[#0B0C10]/60 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
           <CardContent className="p-6 md:p-8 space-y-6">
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -835,7 +851,7 @@ export const Settings = () => {
                 onClick={() => updateSettings({ voiceEnabled: !settings.voiceEnabled })}
                 className={cn(
                   "w-12 h-6 rounded-full transition-colors relative",
-                  settings.voiceEnabled ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                  settings.voiceEnabled ? "bg-[#00FFBB]" : "bg-zinc-800"
                 )}
               >
                 <div className={cn(
@@ -845,7 +861,7 @@ export const Settings = () => {
               </button>
             </div>
 
-            <div className="h-px bg-zinc-100 dark:bg-zinc-800" />
+            <div className="h-px bg-white/5" />
 
             <div className="flex items-center justify-between">
               <div className="space-y-0.5">
@@ -858,7 +874,7 @@ export const Settings = () => {
                 onClick={() => updateSettings({ voiceCommandsEnabled: !settings.voiceCommandsEnabled })}
                 className={cn(
                   "w-12 h-6 rounded-full transition-colors relative",
-                  settings.voiceCommandsEnabled ? "bg-emerald-500" : "bg-zinc-200 dark:bg-zinc-800"
+                  settings.voiceCommandsEnabled ? "bg-[#00FFBB]" : "bg-zinc-800"
                 )}
               >
                 <div className={cn(
@@ -900,18 +916,18 @@ export const Settings = () => {
         {user && (
           <section className="space-y-4">
             <SectionHeader icon={Cloud} title="Status da Nuvem" />
-            <Card className="border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden border border-zinc-100 dark:border-zinc-800/50">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="flex items-center gap-4">
+            <Card className="border-none bg-[#0B0C10]/60 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] overflow-hidden shadow-2xl">
+              <CardContent className="p-8">
+                <div className="flex items-center justify-between mb-8">
+                  <div className="flex items-center gap-5">
                     <div className={cn(
-                      "w-12 h-12 rounded-2xl flex items-center justify-center",
-                      syncStatus === 'synced' || syncStatus === 'online' ? "bg-emerald-500/10 text-emerald-500" :
-                      syncStatus === 'syncing' ? "bg-blue-500/10 text-blue-500" :
-                      syncStatus === 'partial_error' ? "bg-amber-500/10 text-amber-500" :
-                      "bg-red-500/10 text-red-500"
+                      "w-14 h-14 rounded-2xl flex items-center justify-center border",
+                      syncStatus === 'synced' || syncStatus === 'online' ? "bg-[#00FFBB]/10 text-[#00FFBB] border-[#00FFBB]/20" :
+                      syncStatus === 'syncing' ? "bg-blue-500/10 text-blue-500 border-blue-500/20" :
+                      syncStatus === 'partial_error' ? "bg-amber-500/10 text-amber-500 border-amber-500/20" :
+                      "bg-red-500/10 text-red-500 border-red-500/20"
                     )}>
-                      {syncStatus === 'synced' || syncStatus === 'online' ? <CheckCircle2 size={24} /> :
+                      {syncStatus === 'synced' || syncStatus === 'online' ? <CheckCircle2 size={26} /> :
                        syncStatus === 'syncing' ? <Loader2 size={24} className="animate-spin" /> :
                        syncStatus === 'partial_error' ? <AlertTriangle size={24} /> :
                        <Cloud size={24} />}
@@ -970,17 +986,17 @@ export const Settings = () => {
             variant="ghost" 
             size="sm" 
             onClick={() => setIsAddingVehicle(true)}
-            className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-emerald-500 hover:bg-emerald-500/10 rounded-xl"
+            className="h-8 px-3 text-[10px] font-black uppercase tracking-widest text-[#00FFBB] hover:bg-[#00FFBB]/10 rounded-xl"
           >
             <Plus size={14} className="mr-1" /> Novo Carro
           </Button>
         </div>
         
         <Card className={cn(
-          "border-none bg-white dark:bg-zinc-900 shadow-sm overflow-hidden transition-all duration-500 border",
+          "border-none bg-[#0B0C10]/60 backdrop-blur-3xl border border-white/5 rounded-[2.5rem] overflow-hidden transition-all duration-500 shadow-2xl",
           settings.isPrivacyMode 
-            ? "border-emerald-500/30 shadow-[0_0_20px_rgba(16,185,129,0.05)]" 
-            : "border-zinc-100 dark:border-zinc-800/50"
+            ? "border-[#00FFBB]/30 shadow-[0_0_20px_rgba(0,255,187,0.1)]" 
+            : "border-white/5"
         )}>
           <CardContent className="p-6 md:p-8 space-y-6 relative">
             <AnimatePresence>
@@ -1016,7 +1032,7 @@ export const Settings = () => {
                       ? "bg-emerald-500 text-zinc-950 shadow-[0_0_20px_rgba(16,185,129,0.3)]" 
                       : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
                   )}>
-                    {currentVehicle?.category === 'motorcycle' ? <Zap size={28} /> : <Car size={28} />}
+                    {currentVehicle?.category === 'motorcycle' ? <Gauge size={28} /> : <Car size={28} />}
                   </div>
                   <div className="text-left">
                     <div className="flex items-center gap-2">
@@ -1589,7 +1605,7 @@ export const Settings = () => {
                     color="blue"
                   />
                   <StatCard 
-                    icon={Zap} 
+                    icon={Car} 
                     title="Veículos" 
                     value={adminStats.totalVehicles} 
                     subtitle="Frota Total"
@@ -1683,7 +1699,7 @@ export const Settings = () => {
                                 marker.type === 'pothole' || marker.type === 'ditch' ? "bg-amber-500/10 text-amber-500" :
                                 "bg-blue-500/10 text-blue-500"
                               )}>
-                                {marker.type === 'radar' ? <Zap size={18} /> : 
+                                {marker.type === 'radar' ? <Gauge size={18} /> : 
                                  marker.type === 'pothole' || marker.type === 'ditch' ? <AlertTriangle size={18} /> : 
                                  <MapPin size={18} />}
                               </div>
@@ -2082,7 +2098,7 @@ export const Settings = () => {
                             ? "bg-emerald-500 text-zinc-950 scale-110 shadow-[0_0_20px_rgba(16,185,129,0.4)]" 
                             : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
                         )}>
-                          {v.category === 'motorcycle' ? <Zap size={28} /> : <Car size={28} />}
+                          {v.category === 'motorcycle' ? <Gauge size={28} /> : <Car size={28} />}
                         </div>
                         <div className="text-left">
                           <div className="flex items-center gap-2 mb-0.5">
@@ -2464,38 +2480,39 @@ export const Settings = () => {
         confirmText="Excluir"
         variant="danger"
       />
-    </motion.div>
+      </motion.div>
+    </div>
   );
 };
 
 const SectionHeader = ({ icon: Icon, title }: any) => (
-  <div className="flex items-center gap-2 px-1 mb-1 md:mb-2">
-    <Icon size={14} className="text-emerald-500" />
-    <h3 className="text-[10px] md:text-xs font-black uppercase tracking-widest text-zinc-500">{title}</h3>
+  <div className="flex items-center gap-3 px-1 mb-4 md:mb-6">
+    <div className="w-10 h-10 rounded-2xl bg-[#00FFBB]/10 flex items-center justify-center border border-[#00FFBB]/20">
+      <Icon size={18} strokeWidth={2.5} className="text-[#00FFBB]" />
+    </div>
+    <h3 className="text-[11px] md:text-xs font-black uppercase tracking-[0.35em] text-zinc-500 italic">{title}</h3>
   </div>
 );
 
 const StatCard = ({ icon: Icon, title, value, subtitle, color }: any) => (
-  <Card className={cn(
-    "border-none shadow-sm rounded-3xl overflow-hidden",
-    color === 'emerald' ? "bg-emerald-500/5 border border-emerald-500/10" :
-    color === 'blue' ? "bg-blue-500/5 border border-blue-500/10" :
-    color === 'amber' ? "bg-amber-500/5 border border-amber-500/10" :
-    "bg-red-500/5 border border-red-500/10"
-  )}>
-    <CardContent className="p-5 space-y-2">
+  <Card className="border-none bg-[#0B0C10]/40 backdrop-blur-3xl border border-white/5 rounded-[2rem] overflow-hidden shadow-xl group">
+    <CardContent className="p-6 space-y-4">
       <div className={cn(
         "flex items-center gap-2",
-        color === 'emerald' ? "text-emerald-500" :
-        color === 'blue' ? "text-blue-500" :
-        color === 'amber' ? "text-amber-500" :
-        "text-red-500"
+        color === 'emerald' ? "text-[#00FFBB]" :
+        color === 'blue' ? "text-blue-400" :
+        color === 'amber' ? "text-amber-400" :
+        "text-red-400"
       )}>
-        <Icon size={14} />
-        <p className="text-[9px] font-black uppercase tracking-widest">{title}</p>
+        <Icon size={16} strokeWidth={2.5} />
+        <p className="text-[10px] font-black uppercase tracking-widest italic opacity-70">{title}</p>
       </div>
-      <p className="text-2xl font-black tracking-tighter">{typeof value === 'number' ? value.toLocaleString() : value}</p>
-      <p className="text-[9px] text-zinc-500 font-bold uppercase tracking-wider">{subtitle}</p>
+      <div className="space-y-1">
+        <p className="text-3xl font-black tracking-tighter text-white tabular-nums italic">
+          {typeof value === 'number' ? value.toLocaleString() : value}
+        </p>
+        <p className="text-[10px] text-[#9CA3AF] font-black uppercase tracking-widest">{subtitle}</p>
+      </div>
     </CardContent>
   </Card>
 );

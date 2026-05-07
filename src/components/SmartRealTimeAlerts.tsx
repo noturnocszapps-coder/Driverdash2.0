@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Zap, Clock, TrendingDown, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
+import { Gauge, Clock, TrendingDown, AlertTriangle, CheckCircle2, Info } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { getDay } from 'date-fns';
 import { toast } from 'sonner';
@@ -69,7 +69,7 @@ export const SmartRealTimeAlerts: React.FC<SmartRealTimeAlertsProps> = ({ todayD
           const endHour = parseInt(parts[1].split(':')[0]);
           
           if (currentHour >= startHour && currentHour < endHour) {
-            showToast('opportunity', "Excelente horário para rodar segundo seu histórico!", <Zap size={16} className="text-emerald-500" />);
+            showToast('opportunity', "Excelente horário para rodar segundo seu histórico!", <Gauge size={16} className="text-emerald-500" />);
           }
         } catch (e) {}
       }

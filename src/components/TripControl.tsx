@@ -2,13 +2,14 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { 
   Play, Square, Navigation, Search, CircleStop, 
-  Check, X, Zap, TrendingUp, MapPin, Clock,
+  Check, X, Gauge, TrendingUp, MapPin, Clock,
   Mic, MessageSquare, AlertCircle, Info
 } from 'lucide-react';
 import { useDriverStore } from '../store';
 import { cn } from '../utils';
 import { useIsMobile } from '../hooks/useIsMobile';
 import { useLocation } from 'react-router-dom';
+import { useSound } from '../hooks/useSound';
 
 export const TripControl = () => {
   const { 
@@ -19,6 +20,7 @@ export const TripControl = () => {
   } = useDriverStore();
   
   const location = useLocation();
+  const { playSound } = useSound();
   const openCycle = cycles.find(c => c.status === 'open');
   const isMobile = useIsMobile();
   const [isExpanded, setIsExpanded] = useState(false);
@@ -68,8 +70,10 @@ export const TripControl = () => {
 
   const handleStart = () => {
     if (!tracking.isActive) {
+      playSound('start');
       useDriverStore.getState().startTracking();
     } else {
+      playSound('click');
       startTrip();
     }
   };
@@ -104,12 +108,15 @@ export const TripControl = () => {
             layout: { duration: 0.3 }
           }}
           className={cn(
-            "relative overflow-hidden flex items-center justify-center",
+            "relative overflow-hidden flex items-center justify-center border-beam-container",
             "bg-zinc-900/90 backdrop-blur-2xl border border-white/10 shadow-2xl",
-            isExpanded && visualState !== 'minimized' ? "p-4" : "px-4"
+            isExpanded && visualState !== 'minimized' ? "p-4" : "px-4",
+            tracking.isActive && !tracking.isPaused && "neon-pulse-active",
+            syncStatus !== 'synced' && syncStatus !== 'online' && "shake-error"
           )}
           onClick={() => !isExpanded && setIsExpanded(true)}
         >
+          <div className="border-beam" />
           <AnimatePresence mode="wait">
             {/* 1. FEEDBACK STATE */}
             {visualState === 'feedback' && copilotFeedback && (
@@ -175,7 +182,7 @@ export const TripControl = () => {
               >
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-zinc-950">
-                    <Zap size={20} fill="currentColor" />
+                    <Gauge size={20} fill="currentColor" />
                   </div>
                   <div>
                     <p className="text-[10px] font-black text-emerald-500 uppercase tracking-widest leading-none mb-1">Smart Detection</p>
@@ -289,11 +296,11 @@ export const TripControl = () => {
                       <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none mb-1">
                         {visualState === 'searching' ? 'Buscando' : 
                          visualState === 'minimized' ? 'Ativo' : 
-                         (syncStatus === 'synced' || syncStatus === 'online' || syncStatus === 'idle') ? 'Pronto' : 'Offline'}
+                         (syncStatus === 'synced' || syncStatus === 'idle' || syncStatus === 'online') ? 'PRONTO' : 'OFFLINE'}
                       </span>
                       <span className="text-sm font-black text-white tracking-tight">
-                        {visualState === 'not_active' ? 'Iniciar Rastreamento' : 
-                         speed > 0 ? `${speed.toFixed(0)} km/h` : 'Parado'}
+                        {visualState === 'not_active' ? 'Iniciar Operação' : 
+                         speed > 0 ? `${speed.toFixed(0)} km/h` : 'Instrumentando'}
                       </span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -317,7 +324,7 @@ export const TripControl = () => {
                 ) : (
                   <span className="text-xs font-black text-white tracking-tight whitespace-nowrap">
                     {visualState === 'not_active' ? 
-                     ((syncStatus === 'synced' || syncStatus === 'online' || syncStatus === 'idle') ? 'Pronto' : 'Offline') : 
+                     ((syncStatus === 'synced' || syncStatus === 'idle' || syncStatus === 'online') ? 'PRONTO' : 'OFFLINE') : 
                      speed > 5 ? `🚗 ${speed.toFixed(0)} km/h` : `• ${speed.toFixed(0)} km/h`}
                   </span>
                 )}
