@@ -89,7 +89,7 @@
     @apply tracking-widest overflow-visible;
   }
 
-  .no-wrap {
+  .no-wrap, .no-stack {
     white-space: nowrap !important;
   }
 

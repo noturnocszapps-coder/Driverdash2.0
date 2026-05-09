@@ -65,31 +65,31 @@ function MetricItem({
     <motion.div 
       whileTap={{ scale: 0.98 }}
       className={cn(
-        "p-5 md:p-8 rounded-[1.25rem] md:rounded-[2rem] bg-white/5 border border-white/5 flex flex-col gap-3 transition-all duration-300 backdrop-blur-md hover:border-[#00FFBB]/20 group overflow-hidden",
+        "p-4 md:p-8 rounded-[1.25rem] md:rounded-[2rem] bg-white/5 border border-white/5 flex flex-col gap-2 md:gap-3 transition-all duration-300 backdrop-blur-md hover:border-[#00FFBB]/20 group overflow-hidden",
         isLarge && "col-span-1 bg-white/10 border-white/10 shadow-[0_0_20px_rgba(255,255,255,0.05)]"
       )}
     >
-      <div className="flex items-center gap-2 overflow-hidden flex-row">
+      <div className="flex items-center gap-2 overflow-hidden flex-row no-stack">
         <div className={cn("shrink-0 p-1.5 rounded-lg bg-zinc-900/50 border border-white/5", accent === "text-[#00FFBB]" ? "text-[#00FFBB]" : "text-zinc-500")}>
           <Icon size={12} strokeWidth={2.5} />
         </div>
-        <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.1em] text-zinc-500 no-wrap italic">{label}</p>
+        <p className="text-[7.5px] md:text-[9px] font-black uppercase tracking-[0.1em] text-zinc-500 no-stack italic">{label}</p>
       </div>
-      <div className="flex items-baseline gap-1 mt-1 overflow-hidden flex-row">
+      <div className="flex items-baseline gap-1 mt-0.5 md:mt-1 overflow-hidden flex-row no-stack">
         <motion.p 
           key={typeof value === 'number' ? Math.floor(value * 10) : value}
           initial={{ opacity: 0.5, y: 2 }}
           animate={{ opacity: 1, y: 0 }}
           className={cn(
-            "font-black tracking-widest tabular-nums font-display italic leading-tight no-wrap",
-            isLarge ? "text-2xl md:text-4xl text-white" : "text-lg md:text-2xl text-zinc-100",
+            "font-black tracking-widest tabular-nums font-display italic leading-tight no-stack",
+            isLarge ? "text-xl md:text-3xl text-white" : "text-lg md:text-2xl text-zinc-100",
             accent !== "text-white" && !isLarge && accent
           )}
         >
           {typeof value === 'number' ? value.toFixed(1) : value}
         </motion.p>
         {unit && (
-          <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest shrink-0 italic">{unit}</span>
+          <span className="text-[8.5px] md:text-[9px] font-black text-zinc-600 uppercase tracking-widest shrink-0 italic no-stack">{unit}</span>
         )}
       </div>
     </motion.div>
@@ -258,6 +258,21 @@ export const Dashboard = () => {
     }
   };
 
+  // Mock GPS coordinates simulation
+  const [mockCoords, setMockCoords] = useState({ lat: -22.9068, lng: -43.1729 });
+  useEffect(() => {
+    let interval: any;
+    if (tracking.isActive && !tracking.isPaused) {
+      interval = setInterval(() => {
+        setMockCoords(prev => ({
+          lat: prev.lat + (Math.random() - 0.5) * 0.0001,
+          lng: prev.lng + (Math.random() - 0.5) * 0.0001
+        }));
+      }, 3000);
+    }
+    return () => clearInterval(interval);
+  }, [tracking.isActive, tracking.isPaused]);
+
   const activeInsight = useMemo(() => {
     if (!openCycle) return "Conecte o sistema para processar monitoramento em tempo real.";
     if (currentEarnings === 0) return "Processamento inicial concluído. Aguardando dados de faturamento.";
@@ -292,13 +307,13 @@ export const Dashboard = () => {
             <h1 className="text-[clamp(1.5rem,5vw,2.5rem)] font-black tracking-tighter text-white leading-[1.2] truncate italic font-display">
               {greeting}, <span className="text-[#00FFBB] uppercase">{settings.name?.split(' ')[0] || 'OPERADOR'}</span>
             </h1>
-            <div className="mt-2 flex items-center justify-between gap-6 overflow-hidden">
-              <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.3em] flex items-center gap-2 no-wrap">
-                <Calendar size={12} className="text-zinc-600 shrink-0" />
-                {format(now, "d/MM", { locale: ptBR })}
-              </p>
-              {isMobile && <div className="shrink-0"><SyncIndicator variant="minimal" /></div>}
-            </div>
+                <div className="flex items-center justify-between gap-2 overflow-hidden flex-row">
+                  <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.2em] flex items-center gap-2 no-stack shrink-0">
+                    <Calendar size={12} className="text-zinc-600 shrink-0" />
+                    {format(now, "d/MM", { locale: ptBR })}
+                  </p>
+                  {isMobile && <div className="shrink-0 scale-90 origin-right"><SyncIndicator variant="minimal" /></div>}
+                </div>
           </div>
         </div>
         <motion.button 
@@ -391,12 +406,12 @@ export const Dashboard = () => {
                   <Loader2 className="animate-spin" size={24} />
                 ) : hasOpenCycle ? (
                   <>
-                    <span className="text-sm font-black uppercase tracking-[0.3em]">ANALISAR OPERAÇÃO</span>
+                    <span className="text-xs md:text-sm font-black uppercase tracking-[0.2em] md:tracking-[0.3em] no-stack">ANALISAR OPERAÇÃO</span>
                     <ChevronRight size={18} className="group-hover:translate-x-2 transition-transform duration-300" />
                   </>
                 ) : (
                   <>
-                    <span className="text-sm font-black uppercase tracking-[0.3em]">INICIAR OPERAÇÃO</span>
+                    <span className="text-xs md:text-sm font-black uppercase tracking-[0.2em] md:tracking-[0.3em] no-stack">ABRIR TURNO</span>
                     <Play size={18} fill="currentColor" />
                   </>
                 )}
@@ -433,25 +448,27 @@ export const Dashboard = () => {
                 </div>
               </div>
               <div className="min-w-0">
-                <div className="flex items-center gap-2 mb-2 no-wrap">
-                  <p className="text-[11px] font-black uppercase tracking-[0.4em] text-zinc-600 no-wrap">RASTREAMENTO</p>
+                <div className="flex items-center gap-2 mb-2 no-stack overflow-hidden">
+                  <p className="text-[9.5px] md:text-[11px] font-black uppercase tracking-[0.2em] md:tracking-[0.4em] text-zinc-600 no-stack shrink-0">RASTREAMENTO</p>
                   {tracking.isActive && !locationError && !tracking.isPaused && (
-                    <div className="flex items-center gap-2 bg-[#00FFBB]/10 px-3 py-1 rounded-full shrink-0 border border-[#00FFBB]/20">
+                    <div className="flex items-center gap-1.5 bg-[#00FFBB]/10 px-2.5 py-1 rounded-full shrink-0 border border-[#00FFBB]/20">
                       <span className="flex h-1.5 w-1.5 rounded-full bg-[#00FFBB] animate-pulse" />
-                      <span className="text-[8px] font-black text-[#00FFBB] uppercase tracking-widest no-wrap">SINC ATIVO</span>
+                      <span className="text-[7.5px] md:text-[8px] font-black text-[#00FFBB] uppercase tracking-widest no-stack">GPS ATIVO</span>
                     </div>
                   )}
                   {tracking.isActive && !locationError && !tracking.isPaused && (
-                    <div className="hidden sm:flex items-center gap-2 bg-white/5 px-3 py-1 rounded-full shrink-0 border border-white/5">
-                      <span className="text-[8px] font-black text-zinc-500 uppercase tracking-widest no-wrap">SINAL ESTÁVEL - SP</span>
+                    <div className="hidden min-[400px]:flex items-center gap-1.5 bg-white/5 px-2.5 py-1 rounded-full shrink-0 border border-white/5">
+                      <span className="text-[7.5px] md:text-[8px] font-black text-zinc-500 uppercase tracking-widest no-stack">
+                        {mockCoords.lat.toFixed(4)} / {mockCoords.lng.toFixed(4)}
+                      </span>
                     </div>
                   )}
                 </div>
                 <h3 className={cn(
-                  "text-2xl md:text-3xl font-black uppercase tracking-tighter truncate italic font-display",
+                  "text-2xl md:text-3xl font-black uppercase tracking-tighter truncate italic font-display no-stack",
                   locationError ? "text-red-500" : tracking.isActive ? "text-white" : "text-zinc-700"
                 )}>
-                  {locationError ? 'GEOBLOQUEIO' : !hasOpenCycle ? 'OF-TURNO' : tracking.isActive ? (tracking.isPaused ? 'P-READY' : 'EM ROTA') : 'SINC'}
+                  {locationError ? 'GEOBLOQUEIO' : !hasOpenCycle ? 'OF-TURNO' : tracking.isActive ? (tracking.isPaused ? 'P-READY' : 'SINAL ESTÁVEL') : 'STANDBY'}
                 </h3>
               </div>
             </div>
@@ -525,7 +542,7 @@ export const Dashboard = () => {
                 ) : (
                   <>
                     <Play size={24} fill="currentColor" />
-                    INICIAR OPERAÇÃO
+                    ABRIR TURNO
                   </>
                 )}
               </Button>
