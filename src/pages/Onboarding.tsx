@@ -74,7 +74,7 @@ const Onboarding = () => {
   const currentStep = steps[step];
 
   return (
-    <div className="min-h-[100dvh] bg-[#0A0A0A] text-white flex flex-col items-center justify-center p-6 py-12 pb-40 relative overflow-y-auto">
+    <div className="min-h-[100dvh] w-full bg-[#0A0A0A] text-white flex flex-col items-center justify-center p-6 py-12 pb-40 relative overflow-y-auto">
       {/* Background Glow */}
       <div className={cn(
         "absolute inset-0 bg-gradient-to-b transition-colors duration-700 -z-10",
@@ -95,11 +95,11 @@ const Onboarding = () => {
             </div>
           </div>
 
-          <div className="space-y-4">
-            <h1 className="text-3xl font-bold tracking-tight">
+          <div className="space-y-4 w-full">
+            <h1 className="text-2xl md:text-3xl font-bold tracking-tight whitespace-normal break-normal">
               {currentStep.title}
             </h1>
-            <p className="text-gray-400 text-lg leading-relaxed">
+            <p className="text-gray-400 text-base md:text-lg leading-relaxed whitespace-normal break-normal">
               {currentStep.description}
             </p>
           </div>

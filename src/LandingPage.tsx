@@ -121,7 +121,7 @@ export default function LandingPage() {
             <div className="w-12 h-12 bg-indigo-500 rounded-2xl flex items-center justify-center shadow-[0_0_30px_rgba(79,70,229,0.5)] group-hover:scale-110 transition-transform duration-500">
               <Activity className="text-white" size={24} strokeWidth={3} />
             </div>
-            <span className="text-2xl font-black tracking-tighter text-white font-display italic">DriverDash</span>
+            <span className="text-2xl font-black tracking-tighter text-white font-display italic whitespace-nowrap">DriverDash</span>
           </div>
           
           <nav className="hidden lg:flex items-center gap-10">
@@ -184,7 +184,7 @@ export default function LandingPage() {
           className="max-w-7xl mx-auto grid lg:grid-cols-2 gap-20 items-center relative z-10"
         >
           <div className="text-center lg:text-left space-y-10">
-            <motion.h1 variants={itemVariants} className="text-6xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-[0.85] text-white font-display">
+            <motion.h1 variants={itemVariants} className="text-5xl md:text-8xl lg:text-9xl font-black tracking-tighter leading-tight text-white font-display break-normal">
               Assuma o <br />
               <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 via-indigo-500 to-violet-600 drop-shadow-[0_0_40px_rgba(99,102,241,0.4)]">
                 Controle.
@@ -443,12 +443,12 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto px-8">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-20">
             <div className="space-y-8 lg:col-span-1">
-              <div className="flex items-center gap-4 group cursor-pointer" onClick={() => navigate('/')}>
-                <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-lg text-white">
-                  D
-                </div>
-                <span className="text-2xl font-black tracking-tighter text-white font-display italic">DriverDash</span>
-              </div>
+          <div className="flex items-center gap-4 group cursor-pointer" onClick={() => navigate('/')}>
+            <div className="w-10 h-10 bg-indigo-600 rounded-xl flex items-center justify-center font-black text-lg text-white">
+              D
+            </div>
+            <span className="text-2xl font-black tracking-tighter text-white font-display italic whitespace-nowrap">DriverDash</span>
+          </div>
               <p className="text-xs font-bold text-zinc-500 leading-relaxed uppercase tracking-wider">
                 Performance Analytics Suite Pro. <br />
                 A ferramenta definitiva para rentabilidade profissional na Gig Economy.

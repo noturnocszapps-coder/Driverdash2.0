@@ -84,13 +84,13 @@ const DrivingMode = lazyWithRetry(
 );
 
 const PageLoader = () => (
-  <div className="min-h-dvh bg-[#09090b] flex flex-col items-center justify-center gap-6">
+  <div className="min-h-dvh w-full bg-[#09090b] flex flex-col items-center justify-center gap-6">
     <div className="relative">
       <div className="absolute inset-0 bg-[#00FFBB]/20 blur-3xl rounded-full" />
       <div className="w-12 h-12 border-[3px] border-[#00FFBB]/20 border-t-[#00FFBB] rounded-full animate-spin relative z-10" />
     </div>
-    <div className="space-y-2 text-center animate-pulse">
-       <p className="text-[10px] font-black text-white italic font-display uppercase tracking-widest">DRIVERDASH</p>
+    <div className="space-y-2 text-center animate-pulse w-full">
+       <p className="text-[10px] font-black text-white italic font-display uppercase tracking-widest whitespace-nowrap">DRIVERDASH</p>
        <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Sincronizando Sistemas...</p>
     </div>
   </div>
@@ -245,7 +245,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
 
   if (isLanding || isAuth || isOnboarding) {
     return (
-      <div className="min-h-dvh flex flex-col overflow-x-hidden pt-6 scroll-smooth">
+      <div className="min-h-dvh w-full flex flex-col overflow-x-hidden pt-6 scroll-smooth">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
@@ -253,7 +253,7 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
             animate={{ opacity: 1, scale: 1, filter: 'blur(0px)' }}
             exit={{ opacity: 0, scale: 1.02, filter: 'blur(4px)' }}
             transition={{ duration: 0.4, ease: [0.22, 1, 0.36, 1] }}
-            className="flex-1 flex flex-col w-full"
+            className="flex-1 flex flex-col w-full min-w-0"
           >
             {children}
           </motion.div>
@@ -619,6 +619,41 @@ export default function App() {
           }
         });
         if (!isMounted) net.remove(); else listeners.push(net);
+
+        // 4. App URL Open (Deep Links for OAuth)
+        const auo = await CapApp.addListener('appUrlOpen', async (data: any) => {
+          debugLog('NATIVE', 'Deep Link Received:', data.url);
+          
+          if (data.url.includes('#access_token=') || data.url.includes('?code=')) {
+            // Supabase client with detectSessionInUrl: true handles the URL if we can redirect the internal 
+            // webview to the URL or if we manually set the session.
+            // For Capacitor, we usually manually extract from hash or use the helper.
+            
+            // Extract tokens from hash if present
+            const url = new URL(data.url);
+            const hash = url.hash.substring(1); // remove #
+            
+            if (hash) {
+              const params = new URLSearchParams(hash);
+              const accessToken = params.get('access_token');
+              const refreshToken = params.get('refresh_token');
+              
+              if (accessToken && refreshToken) {
+                const { error } = await supabase.auth.setSession({
+                  access_token: accessToken,
+                  refresh_token: refreshToken,
+                });
+                
+                if (error) {
+                  console.error('[AUTH] Error setting session from deep link:', error);
+                } else {
+                  debugLog('AUTH', 'Session restored from deep link');
+                }
+              }
+            }
+          }
+        });
+        if (!isMounted) auo.remove(); else listeners.push(auo);
       } catch (e) {
         console.error('[NATIVE] Error setting up listeners:', e);
       }

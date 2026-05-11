@@ -119,7 +119,7 @@
   }
 
   .italic {
-    @apply tracking-widest overflow-visible;
+    @apply italic overflow-visible;
   }
 
   .no-wrap, .no-stack {

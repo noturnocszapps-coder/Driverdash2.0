@@ -60,15 +60,15 @@ export const Register = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-4 py-12 overflow-y-auto">
+    <div className="min-h-[100dvh] w-full bg-zinc-50 dark:bg-zinc-950 flex flex-col items-center justify-center p-4 py-12 overflow-y-auto">
       <div className="w-full max-w-md space-y-8">
-        <div className="text-center">
-          <Link to="/login" className="inline-flex items-center gap-2 text-zinc-500 hover:text-emerald-600 transition-colors mb-8">
+        <div className="text-center w-full space-y-2 mb-8">
+          <Link to="/login" className="inline-flex items-center gap-2 text-zinc-500 hover:text-emerald-600 transition-colors mb-4">
             <ArrowLeft size={16} />
             <span>Voltar para Login</span>
           </Link>
-          <h1 className="text-3xl font-bold text-emerald-600">Criar Conta</h1>
-          <p className="text-zinc-500 mt-2">Comece a sincronizar seus dados na nuvem</p>
+          <h1 className="text-3xl font-bold text-emerald-600 whitespace-nowrap overflow-visible">Criar Conta</h1>
+          <p className="text-zinc-500 block w-full whitespace-normal break-normal">Comece a sincronizar seus dados na nuvem</p>
         </div>
 
         <Card>
