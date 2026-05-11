@@ -23,6 +23,7 @@ import {
   generateContentFingerprint,
   ExtractedReportData 
 } from '../services/aiExtractionService';
+import { Analytics, AnalyticsEvents } from '../lib/analytics';
 import { AppType } from '../types';
 
 export const ImportReport = () => {
@@ -163,6 +164,13 @@ export const ImportReport = () => {
       });
 
       setStep('success');
+      
+      Analytics.logEvent(AnalyticsEvents.IA_IMPORT, {
+        platform,
+        report_type: extractedData.report_type,
+        total_earnings: extractedData.total_earnings,
+        confidence: extractedData.confidence_score
+      });
     } catch (err) {
       console.error('[ImportReport] Save error:', err);
       setError('Erro ao salvar o relatório. Tente novamente.');

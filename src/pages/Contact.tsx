@@ -21,7 +21,7 @@ export const Contact = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black text-zinc-300 font-sans selection:bg-emerald-500/30 selection:text-emerald-400">
+    <div className="min-h-dvh bg-black text-zinc-300 font-sans selection:bg-emerald-500/30 selection:text-emerald-400">
       <div className="max-w-4xl mx-auto px-6 py-20">
         <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-emerald-500 transition-colors font-black text-xs uppercase tracking-[0.2em] mb-12 group">
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />

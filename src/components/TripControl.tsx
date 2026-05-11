@@ -299,7 +299,7 @@ export const TripControl = () => {
                          (syncStatus === 'synced' || syncStatus === 'idle' || syncStatus === 'online') ? 'PRONTO' : 'OFFLINE'}
                       </span>
                       <span className="text-sm font-black text-white tracking-tight">
-                        {visualState === 'not_active' ? 'Iniciar Operação' : 
+                        {visualState === 'not_active' ? 'ABRIR TURNO' : 
                          speed > 0 ? `${speed.toFixed(0)} km/h` : 'Instrumentando'}
                       </span>
                     </div>

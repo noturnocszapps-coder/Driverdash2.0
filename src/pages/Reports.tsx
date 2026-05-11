@@ -11,7 +11,7 @@ import {
   getEfficiencyStatus 
 } from '../utils';
 import { useConsolidatedAnalytics } from '../hooks/useConsolidatedAnalytics';
-import { Card, CardContent, Button, Skeleton } from '../components/UI';
+import { Card, CardContent, Button, Skeleton, PriceDisplay } from '../components/UI';
 import { 
   TrendingUp, Calendar, ChevronRight, BarChart3, Award, Zap, Download, Filter, Gauge, Camera, CheckCircle2, FileText, Map as MapIcon, X, Check, AlertCircle, Clock, Target, Trash2, LayoutDashboard, History, Navigation, Activity, DollarSign
 } from 'lucide-react';
@@ -214,171 +214,173 @@ export const Reports = () => {
   }
 
   return (
-    <div className="space-y-8 md:space-y-16 max-w-[1200px] mx-auto overflow-x-hidden w-full min-w-0 pb-40 px-4 md:px-8">
-      {/* HEADER PAINEL */}
-      <header className="flex justify-between items-start pt-6 md:pt-12">
-        <div className="space-y-1 relative">
+    <div className="space-y-8 md:space-y-12 max-w-[1400px] mx-auto overflow-x-hidden w-full min-w-0 pb-40 px-4 md:px-10">
+      {/* HEADER / AUDIT PAINEL */}
+      <header className="flex justify-between items-start pt-6 md:pt-12 gap-4">
+        <div className="space-y-1 relative min-w-0 flex-1">
           <div className="absolute -left-12 -top-12 w-48 h-48 bg-[#00FFBB]/5 blur-[80px] rounded-full pointer-events-none" />
-          <h1 className="text-[clamp(1.5rem,5vw,2.5rem)] font-black tracking-tighter text-white italic font-display leading-[1.2]">
-            AUDITORIA <span className="text-[#00FFBB]">OPERACIONAL</span>
+          <h1 className="text-[clamp(1.25rem,5vw,2.5rem)] font-black tracking-tight md:tracking-tighter text-white italic font-display leading-tight truncate">
+            AUDITORIA <span className="text-[#00FFBB]">ESTRATÉGICA</span>
           </h1>
-          <p className="text-[10px] font-black text-zinc-500 uppercase tracking-[0.4em] flex items-center gap-2">
-            <Calendar size={12} className="text-zinc-700" />
-            PERÍODO: {format(start, "dd MMM")} - {format(end, "dd MMM")}
-          </p>
+          <div className="flex items-center gap-2 md:gap-3 flex-wrap">
+            <p className="text-[9px] md:text-[10px] font-black text-zinc-500 uppercase tracking-widest md:tracking-wider flex items-center gap-1.5 shrink-0">
+              <Calendar size={10} className="text-zinc-700" />
+              {format(start, "dd MMM")} — {format(end, "dd MMM")}
+            </p>
+            <div className="h-1 w-1 rounded-full bg-zinc-800 shrink-0 hidden sm:block" />
+            <p className="text-[9px] md:text-[10px] font-black text-indigo-400 uppercase tracking-tight md:tracking-widest whitespace-nowrap">{filter === 'all' ? 'SENSORES TOTAIS' : filter.toUpperCase()}</p>
+          </div>
         </div>
         <div className="flex items-center gap-3">
           <SyncIndicator variant="minimal" />
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => setShowFilterModal(true)}
-            className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-[#00FFBB] transition-colors"
+            className="w-14 h-14 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 hover:text-[#00FFBB] transition-colors shadow-xl"
           >
             <Filter size={20} />
           </motion.button>
         </div>
       </header>
 
-      {/* executive DASH - SENSOR ARRAY */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-6">
-        <MiniSensor label="FATURADO TOTAL" value={<CountUp value={stats.total} />} icon={DollarSign} accent="text-white" />
-        <MiniSensor label="LUCRO LÍQUIDO" value={<CountUp value={stats.totalProfit} />} icon={TrendingUp} accent="text-[#00FFBB]" />
-        <MiniSensor label="DISTÂNCIA TOTAL" value={`${stats.totalKm.toFixed(1)} KM`} icon={Navigation} accent="text-indigo-400" />
-        <MiniSensor label="EFICIÊNCIA" value={`${Math.round(stats.avgEfficiency)}%`} icon={Activity} accent="text-rose-400" />
-      </div>
-
-      {/* TARGET PROGRESS - GLASS INSTRUMENT */}
-      <section className="space-y-4 md:space-y-6">
-        <div className="flex items-center gap-4">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#00FFBB] shadow-[0_0_10px_#00FFBB]" />
-          <h2 className="text-[10px] md:text-[11px] font-black uppercase tracking-[0.5em] text-zinc-500 italic">PROGRESSO DA MISSÃO SEMANAL</h2>
-        </div>
-        <Card className="border-none bg-[#0B0C10]/40 backdrop-blur-3xl shadow-2xl rounded-[1.5rem] md:rounded-[3rem] overflow-hidden border border-white/5 border-beam-container">
-             <div className="border-beam" />
-             <CardContent className="p-6 md:p-14 space-y-8 md:space-y-10">
-                <div className="flex flex-col md:flex-row justify-between items-baseline gap-4 md:gap-6">
-                  <div>
-                    <p className="text-[9px] md:text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1 md:mb-2">PROGRESSO ATUAL</p>
-                    <h3 className="text-[clamp(1.5rem,4vw,2.5rem)] font-black text-white italic font-display tracking-tighter">
-                        <CountUp value={stats.total} />
-                    </h3>
-                  </div>
-                  <div className="md:text-right">
-                    <p className="text-[9px] md:text-[10px] font-black text-zinc-600 uppercase tracking-[0.3em] mb-1 md:mb-2">TARGET SEMANAL</p>
-                    <p className="text-xl md:text-3xl font-black text-zinc-400 italic font-display tracking-tighter">
-                        {formatCurrency(settings.dailyGoal * 7)}
-                    </p>
-                  </div>
-                </div>
-                <div className="space-y-3 md:space-y-4">
-                  <div className="h-4 md:h-5 bg-white/5 rounded-full p-1 border border-white/5 overflow-hidden">
-                    <motion.div 
-                      initial={{ width: 0 }}
-                      animate={{ width: `${Math.min(100, (stats.total / (settings.dailyGoal * 7)) * 100)}%` }}
-                      transition={{ duration: 2, ease: "easeOut" }}
-                      className="h-full bg-gradient-to-r from-[#00FFBB]/40 via-[#00FFBB] to-[#00FFBB] rounded-full shadow-[0_0_30px_rgba(0,255,187,0.4)]"
-                    />
-                  </div>
-                  <div className="flex justify-between items-center text-[9px] md:text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                    <span>STATUS: {stats.total >= settings.dailyGoal * 7 ? 'MISSÃO CONCLUÍDA' : 'EM CURSO'}</span>
-                    <span>DELTA: {formatCurrency(Math.max(0, (settings.dailyGoal * 7) - stats.total))}</span>
-                  </div>
-                </div>
-             </CardContent>
-        </Card>
-      </section>
-
-      {/* PERFORMANCE ANALYTICS */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-        <div className="lg:col-span-12">
-           <DailyRevenueCard 
-              bestDay={stats.best}
-              currentWeek={currentWeek}
-              settings={settings}
-              today={today}
-            />
-        </div>
+      {/* DASHBOARD GRID - 12 COLUMNS */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 md:gap-8">
         
-        <div className="lg:col-span-5">
-           <PlatformMixCard 
-              platformTotals={stats.platformTotals}
-              total={stats.total}
-              isPrivacyMode={settings.isPrivacyMode}
-            />
-        </div>
-
-        <div className="lg:col-span-7">
-          <InsightsCard 
-            performanceData={{
-              ...smartInsights,
-              bestDayLabel: smartInsights.bestDayOfWeek !== null ? format(addDays(start, smartInsights.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'ALIMENTANDO...',
-              weakestDayLabel: smartInsights.weakestDayOfWeek !== null ? format(addDays(start, smartInsights.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'ALIMENTANDO...',
-              avgProfitPerKmLabel: getEfficiencyStatus(stats.totalKm, stats.total).isValid 
-                ? formatCurrency(smartInsights.avgProfitPerKm, settings.isPrivacyMode)
-                : '--'
-            }}
-            driverScore={driverScore}
-            isCollecting={stats.maturity.status === 'coletando'}
-            smartTip={stats.smartTip}
-          />
-        </div>
-      </div>
-
-      {/* RECENT LOGS - LOG RECORDER STYLE */}
-      <section className="space-y-8">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-2 h-2 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />
-            <h2 className="text-[11px] font-black uppercase tracking-[0.5em] text-zinc-500 italic">LOG DE OPERAÇÕES RECENTES</h2>
+        {/* LEFT COLUMN - PERFORMANCE & CHARTS */}
+        <div className="lg:col-span-8 space-y-6 md:space-y-8">
+          
+          {/* MAIN SENSOR ARRAY */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <MiniSensor label="BRUTO" value={<CountUp value={stats.total} />} icon={DollarSign} accent="text-white" />
+            <MiniSensor label="LÍQUIDO" value={<CountUp value={stats.totalProfit} />} icon={TrendingUp} accent="text-[#00FFBB]" />
+            <MiniSensor label="KM TOTAL" value={`${stats.totalKm.toFixed(1)}`} unit="KM" icon={Navigation} accent="text-indigo-400" />
+            <MiniSensor label="EFICÁCIA" value={`${Math.round(stats.avgEfficiency)}%`} icon={Activity} accent="text-rose-400" />
           </div>
-          <p className="text-[10px] font-black text-zinc-700 uppercase tracking-widest">{recentDays.length} ENTIDADES REGISTRADAS</p>
+
+          {/* REVENUE CHART MODULE */}
+          <div className="space-y-4">
+             <DailyRevenueCard 
+                bestDay={stats.best}
+                currentWeek={currentWeek}
+                settings={settings}
+                today={today}
+              />
+          </div>
+
+          {/* PERFORMANCE GRID - SMART STATS */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+             <PlatformMixCard 
+                platformTotals={stats.platformTotals}
+                total={stats.total}
+                isPrivacyMode={settings.isPrivacyMode}
+              />
+             <InsightsCard 
+                performanceData={{
+                  ...smartInsights,
+                  bestDayLabel: smartInsights.bestDayOfWeek !== null ? format(addDays(start, smartInsights.bestDayOfWeek), 'EEEE', { locale: ptBR }) : 'CALIBRANDO...',
+                  weakestDayLabel: smartInsights.weakestDayOfWeek !== null ? format(addDays(start, smartInsights.weakestDayOfWeek), 'EEEE', { locale: ptBR }) : 'CALIBRANDO...',
+                  avgProfitPerKmLabel: getEfficiencyStatus(stats.totalKm, stats.total).isValid 
+                    ? formatCurrency(smartInsights.avgProfitPerKm, settings.isPrivacyMode)
+                    : '--'
+                }}
+                driverScore={driverScore}
+                isCollecting={stats.maturity.status === 'coletando'}
+                smartTip={stats.smartTip}
+              />
+          </div>
         </div>
-        
-        <div className="space-y-4">
-            {recentDays.map((day, idx) => (
+
+        {/* RIGHT COLUMN - TARGET & LOGS */}
+        <div className="lg:col-span-4 space-y-6 md:space-y-8">
+          
+          {/* TARGET TRACKER */}
+          <div className="space-y-4">
+            <div className="flex items-center gap-3 px-1">
+              <div className="w-2 h-2 rounded-full bg-[#00FFBB] shadow-[0_0_10px_#00FFBB]" />
+              <h3 className="text-[10px] md:text-[12px] font-black uppercase tracking-widest md:tracking-wider text-zinc-500 italic">META SEMANAL</h3>
+            </div>
+            <Card className="border-none bg-[#0B0C10]/40 backdrop-blur-3xl shadow-2xl rounded-[2rem] md:rounded-[3rem] overflow-hidden border border-white/5">
+                 <CardContent className="p-8 space-y-8">
+                    <div className="space-y-4">
+                      <div className="flex justify-between items-baseline">
+                        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">COLETADO</p>
+                        <PriceDisplay value={stats.total} size="sm" className="text-white" />
+                      </div>
+                      <div className="flex justify-between items-baseline pt-2 border-t border-white/5">
+                        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest">ALVO</p>
+                        <PriceDisplay value={settings.dailyGoal * 7} size="sm" className="text-zinc-500" />
+                      </div>
+                    </div>
+
+                    <div className="space-y-3">
+                      <div className="h-3 bg-white/5 rounded-full p-0.5 border border-white/5 overflow-hidden">
+                        <motion.div 
+                          initial={{ width: 0 }}
+                          animate={{ width: `${Math.min(100, (stats.total / (settings.dailyGoal * 7)) * 100)}%` }}
+                          transition={{ duration: 1.5, ease: "easeOut" }}
+                          className="h-full bg-gradient-to-r from-indigo-500 to-[#00FFBB] rounded-full shadow-[0_0_20px_rgba(0,255,187,0.3)]"
+                        />
+                      </div>
+                      <div className="flex justify-between items-center text-[9px] font-black uppercase tracking-widest text-zinc-600">
+                        <span>{Math.round((stats.total / (settings.dailyGoal * 7)) * 100)}%</span>
+                        <span className="text-[#00FFBB]">{stats.total >= settings.dailyGoal * 7 ? 'OK' : 'MISSING'}</span>
+                      </div>
+                    </div>
+
+                    <div className="p-5 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-between">
+                       <p className="text-[10px] font-black text-zinc-500 uppercase tracking-widest">DRIFT RESTANTE</p>
+                       <PriceDisplay value={Math.max(0, (settings.dailyGoal * 7) - stats.total)} size="sm" className="text-orange-500" />
+                    </div>
+                 </CardContent>
+            </Card>
+          </div>
+
+          {/* RECENT OPERATIONAL LOGS */}
+          <div className="space-y-6">
+            <div className="flex items-center justify-between px-1">
+              <h3 className="text-[10px] font-black uppercase tracking-widest md:tracking-wider text-zinc-500 italic">LOGS DE AUDITORIA</h3>
+              <p className="text-[9px] font-black text-zinc-700 uppercase tracking-widest">{recentDays.length} REGISTROS</p>
+            </div>
+            
+            <div className="space-y-3">
+              {recentDays.map((day, idx) => (
                 <motion.div
                   key={day.id}
-                  initial={{ opacity: 0, x: -10 }}
-                  animate={{ opacity: 1, x: 0 }}
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: idx * 0.05 }}
                   onClick={() => day.cycles.length > 0 && navigate(`/faturamento`)}
-                  className="group bg-[#0B0C10]/40 backdrop-blur-2xl border border-white/5 p-5 md:p-8 rounded-[1.5rem] md:rounded-[2.5rem] flex items-center justify-between hover:bg-white/5 transition-all cursor-pointer"
+                  className="group bg-[#0B0C10]/40 backdrop-blur-2xl border border-white/5 p-5 rounded-[1.8rem] flex items-center justify-between hover:bg-white/5 transition-all cursor-pointer"
                 >
-                  <div className="flex items-center gap-4 md:gap-8">
-                    <div className="w-10 h-10 md:w-14 md:h-14 rounded-xl md:rounded-2xl bg-white/5 flex items-center justify-center text-zinc-500 group-hover:text-[#00FFBB] transition-colors border border-white/5">
-                        <History className="w-4 h-4 md:w-6 md:h-6" />
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-600 group-hover:text-[#00FFBB] transition-colors">
+                      <History size={18} />
                     </div>
-                    <div className="space-y-0.5 md:space-y-1">
-                        <p className="text-sm md:text-lg font-black text-white italic font-display uppercase tracking-tight">
-                            {format(parseISO(day.id), "dd 'de' MMMM", { locale: ptBR })}
-                        </p>
-                        <div className="flex items-center gap-2 md:gap-3">
-                            <span className="text-[9px] md:text-[11px] font-bold text-zinc-600 uppercase tracking-widest">
-                                {day.totalKm.toFixed(1)} KM
-                            </span>
-                            <span className="w-0.5 h-0.5 rounded-full bg-zinc-800" />
-                            <span className={cn(
-                                "text-[9px] md:text-[11px] font-black uppercase tracking-widest",
-                                day.totalRevenue > 0 ? "text-[#00FFBB]" : "text-zinc-600"
-                            )}>
-                                {formatCurrency(day.totalRevenue)}
-                            </span>
-                        </div>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-4 md:gap-6">
-                      <div className="hidden sm:flex flex-col items-end">
-                          <p className="text-[8px] md:text-[9px] font-black text-zinc-700 uppercase tracking-widest">EFICÁCIA</p>
-                          <p className="text-xs md:text-sm font-black text-zinc-400 italic font-display">{Math.round(day.efficiency)}%</p>
+                    <div className="space-y-1">
+                      <p className="text-xs font-black text-white italic font-display uppercase tracking-tight">
+                        {format(parseISO(day.id), "dd 'de' MMM", { locale: ptBR })}
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-[9px] font-bold text-zinc-600 uppercase">
+                          {day.totalKm.toFixed(1)} KM
+                        </span>
+                        <div className="h-1 w-1 rounded-full bg-zinc-800" />
+                        <span className="text-[9px] font-black text-emerald-500 uppercase tracking-widest">
+                          {formatCurrency(day.totalRevenue)}
+                        </span>
                       </div>
-                      <ChevronRight className="w-4 h-4 md:w-5 md:h-5 text-zinc-800 group-hover:text-[#00FFBB] transition-colors" />
+                    </div>
                   </div>
+                  <ChevronRight size={16} className="text-zinc-800 group-hover:text-white transition-colors" />
                 </motion.div>
-            ))}
-        </div>
-      </section>
+              ))}
+            </div>
+          </div>
 
-      {/* FILTER MODAL - DASHBOARD STYLE */}
+        </div>
+      </div>
+
+      {/* MODALS */}
       <AnimatePresence>
         {showFilterModal && (
           <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-6 bg-zinc-950/90 backdrop-blur-md">
@@ -389,7 +391,7 @@ export const Reports = () => {
               className="w-full max-w-sm bg-[#0B0C10] border border-white/5 rounded-[3rem] p-10 space-y-10 shadow-2xl"
             >
                 <div className="flex justify-between items-center">
-                    <h3 className="text-xl font-black text-white italic font-display uppercase tracking-tighter">PARÂMETROS DE VISTA</h3>
+                    <h3 className="text-xl font-black text-white italic font-display uppercase tracking-tighter">PARÂMETROS</h3>
                     <button onClick={() => setShowFilterModal(false)} className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center text-zinc-500">
                         <X size={20} />
                     </button>
@@ -401,16 +403,13 @@ export const Reports = () => {
                           onClick={() => { setFilter(opt as any); setShowFilterModal(false); }}
                           className={cn(
                               "w-full p-6 rounded-[2rem] text-left border transition-all flex items-center justify-between group",
-                              filter === opt ? "bg-[#00FFBB]/10 border-[#00FFBB]/40 shadow-[0_0_20px_rgba(0,255,187,0.1)]" : "bg-white/5 border-white/5 hover:border-white/20"
+                              filter === opt ? "bg-[#00FFBB]/10 border-[#00FFBB]/40" : "bg-white/5 border-white/5 hover:border-white/20"
                           )}
                         >
-                            <div>
-                                <p className={cn("text-sm font-black uppercase tracking-widest", filter === opt ? "text-[#00FFBB]" : "text-zinc-500")}>
-                                    {opt === 'all' ? 'SENSORES TOTAIS' : opt === 'manual' ? 'REGISTRO MANUAL' : 'IMPORTAÇÃO IA'}
-                                </p>
-                                <p className="text-[9px] font-bold text-zinc-600 uppercase mt-1">Sincronização de dados múltiplos</p>
-                            </div>
-                            {filter === opt && <div className="w-4 h-4 bg-[#00FFBB] rounded-full shadow-[0_0_10px_#00FFBB]" />}
+                            <p className={cn("text-xs font-black uppercase tracking-widest", filter === opt ? "text-[#00FFBB]" : "text-zinc-500")}>
+                                {opt === 'all' ? 'FONTES CONSOLIDADAS' : opt === 'manual' ? 'REGISTRO MANUAL' : 'IMPORTAÇÃO IA'}
+                            </p>
+                            {filter === opt && <div className="w-3 h-3 bg-[#00FFBB] rounded-full shadow-[0_0_10px_#00FFBB]" />}
                         </button>
                     ))}
                 </div>
@@ -438,18 +437,21 @@ export const Reports = () => {
   );
 };
 
-const MiniSensor = ({ label, value, icon: Icon, accent }: any) => (
-    <Card className="bg-[#0B0C10]/40 backdrop-blur-2xl border-none shadow-xl rounded-[1.25rem] md:rounded-[2rem] border border-white/5 overflow-hidden">
-        <CardContent className="p-4 md:p-8 space-y-3 md:space-y-4">
-            <div className="flex items-center gap-2 md:gap-3 text-zinc-600">
-                <div className="p-1.5 md:p-2 rounded-xl bg-white/5">
-                    <Icon className="w-3 h-3 md:w-3.5 md:h-3.5" />
-                </div>
-                <p className="text-[8px] md:text-[9px] font-black uppercase tracking-[0.3em]">{label}</p>
-            </div>
-            <p className={cn("text-lg md:text-2xl font-black italic font-display tracking-tighter truncate", accent)}>
-                {value}
-            </p>
-        </CardContent>
-    </Card>
+const MiniSensor = ({ label, value, unit, icon: Icon, accent }: any) => (
+  <Card className="bg-[#0B0C10]/40 backdrop-blur-2xl border-none shadow-xl rounded-[1.25rem] md:rounded-[2.5rem] border border-white/5 overflow-hidden group hover:border-[#00FFBB]/20 transition-all">
+    <CardContent className="p-3 md:p-8 space-y-2 md:space-y-4">
+      <div className="flex items-center gap-2 md:gap-3 text-zinc-600">
+        <div className="p-1 md:p-2 rounded-lg md:rounded-xl bg-white/5 group-hover:text-white transition-colors shrink-0">
+          <Icon size={12} md:size={14} />
+        </div>
+        <p className="text-[8px] md:text-[9px] font-black uppercase tracking-tight md:tracking-widest truncate break-safe">{label}</p>
+      </div>
+      <div className="flex items-baseline gap-1 overflow-hidden">
+        <p className={cn("text-sm sm:text-base md:text-3xl font-black italic font-display tracking-tight md:tracking-tighter truncate leading-none", accent)}>
+          {value}
+        </p>
+        {unit && <span className="text-[8px] md:text-[10px] font-black text-zinc-600 uppercase italic shrink-0">{unit}</span>}
+      </div>
+    </CardContent>
+  </Card>
 );

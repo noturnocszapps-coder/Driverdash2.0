@@ -1,5 +1,7 @@
 import React from 'react';
 import { cn } from '../utils';
+import { triggerHaptic } from '../lib/haptics';
+import { ImpactStyle } from '@capacitor/haptics';
 
 interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   children: React.ReactNode;
@@ -8,9 +10,15 @@ interface CardProps extends React.HTMLAttributes<HTMLDivElement> {
   onClick?: (e: React.MouseEvent<HTMLDivElement>) => void | Promise<void>;
 }
 
-export const Card = ({ children, className, ...props }: CardProps) => (
+export const Card = ({ children, className, onClick, ...props }: CardProps) => (
   <div 
-    className={cn("bg-[#0B0C10]/40 backdrop-blur-2xl rounded-[1.5rem] md:rounded-[2.5rem] border border-white/5 shadow-2xl overflow-hidden transition-all duration-500 w-full max-w-full", className)} 
+    className={cn("bg-[#0B0C10]/60 sm:backdrop-blur-3xl rounded-lg border border-white/5 shadow-premium overflow-hidden transition-all duration-500 w-full max-w-full relative group", className)} 
+    onClick={(e) => {
+      if (onClick) {
+        triggerHaptic(ImpactStyle.Light);
+        onClick(e);
+      }
+    }}
     {...props}
   >
     {children}
@@ -18,13 +26,13 @@ export const Card = ({ children, className, ...props }: CardProps) => (
 );
 
 export const CardHeader = ({ children, className }: CardProps) => (
-  <div className={cn("p-4 md:p-5 border-b border-white/5", className)}>
+  <div className={cn("p-sm md:p-md border-b border-white/5 bg-white/[0.02]", className)}>
     {children}
   </div>
 );
 
 export const CardContent = ({ children, className }: CardProps) => (
-  <div className={cn("p-5 md:p-8 break-words", className)}>
+  <div className={cn("p-md md:p-lg break-words", className)}>
     {children}
   </div>
 );
@@ -53,16 +61,20 @@ export const Button = ({
   };
 
   const sizes = {
-    sm: 'px-5 py-2 md:px-6 md:py-2.5 text-[8px] md:text-[9px]',
-    md: 'px-7 py-3 md:px-8 md:py-3.5 text-[10px] md:text-[11px]',
-    lg: 'px-10 py-4.5 md:px-14 md:py-5 text-xs md:text-sm',
-    icon: 'p-2 md:p-3',
+    sm: 'px-sm py-xs md:px-7 md:py-3 text-[8px] md:text-[9px]',
+    md: 'px-md py-sm md:px-9 md:py-4 text-[10px] md:text-[11px]',
+    lg: 'px-xl py-md md:px-16 md:py-5 text-xs md:text-sm',
+    icon: 'p-sm md:p-md',
   };
 
   return (
     <Component 
+      onClick={(e: any) => {
+        triggerHaptic(ImpactStyle.Medium);
+        if (props.onClick) props.onClick(e);
+      }}
       className={cn(
-        "rounded-[1.5rem] font-bold transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-2",
+        "rounded-md font-black transition-all active:scale-95 disabled:opacity-50 disabled:pointer-events-none flex items-center justify-center gap-sm",
         loading && "cursor-not-allowed opacity-70",
         variants[variant],
         sizes[size as keyof typeof sizes],
@@ -82,7 +94,7 @@ export const Button = ({
 export const Input = ({ className, value, ...props }: React.InputHTMLAttributes<HTMLInputElement>) => (
   <input 
     className={cn(
-      "w-full px-6 py-4 rounded-[1.25rem] border border-white/10 bg-white/5 focus:outline-none focus:ring-4 focus:ring-[#00FFBB]/5 focus:border-[#00FFBB]/30 transition-all font-medium text-white placeholder:text-zinc-600",
+      "w-full px-md py-sm rounded-sm border border-white/10 bg-white/5 focus:outline-none focus:ring-4 focus:ring-[#00FFBB]/5 focus:border-[#00FFBB]/30 transition-all font-medium text-white placeholder:text-zinc-600 sm:py-md sm:px-lg",
       className
     )}
     value={value === null ? '' : value}
@@ -93,7 +105,7 @@ export const Input = ({ className, value, ...props }: React.InputHTMLAttributes<
 export const Select = ({ className, children, value, ...props }: React.SelectHTMLAttributes<HTMLSelectElement>) => (
   <select 
     className={cn(
-      "w-full px-6 py-4 rounded-[1.25rem] border border-white/10 bg-white/5 focus:outline-none focus:ring-4 focus:ring-[#00FFBB]/5 focus:border-[#00FFBB]/30 transition-all appearance-none font-medium text-white",
+      "w-full px-md py-sm rounded-sm border border-white/10 bg-white/5 focus:outline-none focus:ring-4 focus:ring-[#00FFBB]/5 focus:border-[#00FFBB]/30 transition-all appearance-none font-medium text-white sm:py-md sm:px-lg",
       className
     )}
     value={value === null ? '' : value}
@@ -155,7 +167,7 @@ export const PriceDisplay = ({
   };
 
   return (
-    <div className={cn("flex items-baseline gap-1 font-display font-black italic tracking-widest no-wrap", sizes[size], className)}>
+    <div className={cn("flex items-baseline gap-1 font-display font-black italic tracking-tight md:tracking-widest no-wrap", sizes[size], className)}>
       <span className="text-[0.6em] opacity-70 shrink-0">{prefix}</span>
       <span className="tabular-nums">{Math.floor(value).toLocaleString('pt-BR')}</span>
       <span className="text-[0.6em] opacity-70 shrink-0">

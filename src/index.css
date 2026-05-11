@@ -6,6 +6,26 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-display: "Sora", sans-serif;
 
+  /* Premium Spacing Tokens */
+  --spacing-xs: 0.5rem;   /* 8px */
+  --spacing-sm: 1rem;   /* 16px */
+  --spacing-md: 1.5rem; /* 24px */
+  --spacing-lg: 2rem;   /* 32px */
+  --spacing-xl: 3rem;   /* 48px */
+  --spacing-section: clamp(2rem, 8vw, 5rem);
+
+  /* Standardized Radius Tokens */
+  --radius-xs: 0.75rem;
+  --radius-sm: 1rem;
+  --radius-md: 1.5rem;
+  --radius-lg: 2rem;
+  --radius-xl: 3rem;
+
+  /* Standardized Shadows & Glows */
+  --shadow-neon: 0 0 20px rgba(0, 255, 187, 0.15);
+  --shadow-premium: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 40px rgba(99, 102, 241, 0.1);
+
   @keyframes border-beam {
     100% {
       offset-distance: 100%;
@@ -46,43 +66,56 @@
   }
 
   body {
-    @apply antialiased selection:bg-indigo-500/30 selection:text-indigo-200 text-zinc-900 dark:text-zinc-100 overflow-x-hidden;
+    @apply antialiased selection:bg-indigo-500/30 selection:text-indigo-200 text-zinc-900 dark:text-zinc-100 overflow-x-hidden overflow-y-auto;
     -webkit-tap-highlight-color: transparent;
+    -webkit-overflow-scrolling: touch;
     font-family: var(--font-sans);
     background-color: var(--asphalt-black);
     width: 100%;
     min-width: 0;
+    min-height: 100%;
     position: relative;
+    overscroll-behavior-y: auto;
   }
 
   h1 {
-    @apply tracking-wider overflow-visible py-[0.1em] font-black;
+    @apply tracking-normal sm:tracking-wider overflow-visible py-[0.1em] font-black leading-tight;
     font-size: clamp(1.5rem, 8vw, 3rem);
-    line-height: 1.4;
     font-family: var(--font-display);
-    word-break: break-word;
-    hyphens: auto;
+    word-break: normal;
+    overflow-wrap: break-word;
+    text-wrap: balance;
   }
 
   h2 {
-    @apply tracking-wider overflow-visible py-[0.1em] font-black;
+    @apply tracking-normal sm:tracking-wider overflow-visible py-[0.1em] font-black leading-tight;
     font-size: clamp(1.25rem, 6vw, 2.25rem);
-    line-height: 1.4;
     font-family: var(--font-display);
-    word-break: break-word;
+    word-break: normal;
+    overflow-wrap: break-word;
+    text-wrap: balance;
   }
 
   h3 {
-    @apply tracking-wider overflow-visible py-[0.1em] font-bold;
+    @apply tracking-normal sm:tracking-wider overflow-visible py-[0.1em] font-black leading-tight;
     font-size: clamp(1.1rem, 5vw, 1.75rem);
-    line-height: 1.4;
     font-family: var(--font-display);
-    word-break: break-word;
+    word-break: normal;
+    overflow-wrap: break-word;
+    text-wrap: balance;
   }
 
   p, span, div {
     @apply leading-[1.6];
-    word-break: break-word;
+    word-break: normal;
+    overflow-wrap: break-word;
+  }
+
+  .break-safe {
+    overflow-wrap: normal !important;
+    word-break: normal !important;
+    hyphens: none !important;
+    white-space: normal !important;
   }
 
   .italic {
@@ -133,10 +166,13 @@
   html {
     @apply text-[14px] md:text-[16px] overflow-x-hidden;
     scroll-behavior: smooth;
-    overscroll-behavior: none;
-    height: 100%;
+    overscroll-behavior-y: auto;
+    min-height: 100%;
     width: 100%;
     background-color: #09090b;
+    /* Safe Area support */
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: env(safe-area-inset-bottom, 0px);
   }
 
   /* Premium Scrollbar */
@@ -202,7 +238,7 @@
 
 /* Prevent pull-to-refresh on mobile */
 body {
-  overscroll-behavior-y: contain;
+  overscroll-behavior-y: auto;
 }
 
 /* Custom car icon animation */
@@ -213,6 +249,16 @@ body {
 /* Smooth number transitions */
 .metric-value {
   font-variant-numeric: tabular-nums;
+}
+
+/* Hide bottom nav when keyboard is visible on native app */
+.keyboard-visible nav.fixed.bottom-0 {
+  display: none !important;
+}
+
+/* Adjust page content when keyboard is visible to prevent scrolling issues */
+.keyboard-visible main {
+  padding-bottom: 2rem !important;
 }
 
 @keyframes pulse-slow {

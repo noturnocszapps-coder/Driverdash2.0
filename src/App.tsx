@@ -1,5 +1,5 @@
 import React, { useEffect, Suspense } from 'react';
-import { HashRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'motion/react';
 import { Sidebar, BottomNav } from './components/Navigation';
 import { SyncManager } from './components/SyncManager';
@@ -12,7 +12,7 @@ import { useDriverStore } from './store';
 import { ProtectedRoute } from './components/ProtectedRoute';
 import { UserRole, UserStatus } from './types';
 import { lazyWithRetry } from './lib/lazyWithRetry';
-import { cn } from './utils';
+import { cn, debugLog } from './utils';
 
 // Lazy load pages with retry
 const LandingPage = React.lazy(() => import('./LandingPage'));
@@ -78,10 +78,21 @@ const AnalyticsPro = lazyWithRetry(
   () => import('./pages/AnalyticsPro'),
   'AnalyticsPro'
 );
+const DrivingMode = lazyWithRetry(
+  () => import('./pages/DrivingMode'),
+  'DrivingMode'
+);
 
 const PageLoader = () => (
-  <div className="min-h-[100dvh] bg-zinc-950 flex items-center justify-center">
-    <div className="w-8 h-8 border-4 border-emerald-500/20 border-t-emerald-500 rounded-full animate-spin" />
+  <div className="min-h-dvh bg-[#09090b] flex flex-col items-center justify-center gap-6">
+    <div className="relative">
+      <div className="absolute inset-0 bg-[#00FFBB]/20 blur-3xl rounded-full" />
+      <div className="w-12 h-12 border-[3px] border-[#00FFBB]/20 border-t-[#00FFBB] rounded-full animate-spin relative z-10" />
+    </div>
+    <div className="space-y-2 text-center animate-pulse">
+       <p className="text-[10px] font-black text-white italic font-display uppercase tracking-widest">DRIVERDASH</p>
+       <p className="text-[8px] font-bold text-zinc-600 uppercase tracking-widest">Sincronizando Sistemas...</p>
+    </div>
   </div>
 );
 
@@ -111,12 +122,18 @@ class RouteErrorBoundary extends React.Component<RouteErrorBoundaryProps, RouteE
   componentDidCatch(error: any, errorInfo: any) {
     console.error(`[ROUTE] Error in ${this.props.routeName}:`, error);
     console.error('[ROUTE] Stack:', errorInfo);
+    
+    Analytics.logError(`Route Error: ${this.props.routeName} - ${error.message}`, errorInfo.componentStack);
+    Analytics.logEvent('navigation_error', { 
+      route: this.props.routeName,
+      message: error.message 
+    });
   }
 
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-[100dvh] bg-zinc-950 text-white flex items-center justify-center p-6">
+        <div className="min-h-dvh bg-zinc-950 text-white flex items-center justify-center p-6">
           <div className="w-full max-w-xl rounded-[2.5rem] border border-red-500/20 bg-zinc-900/50 backdrop-blur-xl p-8 shadow-2xl relative overflow-hidden">
             {/* Background Glow */}
             <div className="absolute -top-24 -right-24 w-48 h-48 bg-red-500/10 rounded-full blur-[100px]" />
@@ -195,6 +212,7 @@ import { Paywall } from './components/Paywall';
 import { useWakeLock } from './hooks/useWakeLock';
 
 import { useIsMobile } from './hooks/useIsMobile';
+import { Analytics } from './lib/analytics';
 
 const Layout = ({ children }: { children: React.ReactNode }) => {
   const location = useLocation();
@@ -207,26 +225,27 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     window.scrollTo(0, 0);
     
-    console.log('[LANDSCAPE_LAYOUT] Viewport:', `${window.innerWidth}x${window.innerHeight}`);
-    console.log('[LANDSCAPE_LAYOUT] Is Mobile (Hook):', isMobile);
-    console.log('[LANDSCAPE_LAYOUT] Sidebar Rendered:', !isMobile);
-    console.log('[LANDSCAPE_LAYOUT] BottomNav Rendered:', isMobile);
-    
-    console.log('[TRACKING_LAYOUT] Viewport width:', window.innerWidth);
-    console.log('[TRACKING_LAYOUT] Safe area bottom:', getComputedStyle(document.documentElement).getPropertyValue('--safe-area-inset-bottom') || 'env(safe-area-inset-bottom)');
+    debugLog('LAYOUT', 'Viewport:', `${window.innerWidth}x${window.innerHeight}`);
+    debugLog('LAYOUT', 'Is Mobile (Hook):', isMobile);
+    debugLog('LAYOUT', 'Sidebar:', !isMobile);
+    debugLog('LAYOUT', 'BottomNav:', isMobile);
     
     // Check if bottom nav items are rendered
     const bottomNav = document.querySelector('nav.fixed.bottom-0');
     if (bottomNav) {
-      console.log('[BOTTOM_NAV] Bottom navigation rendered. Height:', bottomNav.clientHeight);
-      const items = bottomNav.querySelectorAll('a');
-      console.log('[BOTTOM_NAV] Items count:', items.length);
+      debugLog('BOTTOM_NAV', 'Height:', bottomNav.clientHeight);
     }
+
+    // Screen View Tracking
+    Analytics.logEvent('screen_view', {
+      screen_name: location.pathname,
+      screen_class: location.pathname.substring(1) || 'home'
+    });
   }, [location.pathname, isMobile]);
 
   if (isLanding || isAuth || isOnboarding) {
     return (
-      <div className="min-h-[100dvh] flex flex-col overflow-x-hidden pt-6">
+      <div className="min-h-dvh flex flex-col overflow-x-hidden pt-6 scroll-smooth">
         <AnimatePresence mode="wait" initial={false}>
           <motion.div
             key={location.pathname}
@@ -245,13 +264,13 @@ const Layout = ({ children }: { children: React.ReactNode }) => {
   }
 
   return (
-    <div className="flex flex-col min-h-[100dvh] bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative w-full max-w-full pt-20 md:pt-24">
+    <div className="flex flex-col min-h-dvh bg-zinc-50 dark:bg-zinc-950 text-zinc-900 dark:text-zinc-100 overflow-x-hidden relative w-full max-w-full pt-20 md:pt-24 scroll-smooth">
       <div className="flex flex-1 w-full max-w-full relative">
         <Sidebar />
         <main className={cn(
-          "flex-1 flex flex-col px-6 pt-4 pb-6 w-full transition-all duration-500 overflow-y-auto overflow-x-hidden scroll-smooth min-w-0 relative",
+          "flex-1 flex flex-col px-6 pt-4 w-full transition-all duration-500 overflow-x-hidden min-w-0 relative",
           !isMobile && "md:px-10 md:pt-10 md:pb-12 max-w-6xl mx-auto",
-          isMobile ? "pb-[calc(180px+env(safe-area-inset-bottom))]" : "pb-12"
+          isMobile ? "pb-[calc(96px+env(safe-area-inset-bottom))]" : "pb-12"
         )}>
           <AnimatePresence mode="wait" initial={false}>
             <motion.div
@@ -312,7 +331,7 @@ function AppRoutes() {
   // Debug visibility for onboarding state
   useEffect(() => {
     if (user) {
-      console.log('[ONBOARDING] State check:', {
+      debugLog('ONBOARDING', 'State check:', {
         onboardingCompleted,
         settingsOnboarding: settings.onboardingCompleted,
         localOnboarding: isLocalOnboardingCompleted,
@@ -321,16 +340,27 @@ function AppRoutes() {
     }
   }, [user, onboardingCompleted, settings.onboardingCompleted, isLocalOnboardingCompleted, location.pathname]);
 
-  // Redirect to onboarding if not completed
-  if (user && !onboardingCompleted && location.pathname !== '/onboarding') {
-    console.log('[ONBOARDING] Redirecting to onboarding...');
-    return <Navigate to="/onboarding" replace />;
-  }
+  // Redirect logic
+  const isLanding = location.pathname === '/';
+  const isAuth = location.pathname === '/login' || location.pathname === '/register';
 
-  // Anti-loop: If onboarding is completed, don't allow access to onboarding page
-  if (user && onboardingCompleted && location.pathname === '/onboarding') {
-    console.log('[ONBOARDING] Already completed, redirecting to dashboard...');
-    return <Navigate to="/dashboard" replace />;
+  if (user) {
+    // If authenticated and on landing page or auth pages, redirect based on onboarding
+    if (isLanding || isAuth) {
+      return <Navigate to={onboardingCompleted ? "/dashboard" : "/onboarding"} replace />;
+    }
+
+    // Force onboarding if not completed
+    if (!onboardingCompleted && location.pathname !== '/onboarding') {
+      debugLog('ONBOARDING', 'Redirecting to onboarding...');
+      return <Navigate to="/onboarding" replace />;
+    }
+
+    // Prevent going back to onboarding if already completed
+    if (onboardingCompleted && location.pathname === '/onboarding') {
+      debugLog('ONBOARDING', 'Already completed, redirecting to dashboard...');
+      return <Navigate to="/dashboard" replace />;
+    }
   }
 
   return (
@@ -492,6 +522,17 @@ function AppRoutes() {
           />
 
           <Route
+            path="/driving-mode"
+            element={
+              <ProtectedRoute>
+                <SafeRoute routeName="DrivingMode">
+                  <DrivingMode />
+                </SafeRoute>
+              </ProtectedRoute>
+            }
+          />
+
+          <Route
             path="/terms"
             element={
               <SafeRoute routeName="Terms">
@@ -526,12 +567,72 @@ function AppRoutes() {
 import { Toaster } from 'sonner';
 import { DeletionErrorBanner } from './components/DeletionErrorBanner';
 
+import { App as CapApp } from '@capacitor/app';
+import { Network } from '@capacitor/network';
+import { Keyboard } from '@capacitor/keyboard';
+import { Capacitor } from '@capacitor/core';
+import { toast } from 'sonner';
+
 export default function App() {
   const { setUser, setSyncStatus, initVehicle, hasSynced, user } = useDriverStore();
   const [isAuthReady, setIsAuthReady] = React.useState(false);
+  const [keyboardVisible, setKeyboardVisible] = React.useState(false);
 
   useEffect(() => {
     initVehicle();
+
+    // Native App Listeners
+    let isMounted = true;
+    const listeners: any[] = [];
+
+    const setupListeners = async () => {
+      if (!Capacitor.isNativePlatform()) return;
+
+      try {
+        // 1. Android Back Button
+        const bl = await CapApp.addListener('backButton', ({ canGoBack }) => {
+          if (!canGoBack) {
+            CapApp.exitApp();
+          } else {
+            window.history.back();
+          }
+        });
+        if (!isMounted) bl.remove(); else listeners.push(bl);
+
+        // 2. Keyboard Visibility
+        const kbs = await Keyboard.addListener('keyboardWillShow', () => setKeyboardVisible(true));
+        if (!isMounted) kbs.remove(); else listeners.push(kbs);
+        
+        const kbh = await Keyboard.addListener('keyboardWillHide', () => setKeyboardVisible(false));
+        if (!isMounted) kbh.remove(); else listeners.push(kbh);
+
+        // 3. Network Status
+        const net = await Network.addListener('networkStatusChange', status => {
+          if (!status.connected) {
+            toast.warning('Você está offline. Algumas funções podem ser limitadas.', {
+              id: 'offline-toast',
+              duration: Infinity
+            });
+          } else {
+            toast.dismiss('offline-toast');
+            toast.success('Conexão restabelecida!');
+          }
+        });
+        if (!isMounted) net.remove(); else listeners.push(net);
+      } catch (e) {
+        console.error('[NATIVE] Error setting up listeners:', e);
+      }
+    };
+
+    setupListeners();
+
+    return () => {
+      isMounted = false;
+      listeners.forEach(l => l.remove());
+      if (Capacitor.isNativePlatform()) {
+        try { Network.removeAllListeners(); } catch (e) {}
+      }
+    };
   }, [initVehicle]);
 
   useEffect(() => {
@@ -565,11 +666,11 @@ export default function App() {
             createdAt: session.user.created_at,
           });
           setSyncStatus('online');
-          console.log('[AUTH] Session restored:', session.user.email);
+          debugLog('AUTH', 'Session restored:', session.user.email);
         } else {
           setUser(null);
           setSyncStatus('offline');
-          console.log('[AUTH] No active session');
+          debugLog('AUTH', 'No active session');
         }
       } catch (err) {
         console.error('[AUTH] Initialization error:', err);
@@ -617,19 +718,21 @@ export default function App() {
 
   return (
     <Router>
-      <Toaster 
-        position="top-center" 
-        richColors 
-        toastOptions={{
-          style: {
-            marginTop: 'env(safe-area-inset-top, 24px)',
-          }
-        }}
-      />
-      <ReloadPrompt />
-      <SyncManager />
-      <DeletionErrorBanner />
-      <AppRoutes />
+      <div className={cn("contents", keyboardVisible && "keyboard-visible")}>
+        <Toaster 
+          position="top-center" 
+          richColors 
+          toastOptions={{
+            style: {
+              marginTop: 'env(safe-area-inset-top, 24px)',
+            }
+          }}
+        />
+        <ReloadPrompt />
+        <SyncManager />
+        <DeletionErrorBanner />
+        <AppRoutes />
+      </div>
     </Router>
   );
 }

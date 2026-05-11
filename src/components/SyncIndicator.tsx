@@ -47,7 +47,7 @@ export const SyncIndicator: React.FC<{ variant?: 'sidebar' | 'minimal' }> = ({ v
           <span className={cn("text-[10px] font-black uppercase tracking-[0.1em] leading-tight transition-colors duration-500", current.color)}>
             {current.label}
           </span>
-          <span className="text-[9px] text-zinc-500 font-bold leading-tight mt-0.5 whitespace-nowrap">
+          <span className="text-[9px] text-zinc-500 font-bold leading-tight mt-0.5 break-safe">
             {hasErrors 
               ? 'Existem ciclos com inconsistências'
               : activeSyncCount > 0 

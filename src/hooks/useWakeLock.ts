@@ -58,11 +58,11 @@ export function useWakeLock() {
     return () => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       if (wakeLockRef.current) {
-        try {
-          wakeLockRef.current.release();
-        } catch (e) {
-          console.error('[WAKELOCK] Cleanup error:', e);
-        }
+        const lock = wakeLockRef.current;
+        wakeLockRef.current = null;
+        lock.release().catch((e: any) => {
+          console.warn('[WAKELOCK] Background release expected or already released:', e);
+        });
       }
     };
   }, [settings.keepScreenOn]);

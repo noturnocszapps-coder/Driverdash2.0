@@ -53,7 +53,7 @@ export const Login = () => {
   };
 
   return (
-    <div className="min-h-[100dvh] bg-black flex flex-col items-center justify-center p-6 py-12 relative overflow-y-auto font-sans selection:bg-emerald-500/30 selection:text-emerald-400">
+    <div className="min-h-dvh bg-black flex flex-col items-center justify-center p-6 py-12 relative overflow-y-auto font-sans selection:bg-emerald-500/30 selection:text-emerald-400">
       {/* Background Glows */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-emerald-500/5 blur-[120px] rounded-full" />
@@ -66,7 +66,7 @@ export const Login = () => {
         className="w-full max-w-md z-10"
       >
         <div className="text-center mb-10">
-          <Link to="/" className="inline-flex items-center gap-2 text-zinc-600 hover:text-emerald-500 transition-all font-black text-[10px] uppercase tracking-[0.3em] mb-8 group">
+          <Link to="/" className="inline-flex items-center gap-2 text-zinc-600 hover:text-emerald-500 transition-all font-black text-[10px] uppercase tracking-widest mb-8 group">
             <ArrowLeft size={14} className="group-hover:-translate-x-1 transition-transform" />
             <span>Voltar ao Início</span>
           </Link>
@@ -158,7 +158,7 @@ export const Login = () => {
         <div className="mt-12 flex flex-col items-center gap-4">
           <div className="flex items-center gap-2 opacity-30">
             <ShieldCheck size={14} className="text-zinc-500" />
-            <span className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-500">
+            <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">
               End-to-End Encryption Enabled
             </span>
           </div>

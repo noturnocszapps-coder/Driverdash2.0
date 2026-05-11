@@ -170,33 +170,35 @@ export const Faturamento = () => {
     <motion.div 
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
-      className="space-y-4 md:space-y-6 max-w-2xl mx-auto"
+      className="flex flex-col gap-sm md:gap-md max-w-2xl mx-auto px-md md:px-lg pb-[calc(110px+env(safe-area-inset-bottom))]"
     >
       {/* HEADER PAINEL */}
-      <header className="flex items-center justify-between px-2 pt-6">
-        <div className="flex items-center gap-6">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between pt-md md:pt-lg gap-md px-1">
+        <div className="flex items-center gap-md min-w-0">
           <motion.button 
             whileTap={{ scale: 0.9 }}
             onClick={() => navigate(-1)}
-            className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 transition-all hover:bg-white/10 hover:text-[#00FFBB]"
+            className="w-12 h-12 rounded-sm bg-white/5 border border-white/10 flex items-center justify-center text-zinc-400 transition-all hover:bg-white/10 hover:text-[#00FFBB] shrink-0 active:scale-90"
           >
             <ChevronLeft size={20} />
           </motion.button>
-          <div className="flex flex-col">
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl font-black tracking-tighter text-white italic font-display">Fechamento do Ciclo</h1>
-              <span className="text-[9px] font-black text-zinc-600 uppercase tracking-[0.3em]">v2.2</span>
+          <div className="flex flex-col min-w-0">
+            <div className="flex items-baseline gap-sm flex-wrap">
+              <h1 className="text-xl sm:text-2xl md:text-3xl font-black tracking-tight text-white italic font-display leading-tight truncate">FECHAMENTO</h1>
+              <span className="text-[9px] font-black text-zinc-600 uppercase tracking-wider whitespace-nowrap">STATUS: OPERACIONAL</span>
             </div>
           </div>
         </div>
-        <SyncIndicator variant="minimal" />
+        <div className="self-end sm:self-auto uppercase">
+          <SyncIndicator variant="minimal" />
+        </div>
       </header>
 
-      <div className="px-3 space-y-8">
+      <div className="flex flex-col gap-lg">
         {/* FATURAMENTO - INSTRUMENTAÇÃO FINANCEIRA */}
-        <div className="space-y-4">
+        <div className="flex flex-col gap-sm">
           <SectionHeader icon={Smartphone} title="DADOS DE ENTRADA" />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-md">
             <PlatformCard 
               label="Uber Driver" 
               value={amounts.uber} 
@@ -228,27 +230,26 @@ export const Faturamento = () => {
           </div>
         </div>
 
-        {/* DISTÂNCIA - MINI DASHBOARD */}
-        <div className="space-y-2 md:space-y-3">
-          <div className="flex justify-between items-center px-1">
-            <SectionHeader icon={TrendingUp} title="Distância" />
+        <div className="flex flex-col gap-sm">
+          <div className="flex justify-between items-center px-1 mb-xs">
+            <SectionHeader icon={Navigation} title="DISTÂNCIA" />
             <button 
               onClick={() => setShowAdvancedKm(!showAdvancedKm)}
-              className="text-[8px] md:text-[9px] font-bold text-emerald-500 uppercase tracking-widest px-2 py-1 bg-emerald-500/10 rounded-md"
+              className="text-[9px] font-black text-[#00FFBB] uppercase tracking-wider px-3 py-1 bg-[#00FFBB]/10 rounded-sm border border-[#00FFBB]/20 shadow-glow"
             >
-              {showAdvancedKm ? 'Simples' : 'Avançado'}
+              {showAdvancedKm ? 'SIMPLES' : 'DETALHAR'}
             </button>
           </div>
           
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-2 gap-md">
             <KmCard 
-              label="KM Total" 
+              label="KM TOTAL" 
               value={kmTotalFinal} 
               onChange={(val: number) => setKms(prev => ({ ...prev, total: val }))} 
               isTracked={!!(openCycle?.tracked_km || tracking.isActive)}
             />
             <KmCard 
-              label="KM em Corrida" 
+              label="KM ÚTIL" 
               value={kmRideFinal} 
               onChange={(val: number) => setKms(prev => ({ ...prev, ride: val }))} 
             />
@@ -257,60 +258,54 @@ export const Faturamento = () => {
           <AnimatePresence>
             {showAdvancedKm && (
               <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="grid grid-cols-3 gap-2 pt-1"
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                className="grid grid-cols-3 gap-md pt-1"
               >
-                <KmCardMini label="Uber" value={kms.uber} onChange={(val) => setKms(prev => ({ ...prev, uber: val }))} />
-                <KmCardMini label="99" value={kms.noventanove} onChange={(val) => setKms(prev => ({ ...prev, noventanove: val }))} />
-                <KmCardMini label="inDrive" value={kms.indriver} onChange={(val) => setKms(prev => ({ ...prev, indriver: val }))} />
+                <KmCardMini label="UBER" value={kms.uber} onChange={(val) => setKms(prev => ({ ...prev, uber: val }))} />
+                <KmCardMini label="99 POP" value={kms.noventanove} onChange={(val) => setKms(prev => ({ ...prev, noventanove: val }))} />
+                <KmCardMini label="INDRIVE" value={kms.indriver} onChange={(val) => setKms(prev => ({ ...prev, indriver: val }))} />
               </motion.div>
             )}
           </AnimatePresence>
         </div>
 
-        {/* DESPESAS INTELIGENTES */}
-        <div className="space-y-2 md:space-y-3">
-          <div className="flex justify-between items-center px-1">
-            <SectionHeader icon={Fuel} title="Despesas" />
+        {/* DESPESAS OPERACIONAIS */}
+        <div className="flex flex-col gap-sm">
+          <div className="flex justify-between items-center px-1 mb-xs">
+            <SectionHeader icon={Fuel} title="DESPESAS" />
             <button 
               onClick={() => setShowExpenses(!showExpenses)}
-              className="text-[8px] md:text-[9px] font-bold text-emerald-500 uppercase tracking-widest px-2 py-1 bg-emerald-500/10 rounded-md flex items-center gap-1"
+              className="text-[9px] font-black text-amber-500 uppercase tracking-wider px-3 py-1 bg-amber-500/10 rounded-sm border border-amber-500/20"
             >
-              {showExpenses ? 'Recolher' : 'Expandir'}
-              <motion.div
-                animate={{ rotate: showExpenses ? 180 : 0 }}
-                transition={{ duration: 0.3 }}
-              >
-                <Plus size={10} className={cn(showExpenses && "rotate-45")} />
-              </motion.div>
+              {showExpenses ? 'CONSOLIDAR' : 'DESCRIMINAR'}
             </button>
           </div>
 
           <AnimatePresence>
             {showExpenses ? (
               <motion.div 
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: 'auto' }}
-                exit={{ opacity: 0, height: 0 }}
-                className="grid grid-cols-1 sm:grid-cols-2 gap-3 overflow-hidden"
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="grid grid-cols-1 sm:grid-cols-3 gap-md"
               >
                 <ExpenseCard 
                   icon={Fuel}
-                  label="Combustível" 
+                  label="COMBUSTÍVEL" 
                   value={expenses.fuel} 
                   onChange={(val) => setExpenses(prev => ({ ...prev, fuel: val }))} 
                 />
                 <ExpenseCard 
                   icon={Utensils}
-                  label="Alimentação" 
+                  label="REFEIÇÃO" 
                   value={expenses.food} 
                   onChange={(val) => setExpenses(prev => ({ ...prev, food: val }))} 
                 />
                 <ExpenseCard 
                   icon={MoreHorizontal}
-                  label="Outras" 
+                  label="DIVERSOS" 
                   value={expenses.other} 
                   onChange={(val) => setExpenses(prev => ({ ...prev, other: val }))} 
                 />
@@ -320,23 +315,26 @@ export const Faturamento = () => {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 onClick={() => setShowExpenses(true)}
-                className="p-4 rounded-2xl bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50 flex items-center justify-between cursor-pointer group"
+                className="p-md rounded-sm bg-white/5 border border-white/5 flex items-center justify-between cursor-pointer group hover:bg-white/10 transition-all shadow-premium"
               >
-                <div className="flex items-center gap-3">
-                  <div className="flex -space-x-2">
-                    <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center border-2 border-white dark:border-zinc-900">
-                      <Fuel size={10} className="text-zinc-500" />
+                <div className="flex items-center gap-md">
+                  <div className="flex -space-x-3">
+                    <div className="w-10 h-10 rounded-xs bg-zinc-900 flex items-center justify-center border border-white/10 shadow-premium">
+                      <Fuel size={16} className="text-zinc-500" />
                     </div>
-                    <div className="w-6 h-6 rounded-full bg-zinc-200 dark:bg-zinc-800 flex items-center justify-center border-2 border-white dark:border-zinc-900">
-                      <Utensils size={10} className="text-zinc-500" />
+                    <div className="w-10 h-10 rounded-xs bg-zinc-900 flex items-center justify-center border border-white/10 shadow-premium">
+                      <Utensils size={16} className="text-zinc-500" />
                     </div>
                   </div>
-                  <span className="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">
-                    {totalExpenses > dailyFixed ? 'Despesas Registradas' : 'Nenhuma despesa extra'}
-                  </span>
+                  <div className="flex flex-col gap-xs min-w-0 flex-1">
+                    <span className="text-[10px] font-black text-zinc-500 uppercase tracking-wider truncate">SUBTOTAL DESPESAS</span>
+                    <p className="text-xs font-bold text-white uppercase tracking-tighter truncate">
+                      {totalExpenses > dailyFixed ? 'LANÇAMENTOS DETALHADOS' : 'FIXOS OPERACIONAIS'}
+                    </p>
+                  </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-black text-zinc-900 dark:text-white">
+                  <p className="text-xl font-black italic font-display text-amber-500 tabular-nums">
                     {formatCurrency(totalExpenses - dailyFixed)}
                   </p>
                 </div>
@@ -345,44 +343,52 @@ export const Faturamento = () => {
           </AnimatePresence>
         </div>
 
-        {/* RESUMO DE EFICIÊNCIA - NOVO PARA PREENCHER ESPAÇO */}
-        <div className="space-y-3">
-          <SectionHeader icon={TrendingUp} title="Eficiência Estimada" />
-          <Card className="border-none bg-zinc-50 dark:bg-zinc-900/50 border border-zinc-100 dark:border-zinc-800/50 rounded-2xl overflow-hidden">
-            <CardContent className="p-3 md:p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-0.5">
-                  <p className="text-[7px] md:text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none">Lucro por KM</p>
+        {/* RESUMO DE EFICIÊNCIA */}
+        <div className="flex flex-col gap-sm">
+          <SectionHeader icon={TrendingUp} title="EFICIÊNCIA PROJETADA" />
+          <Card className="border-none bg-[#0B0C10]/60 border border-white/5 rounded-lg overflow-hidden backdrop-blur-xl shadow-premium">
+            <CardContent className="p-lg flex flex-col gap-lg">
+              <div className="grid grid-cols-2 gap-md md:gap-lg border-b border-white/5 pb-lg">
+                <div className="flex flex-col gap-xs">
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-wider leading-none">LUCRO / KM</p>
                   <p className={cn(
-                    "text-lg md:text-xl font-black tabular-nums tracking-tighter",
+                    "text-xl sm:text-2xl font-black tabular-nums italic font-display",
                     getEfficiencyStatus(kmTotalFinal, total).isValid 
-                      ? (estimatedProfit >= 0 ? "text-emerald-500" : "text-rose-500") 
-                      : "text-zinc-400"
+                      ? (estimatedProfit >= 0 ? "text-[#00FFBB]" : "text-rose-500") 
+                      : "text-zinc-700"
                   )}>
                     {getEfficiencyStatus(kmTotalFinal, total).isValid 
                       ? formatCurrency(estimatedProfit / kmTotalFinal) 
-                      : getEfficiencyStatus(kmTotalFinal, total).displayValue}
+                      : "--"}
                   </p>
                 </div>
-                <div className="space-y-0.5 text-right">
-                  <p className="text-[7px] md:text-[8px] font-black text-zinc-500 uppercase tracking-widest leading-none">Gasto por KM</p>
+                <div className="flex flex-col gap-xs text-right">
+                  <p className="text-[9px] font-black text-zinc-500 uppercase tracking-wider leading-none">CUSTO / KM</p>
                   <p className={cn(
-                    "text-lg md:text-xl font-black tabular-nums tracking-tighter",
-                    getEfficiencyStatus(kmTotalFinal, total).isValid ? "text-zinc-900 dark:text-white" : "text-zinc-400"
+                    "text-xl sm:text-2xl font-black tabular-nums italic font-display",
+                    getEfficiencyStatus(kmTotalFinal, total).isValid ? "text-white" : "text-zinc-700"
                   )}>
                     {getEfficiencyStatus(kmTotalFinal, total).isValid 
                       ? formatCurrency(totalExpenses / kmTotalFinal) 
-                      : getEfficiencyStatus(kmTotalFinal, total).displayValue}
+                      : "--"}
                   </p>
                 </div>
               </div>
 
-              {!getEfficiencyStatus(kmTotalFinal, total).isValid && (
-                <div className="mt-4 pt-4 border-t border-zinc-200 dark:border-zinc-800 flex items-center gap-2 justify-center">
-                  <Info size={10} className="text-zinc-400" />
-                  <p className="text-[9px] font-bold text-zinc-500 uppercase tracking-wider">
+              {!getEfficiencyStatus(kmTotalFinal, total).isValid ? (
+                <div className="flex items-center gap-md justify-center py-md bg-white/5 rounded-sm border border-dashed border-white/10 px-md">
+                  <Info size={16} className="text-zinc-600 shrink-0" />
+                  <p className="text-[9px] font-black text-zinc-600 uppercase tracking-wider text-center">
                     {getEfficiencyStatus(kmTotalFinal, total).message}
                   </p>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between px-md py-sm bg-[#00FFBB]/5 rounded-sm border border-[#00FFBB]/10">
+                  <div className="flex items-center gap-sm">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#00FFBB] animate-pulse" />
+                    <p className="text-[9px] font-black text-[#00FFBB] uppercase tracking-wider">OPERAÇÃO POSITIVA</p>
+                  </div>
+                  <p className="text-[9px] font-black text-white/40 uppercase tracking-wider">CONSISTENTE</p>
                 </div>
               )}
             </CardContent>
@@ -413,19 +419,19 @@ export const Faturamento = () => {
         <div className="max-w-2xl mx-auto">
           <Card className="bg-zinc-900 text-white border-zinc-800 shadow-[0_20px_50px_rgba(0,0,0,0.5)] rounded-3xl overflow-hidden border-beam-container">
             <div className="border-beam" />
-            <CardContent className="p-4 md:p-5 space-y-3 md:space-y-4">
-              <div className="flex justify-between items-end">
-                <div className="space-y-0.5">
-                  <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-zinc-500">Total Bruto</p>
-                  <p className="text-xl md:text-2xl font-bold tracking-tight">
+            <CardContent className="p-xl space-y-md">
+              <div className="flex justify-between items-end gap-md">
+                <div className="flex flex-col gap-xs min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-zinc-500 truncate">TOTAL BRUTO</p>
+                  <p className="text-xl sm:text-2xl font-black tracking-tight text-white italic font-display truncate">
                     <CountUp value={total} />
                   </p>
                 </div>
-                <div className="text-right space-y-0.5">
-                  <p className="text-[9px] md:text-[10px] font-bold uppercase tracking-widest text-zinc-500">Lucro Líquido</p>
+                <div className="text-right flex flex-col gap-xs min-w-0">
+                  <p className="text-[9px] font-black uppercase tracking-wider text-[#00FFBB]/60 truncate">LUCRO ESTIMADO</p>
                   <p className={cn(
-                    "text-2xl md:text-3xl font-black tracking-tighter",
-                    estimatedProfit >= 0 ? "text-emerald-400" : "text-red-400"
+                    "text-2xl sm:text-3xl font-black tracking-tighter italic font-display truncate",
+                    estimatedProfit >= 0 ? "text-[#00FFBB] shadow-neon-text" : "text-rose-500"
                   )}>
                     <CountUp value={estimatedProfit} />
                   </p>
@@ -436,23 +442,27 @@ export const Faturamento = () => {
                 whileTap={{ scale: 0.98 }}
               >
                 <Button 
-                  onClick={handleSave}
-                  disabled={isProcessing || !activeVehicleId}
-                  loading={isProcessing}
-                  className={cn(
-                    "w-full h-14 font-black text-lg rounded-2xl shadow-lg gap-2 transition-all flex items-center justify-center uppercase tracking-widest",
-                    !activeVehicleId
-                      ? "bg-zinc-800 text-zinc-500 cursor-not-allowed"
-                      : saveStatus === 'success' 
-                        ? "bg-emerald-600" 
-                        : "bg-[#00C853] hover:bg-emerald-400 text-zinc-950"
-                  )}
+                   onClick={handleSave}
+                   disabled={isProcessing || !activeVehicleId}
+                   className={cn(
+                     "w-full h-14 sm:h-16 font-black text-base sm:text-lg rounded-sm shadow-glow transition-all flex items-center justify-center uppercase tracking-widest shadow-premium",
+                     !activeVehicleId
+                       ? "bg-zinc-800 text-zinc-600 cursor-not-allowed border border-white/5"
+                       : saveStatus === 'success' 
+                         ? "bg-emerald-600 text-white" 
+                         : "bg-[#00FFBB] text-zinc-950 hover:bg-[#00e6a9]"
+                   )}
                 >
-                  {isProcessing ? 'Processando...' : (
-                    <>
+                  {isProcessing ? (
+                    <div className="flex items-center gap-sm">
+                      <div className="w-5 h-5 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
+                      PROCESSANDO
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-3">
                       <Save size={20} />
-                      Confirmar Ciclo
-                    </>
+                      <span>CONFIRMAR CICLO</span>
+                    </div>
                   )}
                 </Button>
               </motion.div>
@@ -461,9 +471,9 @@ export const Faturamento = () => {
                 <motion.p 
                   initial={{ opacity: 0, y: 5 }}
                   animate={{ opacity: 1, y: 0 }}
-                  className="text-center text-[10px] font-bold text-emerald-400 uppercase tracking-widest"
+                  className="text-center text-[10px] font-black text-[#00FFBB] uppercase tracking-[0.2em] animate-pulse"
                 >
-                  Sucesso! Redirecionando...
+                  DADOS SINCRONIZADOS. REDIRECIONANDO...
                 </motion.p>
               )}
             </CardContent>
@@ -475,9 +485,11 @@ export const Faturamento = () => {
 };
 
 const SectionHeader = ({ icon: Icon, title }: any) => (
-  <div className="flex items-center gap-1.5 px-1">
-    <Icon size={12} className="text-emerald-500" />
-    <h3 className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">{title}</h3>
+  <div className="flex items-center gap-md px-1 mb-md">
+    <div className="w-8 h-8 md:w-9 md:h-9 rounded-sm bg-[#00FFBB]/10 flex items-center justify-center border border-[#00FFBB]/20 shadow-glow shrink-0">
+      <Icon size={16} md:size={18} strokeWidth={2.5} className="text-[#00FFBB]" />
+    </div>
+    <h3 className="text-[11px] font-black uppercase tracking-wider text-zinc-500 italic truncate">{title}</h3>
   </div>
 );
 
@@ -508,6 +520,15 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
     }, 100);
   };
 
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+    };
+  }, []);
+
   const stopAdjust = () => {
     if (timerRef.current) {
       clearInterval(timerRef.current);
@@ -516,25 +537,25 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
   };
 
   return (
-    <div className="bg-white/5 p-5 rounded-[2rem] border border-white/5 flex flex-col gap-4 backdrop-blur-xl transition-all hover:bg-white/10 group">
-      <div className="flex items-center gap-3">
-        <div className={cn("w-2 h-2 rounded-full", accent)} />
-        <span className="font-black text-[10px] uppercase tracking-[0.3em] text-zinc-500">{label}</span>
+    <div className="bg-[#0B0C10]/60 p-md rounded-sm border border-white/5 flex flex-col gap-sm backdrop-blur-xl transition-all hover:bg-white/10 group shadow-premium relative overflow-hidden">
+      <div className="flex items-center gap-sm relative z-10">
+        <div className={cn("w-2 h-2 rounded-full shadow-neon", accent)} />
+        <span className="font-black text-[10px] uppercase tracking-wider text-zinc-500 leading-none italic truncate">{label}</span>
       </div>
       
-      <div className="flex items-center gap-4">
+      <div className="flex items-center gap-sm relative z-10">
         <motion.button 
           whileTap={{ scale: 0.9 }}
-          onPointerDown={() => startAdjust(-5)}
+          onPointerDown={() => startAdjust(-1)}
           onPointerUp={stopAdjust}
           onPointerLeave={stopAdjust}
-          className="w-12 h-12 rounded-2xl border border-white/10 bg-transparent flex items-center justify-center text-zinc-500 hover:text-white transition-colors"
+          className="w-10 h-10 rounded-xs border border-white/10 bg-zinc-900/50 flex items-center justify-center text-zinc-500 hover:text-white transition-colors active:scale-95 shrink-0"
         >
-          <Minus size={18} />
+          <Minus size={16} />
         </motion.button>
         
-        <div className="relative flex-1">
-          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-xs font-black text-zinc-500">R$</span>
+        <div className="relative flex-1 min-w-0">
+          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-zinc-600 uppercase tracking-widest">R$</span>
           <input 
             type="text"
             inputMode="decimal"
@@ -544,18 +565,18 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
               if (!isEditing) setIsEditing(true);
             }}
             onBlur={handleBlur}
-            className="w-full bg-white/5 border-none rounded-2xl py-4 pl-12 pr-4 text-right font-black text-3xl tracking-tighter focus:ring-1 focus:ring-[#00FFBB] transition-all text-white italic font-display"
+            className="w-full bg-white/5 border-none rounded-xs py-3 pl-10 pr-3 text-right font-black text-2xl tracking-tighter focus:ring-1 focus:ring-[#00FFBB]/50 transition-all text-white italic font-display"
           />
         </div>
 
         <motion.button 
           whileTap={{ scale: 0.9 }}
-          onPointerDown={() => startAdjust(5)}
+          onPointerDown={() => startAdjust(1)}
           onPointerUp={stopAdjust}
           onPointerLeave={stopAdjust}
-          className="w-12 h-12 rounded-2xl border border-white/10 bg-transparent flex items-center justify-center text-zinc-500 hover:text-[#00FFBB] transition-colors"
+          className="w-10 h-10 rounded-xs border border-white/10 bg-zinc-900/50 flex items-center justify-center text-zinc-500 hover:text-[#00FFBB] transition-colors active:scale-95 shrink-0"
         >
-          <Plus size={18} />
+          <Plus size={16} />
         </motion.button>
       </div>
     </div>
@@ -564,23 +585,23 @@ const PlatformCard = ({ label, value = 0, onChange, onAdjust, accent }: any) => 
 
 const ExpenseCard = ({ icon: Icon, label, value = 0, onChange }: any) => (
   <div className={cn(
-    "bg-white dark:bg-zinc-900 p-4 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 shadow-sm flex flex-col gap-3 transition-all",
-    (value || 0) > 0 && "border-emerald-500/30 bg-emerald-500/5"
+    "bg-[#0B0C10]/60 p-4 rounded-sm border transition-all shadow-premium group",
+    (value || 0) > 0 ? "border-[#00FFBB]/40 bg-[#00FFBB]/5" : "border-white/5"
   )}>
-    <div className="flex items-center gap-3">
+    <div className="flex items-center gap-3 mb-4">
       <div className={cn(
-        "w-8 h-8 rounded-xl flex items-center justify-center transition-colors",
-        (value || 0) > 0 ? "bg-emerald-500/20 text-emerald-500" : "bg-zinc-100 dark:bg-zinc-800 text-zinc-400"
+        "w-9 h-9 rounded-xs flex items-center justify-center transition-all border shrink-0",
+        (value || 0) > 0 ? "bg-[#00FFBB]/10 text-[#00FFBB] border-[#00FFBB]/20" : "bg-white/5 text-zinc-600 border-white/5"
       )}>
         <Icon size={16} />
       </div>
       <span className={cn(
-        "text-[10px] font-bold uppercase tracking-widest transition-colors",
-        (value || 0) > 0 ? "text-emerald-600 dark:text-emerald-400" : "text-zinc-600 dark:text-zinc-400"
+        "text-[10px] font-black uppercase tracking-wider transition-colors italic truncate",
+        (value || 0) > 0 ? "text-[#00FFBB]" : "text-zinc-500"
       )}>{label}</span>
     </div>
     <div className="relative">
-      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[10px] font-bold text-zinc-400">R$</span>
+      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[9px] font-black text-zinc-600 uppercase tracking-widest">R$</span>
       <input 
         type="number"
         value={(value || 0) === 0 ? '' : value}
@@ -590,8 +611,8 @@ const ExpenseCard = ({ icon: Icon, label, value = 0, onChange }: any) => (
         }}
         placeholder="0,00"
         className={cn(
-          "w-full bg-zinc-50 dark:bg-zinc-800/30 border-none rounded-xl py-2 pl-8 pr-3 text-right font-bold text-sm transition-all",
-          (value || 0) > 0 ? "text-emerald-500" : "text-zinc-400"
+          "w-full bg-white/5 border-none rounded-xs py-3 pl-10 pr-3 text-right font-black text-lg transition-all focus:ring-1 focus:ring-[#00FFBB]/30 italic font-display tabular-nums",
+          (value || 0) > 0 ? "text-[#00FFBB]" : "text-zinc-500"
         )}
       />
     </div>
@@ -604,33 +625,31 @@ const KmCard = ({ label, value, onChange, isTracked }: any) => {
     : 0;
 
   return (
-    <div className="bg-white dark:bg-zinc-900 p-2.5 rounded-2xl border border-zinc-100 dark:border-zinc-800/50 relative overflow-hidden group shadow-sm">
-      <div className="flex flex-col gap-0.5 relative z-10">
-        <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-500">{label}</span>
-        <div className="flex items-baseline gap-1">
-          <input 
-            type="number"
-            step="0.01"
-            value={displayValue === 0 ? '' : displayValue}
-            onChange={(e) => {
-              const val = e.target.value;
-              onChange(val === '' ? 0 : Number(val));
-            }}
-            placeholder="0"
-            className="w-full bg-transparent border-none p-0 text-lg font-black tracking-tight text-zinc-900 dark:text-white focus:ring-0"
-          />
-          <span className="text-[9px] font-black text-zinc-400">KM</span>
-        </div>
+    <div className="bg-[#0B0C10]/60 p-4 rounded-sm border border-white/5 relative overflow-hidden group shadow-premium flex flex-col gap-2 min-w-0">
+      <span className="text-[10px] font-black uppercase tracking-tight text-zinc-500 leading-none italic truncate">{label}</span>
+      <div className="flex items-baseline gap-2 relative z-10 pl-1 min-w-0">
+        <input 
+          type="number"
+          step="0.01"
+          value={displayValue === 0 ? '' : displayValue}
+          onChange={(e) => {
+            const val = e.target.value;
+            onChange(val === '' ? 0 : Number(val));
+          }}
+          placeholder="0"
+          className="w-full bg-transparent border-none p-0 text-xl font-black tracking-tight text-white focus:ring-0 leading-none italic font-display tabular-nums truncate"
+        />
+        <span className="text-[9px] font-black text-zinc-700 italic uppercase tracking-wider shrink-0">KM</span>
       </div>
       
-      <div className="absolute -right-2 -bottom-2 text-zinc-100 dark:text-zinc-800/20 group-focus-within:text-emerald-500/10 transition-colors">
+      <div className="absolute -right-3 -bottom-3 text-zinc-800/10 group-focus-within:text-[#00FFBB]/5 transition-colors pointer-events-none">
         <Navigation size={48} strokeWidth={1} />
       </div>
 
       {isTracked && (
-        <div className="absolute top-0 right-0 bg-emerald-500 text-zinc-950 text-[8px] font-bold px-2 py-0.5 rounded-bl-lg flex items-center gap-1 shadow-sm">
+        <div className="absolute top-0 right-0 bg-[#00FFBB] text-zinc-950 text-[8px] font-black px-2 py-0.5 rounded-bl-sm flex items-center gap-1 shadow-neon">
           <div className="w-1 h-1 rounded-full bg-zinc-950 animate-pulse" />
-          GPS
+          <span className="truncate">GPS ATIVO</span>
         </div>
       )}
     </div>
@@ -638,16 +657,16 @@ const KmCard = ({ label, value, onChange, isTracked }: any) => {
 };
 
 const KmCardMini = ({ label, value, onChange }: any) => (
-  <div className="bg-zinc-50 dark:bg-zinc-900/50 p-2 rounded-xl border border-zinc-100 dark:border-zinc-800/50">
-    <span className="text-[9px] font-bold uppercase tracking-widest text-zinc-400 block mb-1">{label}</span>
-    <div className="flex items-baseline gap-1">
+  <div className="bg-white/5 p-md rounded-sm border border-white/5 group hover:border-[#00FFBB]/20 transition-all">
+    <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500 block mb-2 italic">{label}</span>
+    <div className="flex items-baseline gap-xs">
       <input 
         type="number"
         value={value === 0 ? '' : value}
         onChange={(e) => onChange(e.target.value === '' ? 0 : Number(e.target.value))}
-        className="w-full bg-transparent border-none p-0 text-sm font-bold text-zinc-600 dark:text-zinc-300 focus:ring-0"
+        className="w-full bg-transparent border-none p-0 text-base font-black text-white focus:ring-0 italic font-display tabular-nums"
       />
-      <span className="text-[8px] font-bold text-zinc-500">KM</span>
+      <span className="text-[9px] font-black text-zinc-700 italic">KM</span>
     </div>
   </div>
 );

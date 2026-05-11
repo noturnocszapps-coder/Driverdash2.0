@@ -6,10 +6,13 @@ import { useDriverStore } from '../store';
 import { supabase } from '../lib/supabase';
 import { SyncIndicator } from './SyncIndicator';
 import { InstallAppButton } from './InstallAppButton';
-import { motion } from 'motion/react';
+import { motion, AnimatePresence } from 'motion/react';
 import { UserRole } from '../types';
 
 import { useIsMobile } from '../hooks/useIsMobile';
+
+import { triggerHaptic } from '../lib/haptics';
+import { ImpactStyle } from '@capacitor/haptics';
 
 const navItems = [
   { icon: LayoutDashboard, label: 'Início', path: '/dashboard' },
@@ -33,28 +36,52 @@ export const BottomNav = () => {
   }
 
   return (
-    <nav className="fixed bottom-6 left-6 right-6 h-22 bg-[#0B0C10]/80 backdrop-blur-3xl border border-white/10 rounded-[2.5rem] px-8 pb-safe pt-2 z-50 shadow-2xl">
-      <div className="flex justify-between items-center h-full max-w-lg mx-auto w-full gap-4">
+    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-[#0B0C10]/95 backdrop-blur-3xl border-t border-white/10 shadow-[0_-15px_50px_rgba(0,0,0,0.8)]">
+      <div 
+        className="grid grid-cols-4 w-full"
+        style={{ 
+          height: '64px',
+          paddingBottom: 'max(env(safe-area-inset-bottom), 12px)',
+          boxSizing: 'content-box'
+        }}
+      >
         {items.map((item) => {
           const isActive = location.pathname === item.path;
           return (
             <Link 
               key={item.path} 
               to={item.path}
+              onClick={() => triggerHaptic(ImpactStyle.Light)}
               className={cn(
-                "relative flex flex-col items-center justify-center gap-2 flex-1 h-full transition-all active:scale-90 min-w-0 py-2",
+                "w-full min-w-0 flex flex-col items-center justify-center gap-1 h-full relative transition-all active:scale-95 group",
                 isActive ? "text-[#00FFBB]" : "text-zinc-500"
               )}
             >
-              {isActive && (
-                <motion.div 
-                  layoutId="bottomNavActive"
-                  className="absolute -top-1 w-8 h-1.5 bg-[#00FFBB] rounded-full shadow-[0_0_20px_rgba(0,255,187,0.6)]"
+              <AnimatePresence>
+                {isActive && (
+                  <motion.div 
+                    layoutId="navIndicator"
+                    initial={{ opacity: 0, scaleX: 0 }}
+                    animate={{ opacity: 1, scaleX: 1 }}
+                    exit={{ opacity: 0, scaleX: 0 }}
+                    className="absolute top-0 left-1/2 -translate-x-1/2 w-8 h-[2px] bg-[#00FFBB] shadow-neon z-10"
+                  />
+                )}
+              </AnimatePresence>
+
+              <div className="relative">
+                <item.icon 
+                  size={20} 
+                  strokeWidth={isActive ? 2.5 : 1.5} 
+                  className={cn(
+                    "shrink-0 transition-all duration-300",
+                    isActive ? "scale-110 drop-shadow-[0_0_8px_rgba(0,255,187,0.5)]" : "scale-100 group-hover:text-zinc-300"
+                  )} 
                 />
-              )}
-              <item.icon size={24} strokeWidth={isActive ? 2.5 : 1.5} className="shrink-0" />
+              </div>
+              
               <span className={cn(
-                "text-[7px] font-black uppercase tracking-[0.2em] leading-none no-wrap w-full text-center px-0.5 transition-colors",
+                "text-[10px] font-black uppercase truncate w-full text-center px-1 transition-colors leading-none tracking-wide italic",
                 isActive ? "text-[#00FFBB]" : "text-zinc-600"
               )}>
                 {item.label}

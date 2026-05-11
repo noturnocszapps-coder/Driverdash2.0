@@ -93,7 +93,7 @@ export default function LandingPage() {
   } as any;
 
   return (
-    <div className="min-h-screen bg-black text-zinc-100 selection:bg-indigo-500/30 selection:text-indigo-200 overflow-x-hidden font-sans">
+    <div className="min-h-dvh bg-black text-zinc-100 selection:bg-indigo-500/30 selection:text-indigo-200 overflow-x-hidden font-sans">
       {/* Cinematic Background Elements */}
       <div className="fixed inset-0 z-0 pointer-events-none overflow-hidden">
         {/* Atmosphere Glow */}
@@ -131,11 +131,11 @@ export default function LandingPage() {
               { label: 'Contato', path: '/contact' }
             ].map((item) => (
               item.path.startsWith('#') ? (
-                <a key={item.label} href={item.path} className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-indigo-400 transition-all">
+                <a key={item.label} href={item.path} className="text-[11px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-all">
                   {item.label}
                 </a>
               ) : (
-                <Link key={item.label} to={item.path} className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-500 hover:text-indigo-400 transition-all">
+                <Link key={item.label} to={item.path} className="text-[11px] font-black uppercase tracking-widest text-zinc-500 hover:text-indigo-400 transition-all">
                   {item.label}
                 </Link>
               )
@@ -145,11 +145,11 @@ export default function LandingPage() {
           <div className="flex items-center gap-6">
             {!user ? (
               <>
-                <Link to="/login" className="text-[11px] font-black uppercase tracking-[0.3em] text-zinc-400 hover:text-white transition-colors">
+                <Link to="/login" className="text-[11px] font-black uppercase tracking-widest text-zinc-400 hover:text-white transition-colors">
                   Login
                 </Link>
                 <Link to="/register">
-                  <Button className="h-12 px-8 text-[11px] font-black uppercase tracking-[0.3em] bg-indigo-600 text-white hover:bg-indigo-500 border-none rounded-2xl shadow-xl shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95">
+                  <Button className="h-12 px-8 text-[11px] font-black uppercase tracking-widest bg-indigo-600 text-white hover:bg-indigo-500 border-none rounded-2xl shadow-xl shadow-indigo-500/20 transition-all hover:scale-105 active:scale-95">
                     Acessar Suite
                   </Button>
                 </Link>
@@ -157,7 +157,7 @@ export default function LandingPage() {
             ) : (
               <Button 
                 onClick={() => navigate('/dashboard')}
-                className="h-12 px-8 text-[11px] font-black uppercase tracking-[0.3em] bg-indigo-600 text-white hover:bg-indigo-500 border-none rounded-2xl shadow-xl shadow-indigo-500/20"
+                className="h-12 px-8 text-[11px] font-black uppercase tracking-widest bg-indigo-600 text-white hover:bg-indigo-500 border-none rounded-2xl shadow-xl shadow-indigo-500/20"
               >
                 Painel Elite
               </Button>
@@ -312,7 +312,7 @@ export default function LandingPage() {
                   <stat.icon size={24} strokeWidth={1.5} />
                 </div>
                 <p className="text-4xl lg:text-5xl font-black text-white italic font-display">{stat.value}</p>
-                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-600 mt-2">{stat.label}</p>
+                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 mt-2">{stat.label}</p>
               </motion.div>
             ))}
           </div>
@@ -324,7 +324,7 @@ export default function LandingPage() {
         <div className="max-w-7xl mx-auto">
           <div className="flex flex-col lg:flex-row items-end justify-between gap-12 mb-24">
             <div className="max-w-3xl space-y-6">
-              <h2 className="text-[11px] font-black uppercase tracking-[0.5em] text-indigo-500">Suite Profissional</h2>
+              <h2 className="text-[11px] font-black uppercase tracking-widest text-indigo-500">Suite Profissional</h2>
               <p className="text-5xl md:text-7xl font-black tracking-tighter text-white leading-[0.85] font-display">
                 O Próximo Passo na sua <br />
                 <span className="text-transparent bg-clip-text bg-gradient-to-r from-indigo-400 to-indigo-600 underline-glow">Monitoria Pro.</span>
@@ -425,11 +425,11 @@ export default function LandingPage() {
           
           <div className="flex flex-col items-center gap-8">
             <Link to="/register" className="w-full sm:w-auto">
-              <Button className="h-24 px-20 text-sm font-black uppercase tracking-[0.5em] w-full bg-white text-black hover:bg-indigo-500 hover:text-white rounded-[3rem] shadow-[0_30px_100px_rgba(255,255,255,0.1)] transition-all duration-700 hover:scale-105 active:scale-95 border-none">
+              <Button className="h-24 px-20 text-sm font-black uppercase tracking-widest md:tracking-[0.5em] w-full bg-white text-black hover:bg-indigo-500 hover:text-white rounded-[3rem] shadow-[0_30px_100px_rgba(255,255,255,0.1)] transition-all duration-700 hover:scale-105 active:scale-95 border-none">
                 LIBERAR MEU ACESSO
               </Button>
             </Link>
-            <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-[0.5em] text-zinc-700">
+            <div className="flex items-center gap-6 text-[10px] font-black uppercase tracking-widest text-zinc-700">
               <span>NENHUM CARTÃO NECESSÁRIO</span>
               <div className="w-1.5 h-1.5 rounded-full bg-indigo-500/20" />
               <span>7 DIAS DE ACESSO TOTAL</span>
@@ -479,7 +479,7 @@ export default function LandingPage() {
                 <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-2">Suporte Direto</p>
                 <Link to="/contact" className="text-sm font-black text-white hover:text-indigo-400 transition-colors uppercase tracking-widest underline decoration-indigo-500/30">Falar com Consultoria</Link>
               </div>
-              <div className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-700 leading-relaxed">
+              <div className="text-[10px] font-black uppercase tracking-widest text-zinc-700 leading-relaxed">
                 Desenvolvido por <br />
                 <a href="https://www.ntaplicacoes.com.br" target="_blank" rel="noopener noreferrer" className="text-zinc-500 hover:text-white transition-colors">NT APLICAÇÕES & CO</a><br />
                 © 2026 PREMIUM SOLUTIONS.

@@ -266,7 +266,6 @@ export interface UserSettings {
   isPro?: boolean;
   uiMode?: 'simple' | 'pro';
   quickActions?: string[];
-  geminiApiKey?: string;
 }
 
 export type HUDState = 'expanded' | 'minimized' | 'hidden';

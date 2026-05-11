@@ -244,6 +244,19 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
   const carIcon = useMemo(() => createCarIcon(heading, isMoving), [heading, isMoving]);
 
   const polylinePositions = useMemo(() => {
+    // Optimization: If we have thousands of points, simplify the line for the SVG renderer
+    // This reduces GPU/CPU consumption while maintaining the general path shape
+    if (points.length > 2000) {
+      const step = Math.ceil(points.length / 1500); // Target ~1500 points for rendering
+      const simplified = [];
+      for (let i = 0; i < points.length; i += step) {
+        simplified.push([points[i].lat, points[i].lng] as [number, number]);
+      }
+      // Always include the last point for accuracy
+      const last = points[points.length - 1];
+      simplified.push([last.lat, last.lng] as [number, number]);
+      return simplified;
+    }
     return points.map(p => [p.lat, p.lng] as [number, number]);
   }, [points]);
 
@@ -263,7 +276,7 @@ export const LiveTrackingMap: React.FC<LiveTrackingMapProps> = ({
   return (
     <div className={cn(
       "w-full rounded-3xl overflow-hidden relative border border-zinc-200 dark:border-zinc-800 shadow-inner transition-all duration-500",
-      isFullscreen ? "fixed inset-0 z-[9999] rounded-none h-screen" : "h-80"
+      isFullscreen ? "fixed inset-x-0 inset-y-0 z-[9999] rounded-none h-dvh" : "h-80"
     )}>
       <MapContainer 
         center={center} 

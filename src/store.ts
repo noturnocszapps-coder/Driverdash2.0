@@ -6,9 +6,14 @@ import { calculateDistance, safeNumber, getFriendlyErrorMessage } from './utils'
 import { toast } from 'sonner';
 import { evaluateCurrentTrip } from './lib/tripAnalytics';
 import { evaluateZoneQuality } from './lib/zoneAnalytics';
+import { Capacitor } from '@capacitor/core';
+import { Geolocation } from '@capacitor/geolocation';
+import { Analytics, AnalyticsEvents } from './lib/analytics';
 
-let watchId: number | null = null;
+let watchId: string | null = null;
 let gpsHealthTimeout: NodeJS.Timeout | null = null;
+let lastStateUpdateTimestamp = 0;
+const STATE_UPDATE_THROTTLE_MS = 2500; // Throttle UI updates to 2.5s for battery stability
 
 const TRACKING_CONFIG = {
   MIN_POINTS_SEARCHING: 3,
@@ -656,6 +661,10 @@ export const useDriverStore = create<DriverState>()(
       setUser: (user) => {
         const currentUser = get().user;
         
+        if (user) {
+          Analytics.setUserId(user.id);
+        }
+        
         // If logging out or switching users, reset the store
         if (!user || (currentUser && user.id !== currentUser.id)) {
           console.log('[STORE] User changed or logout, resetting store...');
@@ -735,6 +744,11 @@ export const useDriverStore = create<DriverState>()(
           set({ hasOpenCycle: true });
           return openCycle.id;
         }
+
+        Analytics.logEvent(AnalyticsEvents.START_SHIFT, { 
+          platform: get().settings.mainPlatform,
+          vehicle: activeVehicleId
+        });
 
         let currentVehicleId = activeVehicleId;
 
@@ -920,6 +934,12 @@ export const useDriverStore = create<DriverState>()(
         set({ isSaving: true });
         try {
           const endTime = new Date().toISOString();
+          
+          Analytics.logEvent(AnalyticsEvents.CLOSE_SHIFT, { 
+            cycleId: id,
+            distance: cycleToClose?.tracked_km,
+            amount: cycleToClose?.total_amount
+          });
           
           set((state) => {
             const updatedCycles = state.cycles.map(c => 
@@ -2339,7 +2359,6 @@ export const useDriverStore = create<DriverState>()(
             if (newSettings.status !== undefined) updateObj.status = newSettings.status;
             if (newSettings.onboardingCompleted !== undefined) updateObj.onboarding_completed = newSettings.onboardingCompleted;
             if (newSettings.quickActions !== undefined) updateObj.quick_actions = newSettings.quickActions;
-            if (newSettings.geminiApiKey !== undefined) updateObj.gemini_api_key = newSettings.geminiApiKey;
 
             const { error } = await supabase
               .from('profiles')
@@ -2417,6 +2436,26 @@ export const useDriverStore = create<DriverState>()(
       },
 
       updateTrackingPosition: (newPosition) => {
+        // 1. Check throttle before updating state
+        const { tracking } = get();
+        if (!tracking.isActive || tracking.isPaused) return;
+
+        const now = Date.now();
+        const timeSinceLastUpdate = now - lastStateUpdateTimestamp;
+        
+        // Calculate distance from last point to decide if we should skip
+        const distanceDelta = tracking.lastPoint 
+          ? calculateDistance(tracking.lastPoint.lat, tracking.lastPoint.lng, newPosition.lat, newPosition.lng)
+          : 0.1; // Force update if no last point
+
+        // Skip if movement is negligible AND last update was very recent
+        // But always update if it's been more than 10s (failsafe)
+        if (timeSinceLastUpdate < STATE_UPDATE_THROTTLE_MS && distanceDelta < 0.005 && timeSinceLastUpdate < 10000) {
+          return;
+        }
+
+        lastStateUpdateTimestamp = now;
+
         // Clear health check timeout on first valid position
         if (gpsHealthTimeout) {
           console.log('[TRACKING] GPS Health Check passed: First position received');
@@ -2644,7 +2683,11 @@ export const useDriverStore = create<DriverState>()(
         if (!tracking.isActive || tracking.isPaused) return;
         
         if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
+          if (Capacitor.isNativePlatform()) {
+            Geolocation.clearWatch({ id: watchId });
+          } else {
+            navigator.geolocation.clearWatch(Number(watchId));
+          }
           watchId = null;
         }
 
@@ -2722,14 +2765,21 @@ export const useDriverStore = create<DriverState>()(
           throw new Error('Geolocalização não suportada');
         }
 
+        // Geolocation setup
+        const isNative = Capacitor.isNativePlatform();
+
         // Cleanup existing watch if any
         if (watchId !== null) {
           console.log('[TRACKING] Cleaning up existing watch before start');
-          navigator.geolocation.clearWatch(watchId);
+          if (isNative) {
+            Geolocation.clearWatch({ id: watchId });
+          } else {
+            navigator.geolocation.clearWatch(Number(watchId));
+          }
           watchId = null;
         }
 
-        // Se estiver retomando de um pause ou de um reload
+        // Restore missing logic
         if (tracking.isActive) {
           if (tracking.isPaused) {
             set({ tracking: { ...tracking, isPaused: false, isLoading: false, gpsStatus: 'connecting' } });
@@ -2759,8 +2809,40 @@ export const useDriverStore = create<DriverState>()(
         try {
           console.log('[TRACKING] Requesting watchPosition...');
           localStorage.setItem('driver_dash_tracking_active', 'true');
-          watchId = navigator.geolocation.watchPosition(
-            (position) => {
+          
+          const positionCallback = (position: any, err?: any) => {
+            if (err) {
+              console.error('[TRACKING] Geolocation error:', err);
+              
+              if (gpsHealthTimeout) {
+                clearTimeout(gpsHealthTimeout);
+                gpsHealthTimeout = null;
+              }
+
+              let message = 'Erro de GPS';
+              if (err.code === 1) { // Permission denied
+                message = 'Permissão de GPS negada';
+              } else if (err.code === 2) { // Position unavailable
+                message = 'Sinal de GPS indisponível';
+              } else if (err.code === 3) { // Timeout
+                message = 'Tempo esgotado ao buscar GPS';
+              }
+              
+              toast.error(message);
+              set((state) => ({ tracking: { ...state.tracking, gpsStatus: 'unavailable' } }));
+              
+              Analytics.logEvent(AnalyticsEvents.GPS_FAILURE, { 
+                error: message, 
+                code: err.code 
+              });
+
+              if (err.code === 1 || err.code === 2) {
+                get().stopTracking();
+              }
+              return;
+            }
+
+            if (position) {
               const { latitude, longitude, speed, accuracy } = position.coords;
               const timestamp = position.timestamp || Date.now();
               
@@ -2771,44 +2853,28 @@ export const useDriverStore = create<DriverState>()(
                 timestamp,
                 accuracy: accuracy || undefined
               });
-            },
-            (error) => {
-              console.error('[TRACKING] Geolocation error:', error);
-              
-              // Clear health check timeout on error too, as we received feedback
-              if (gpsHealthTimeout) {
-                console.log('[TRACKING] GPS Health Check cleared: Received error from watchPosition');
-                clearTimeout(gpsHealthTimeout);
-                gpsHealthTimeout = null;
-              }
-
-              let message = 'Erro de GPS';
-              if (error.code === error.PERMISSION_DENIED) {
-                message = 'Permissão de GPS negada';
-              } else if (error.code === error.POSITION_UNAVAILABLE) {
-                message = 'Sinal de GPS indisponível';
-              } else if (error.code === error.TIMEOUT) {
-                message = 'Tempo esgotado ao buscar GPS';
-              }
-              
-              toast.error(message);
-              
-              set((state) => ({
-                tracking: { ...state.tracking, gpsStatus: 'unavailable' }
-              }));
-
-              // Se o erro for crítico (permissão ou indisponível), paramos o rastreamento
-              if (error.code === error.PERMISSION_DENIED || error.code === error.POSITION_UNAVAILABLE) {
-                console.log('[TRACKING] Critical GPS error, stopping tracking');
-                get().stopTracking();
-              }
-            },
-            {
-              enableHighAccuracy: true,
-              maximumAge: 0,
-              timeout: 25000 // Aumentado para 25s para dar mais tempo no início
             }
-          );
+          };
+
+          const options = {
+            enableHighAccuracy: true,
+            maximumAge: 0,
+            timeout: 25000
+          };
+
+          if (isNative) {
+            // Capacitor Native Geolocation
+            watchId = await Geolocation.watchPosition(options, positionCallback);
+          } else {
+            // Web Geolocation
+            if (!navigator.geolocation) throw new Error('Geolocalização não suportada');
+            watchId = String(navigator.geolocation.watchPosition(
+              (pos) => positionCallback(pos),
+              (err) => positionCallback(null, err),
+              options
+            ));
+          }
+
           console.log('[TRACKING] watchPosition started successfully, ID:', watchId);
           set({ isWatching: true });
 
@@ -2822,7 +2888,11 @@ export const useDriverStore = create<DriverState>()(
               
               // Stop tracking and cleanup
               if (watchId !== null) {
-                navigator.geolocation.clearWatch(watchId);
+                if (Capacitor.isNativePlatform()) {
+                  Geolocation.clearWatch({ id: watchId });
+                } else {
+                  navigator.geolocation.clearWatch(Number(watchId));
+                }
                 watchId = null;
               }
               
@@ -2861,7 +2931,11 @@ export const useDriverStore = create<DriverState>()(
 
         console.log('[TRACKING] Encerrado');
         if (watchId !== null) {
-          navigator.geolocation.clearWatch(watchId);
+          if (Capacitor.isNativePlatform()) {
+            Geolocation.clearWatch({ id: watchId });
+          } else {
+            navigator.geolocation.clearWatch(Number(watchId));
+          }
           watchId = null;
         }
 
@@ -3607,6 +3681,11 @@ export const useDriverStore = create<DriverState>()(
             const errorMsg = `${failedLabels.join(' e ')} não puderam ser enviados`;
             const allFailed = pushErrors.length === results.filter(r => r.count > 0).length;
             
+            Analytics.logEvent(AnalyticsEvents.SYNC_FAILURE, {
+              error: errorMsg,
+              tables: pushErrors.map(e => e.table)
+            });
+
             set({ 
               syncError: errorMsg,
               syncStatus: allFailed ? 'error' : 'partial_error',
@@ -3632,6 +3711,12 @@ export const useDriverStore = create<DriverState>()(
           }, 3000);
         } catch (error: any) {
           console.error('[SYNC] error:', error);
+          
+          Analytics.logEvent(AnalyticsEvents.SUPABASE_FAILURE, {
+            context: 'syncData',
+            message: error.message || 'Unknown error'
+          });
+
           set({ 
             syncError: getFriendlyErrorMessage(error),
             hasSynced: true // Allow user to enter app even if sync fails (e.g. offline)

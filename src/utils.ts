@@ -9,6 +9,15 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 /**
+ * Log de depuração que só funciona em ambiente de desenvolvimento
+ */
+export function debugLog(group: string, message: any, ...args: any[]) {
+  if (import.meta.env.DEV) {
+    console.log(`[${group}]`, message, ...args);
+  }
+}
+
+/**
  * Calcula uma meta diária adaptativa baseada no histórico
  */
 export function calculateAdaptiveGoal(

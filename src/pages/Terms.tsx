@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 
 export const Terms = () => {
   return (
-    <div className="min-h-screen bg-black text-zinc-300 font-sans selection:bg-emerald-500/30 selection:text-emerald-400">
+    <div className="min-h-dvh bg-black text-zinc-300 font-sans selection:bg-emerald-500/30 selection:text-emerald-400">
       <div className="max-w-4xl mx-auto px-6 py-20">
         <Link to="/" className="inline-flex items-center gap-2 text-zinc-500 hover:text-emerald-500 transition-colors font-black text-xs uppercase tracking-[0.2em] mb-12 group">
           <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
@@ -74,7 +74,7 @@ export const Terms = () => {
 
           <div className="pt-12 border-t border-zinc-800 flex flex-col items-center gap-6">
             <ShieldCheck size={48} className="text-emerald-500/20" />
-            <p className="text-zinc-600 text-xs font-black uppercase tracking-[0.3em] text-center">
+            <p className="text-zinc-600 text-[10px] font-black uppercase tracking-widest text-center">
               DriverDash Legal Compliance Section
             </p>
           </div>

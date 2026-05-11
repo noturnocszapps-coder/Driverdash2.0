@@ -24,22 +24,27 @@ export interface ExtractedReportData {
 }
 
 const getAIClient = () => {
-  const storeApiKey = useDriverStore.getState().settings.geminiApiKey;
   const envApiKey = import.meta.env.VITE_GEMINI_API_KEY;
-  const apiKey = storeApiKey || envApiKey;
+  const apiKey = envApiKey;
 
   if (!apiKey) {
-    console.error("[Gemini] API Key não encontrada");
-    throw new Error("API Key do Gemini não configurada. Configure-a nas configurações do aplicativo.");
+    console.warn("[Gemini] API Key não encontrada no ambiente. A extração de IA pode falhar ou deve ser processada via Edge Function.");
+    // No longer throwing here, will try to fall back to Edge Function logic if implemented
   }
-  return new GoogleGenAI({ apiKey });
+  return apiKey ? new GoogleGenAI({ apiKey }) : null;
 };
 
 export const extractReportFromImage = async (base64Image: string, platform: string): Promise<ExtractedReportData> => {
   console.log(`[Gemini] Iniciando extração para plataforma: ${platform}`);
-  console.log(`[Gemini] API Key presente: ${!!import.meta.env.VITE_GEMINI_API_KEY}`);
-
+  
   const ai = getAIClient();
+  
+  // If no client-side AI, we would ideally call a Supabase Edge Function here.
+  // For now, we maintain the Gemini SDK call but with better error handling.
+
+  if (!ai) {
+    throw new Error("Sistema de IA não configurado. Entre em contato com o suporte.");
+  }
   
   // Timeout safeguard: 20 seconds
   const timeoutPromise = new Promise((_, reject) => 
